@@ -1,0 +1,14 @@
+@use 'tailwindcss';
+
+html {
+  scroll-behavior: auto;
+  box-sizing: border-box;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: inherit;
+  scroll-behavior: smooth;
+  -webkit-font-smoothing: antialiased;
+}
