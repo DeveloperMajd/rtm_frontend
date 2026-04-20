@@ -1,0 +1,30 @@
+import axios from 'axios'
+
+const baseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5173/api'
+
+const getAllConversations = async () => {
+  try {
+    const response = await axios.get(`${baseUrl}/conversations`)
+    return response.data
+  } catch (error) {
+    console.error('Error fetching conversations:', error)
+    throw error
+  }
+}
+
+const getConversationById = async (conversationId: number) => {
+  try {
+    const response = await axios.get(
+      `${baseUrl}/conversations/${conversationId}`,
+    )
+    return response.data
+  } catch (error) {
+    console.error(
+      `Error fetching conversation with ID ${conversationId}:`,
+      error,
+    )
+    throw error
+  }
+}
+
+export { getAllConversations, getConversationById }
