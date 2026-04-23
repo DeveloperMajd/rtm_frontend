@@ -1,6 +1,6 @@
 import axios from 'axios'
 
-const baseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:80/api'
+const baseUrl = import.meta.env.VITE_API_BASE_URL
 
 const getMessagesByConversationId = async (conversationId: number) => {
   try {
@@ -17,4 +17,25 @@ const getMessagesByConversationId = async (conversationId: number) => {
   }
 }
 
-export { getMessagesByConversationId }
+const sendMessage = async (
+  conversationId: number,
+  senderUserId: number,
+  message: string,
+) => {
+  try {
+    const response = await axios.post(`${baseUrl}/messages/`, {
+      conversation_id: conversationId,
+      sender_user_id: senderUserId,
+      body: message,
+    })
+    return response.data
+  } catch (error) {
+    console.error(
+      `Error sending message in conversation with ID ${conversationId}:`,
+      error,
+    )
+    throw error
+  }
+}
+
+export { getMessagesByConversationId, sendMessage }

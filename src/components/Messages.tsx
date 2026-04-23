@@ -1,17 +1,31 @@
-import useMessages from '../hooks/useMessages'
+import type { MessageType } from '../utils/baseTypes'
+import { formatDate } from '../utils/date-formatter'
+import Spinner from './UI/loaders/Spinner'
 
-const Messages = ({ conversationId }: { conversationId: number }) => {
-  const { messages, isLoading, error } = useMessages(conversationId)
-  console.log("🚀 ~ messages.tsx:5 ~ Messages ~ messages:", messages)
+type MessagesProps = {
+  messages: MessageType[]
+  isLoading: boolean
+  error: Error | null
+}
+
+const Messages = ({ messages, isLoading, error }: MessagesProps) => {
 
   return (
-    <div>
-      <h2>Messages for Conversation {conversationId}</h2>
-      {isLoading && <p>Loading...</p>}
-      {error && <p>Error: {error.message}</p>}
-      <ul className='flex justify-center'>
-        {messages && messages.length === 0 && <p>No messages found.</p>}
+    <div className='messages-container w-full md:w-2/3 p-4 overflow-y-auto'>
+      {isLoading && (
+        <Spinner
+          position='left'
+          size={40}
+          color='#6E026F'
+        />
+      )}
+      {error && <p className='error-msg'>Error: {error.message}</p>}
+      <ul className='flex flex-col justify-center '>
+        {!isLoading && !error && messages.length === 0 && (
+          <li className='text-sm text-gray-500'>No messages found.</li>
+        )}
         {messages &&
+          messages.length > 0 &&
           messages.map((message) => (
             <li
               key={message.id}
@@ -20,7 +34,7 @@ const Messages = ({ conversationId }: { conversationId: number }) => {
               {message.body}
               {message.created_at && (
                 <span className='text-sm text-gray-500 ml-2'>
-                  {new Date(message.created_at).toLocaleString()}
+                  {formatDate(message.created_at, 'MMMM dd, HH:mm')}
                 </span>
               )}
             </li>

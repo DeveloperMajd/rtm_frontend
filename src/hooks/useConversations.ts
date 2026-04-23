@@ -4,7 +4,6 @@ import type { ConversationType } from '../utils/baseTypes'
 
 const useConversations = () => {
   const [conversations, setConversations] = useState<ConversationType[]>([])
-
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<Error | null>(null)
 
