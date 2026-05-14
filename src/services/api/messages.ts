@@ -2,10 +2,11 @@ import axios from 'axios'
 
 const baseUrl = import.meta.env.VITE_API_BASE_URL
 
-const getMessagesByConversationId = async (conversationId: number) => {
+const getMessagesByConversationId = async (conversationId: number, page = 1) => {
   try {
     const response = await axios.get(
       `${baseUrl}/conversations/${conversationId}/messages`,
+      { params: { page } },
     )
     return response.data
   } catch (error) {

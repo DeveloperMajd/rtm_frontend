@@ -27,4 +27,21 @@ const getConversationById = async (conversationId: number) => {
   }
 }
 
-export { getAllConversations, getConversationById }
+const createConversation = async (conversationData: {
+  type: 'group' | 'direct'
+  title?: string
+  participantIds: number[]
+}) => {
+  try {
+    const response = await axios.post(
+      `${baseUrl}/conversations`,
+      conversationData,
+    )
+    return response.data
+  } catch (error) {
+    console.error('Error creating conversation:', error)
+    throw error
+  }
+}
+
+export { getAllConversations, getConversationById, createConversation }

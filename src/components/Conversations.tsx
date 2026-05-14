@@ -1,16 +1,20 @@
-import useConversations from '../hooks/useConversations'
-import { formatDate } from '../utils/date-formatter'
+import type { ConversationType } from '../utils/baseTypes'
 import Spinner from './UI/loaders/Spinner'
+import { formatDistanceToNow, format as formatDate } from 'date-fns'
 
 const Conversations = ({
+  conversations,
+  isLoading,
+  error,
   setSelectedConversation,
 }: {
+  conversations: ConversationType[]
+  isLoading: boolean
+  error: Error | null
   setSelectedConversation: (conversationId: number) => void
 }) => {
-  const { conversations, isLoading, error } = useConversations()
-
   return (
-    <div className='conversations-container w-full md:w-1/3 p-4 border-r border-gray-300 overflow-y-auto'>
+    <div className='conversations-container w-full p-4 border-r border-gray-300 overflow-y-auto'>
       {isLoading && (
         <div className='flex p-2'>
           <Spinner
@@ -21,7 +25,10 @@ const Conversations = ({
         </div>
       )}
       {error && <p className='error-msg'>Error: {error.message}</p>}
-      <ul className='flex justify-center'>
+      <ul className='flex justify-center flex-col'>
+        {!isLoading && !error && conversations.length === 0 && (
+          <li className='text-sm text-gray-500'>No conversations found.</li>
+        )}
         {conversations.map((conversation) => (
           <li
             key={conversation.id}
@@ -40,9 +47,14 @@ const Conversations = ({
               </span>
             )}
             {conversation.updated_at && (
-              <span className='text-sm text-gray-500 ml-2'>
-                {formatDate(conversation.updated_at, 'MMMM dd, HH:mm')}
-              </span>
+              <time
+                data-datetime={conversation.updated_at}
+                className='text-sm text-gray-500 ml-2'
+              >
+                {formatDistanceToNow(new Date(conversation.updated_at), {
+                  includeSeconds: true,
+                }) + ' ago'}
+              </time>
             )}
           </li>
         ))}

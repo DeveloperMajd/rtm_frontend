@@ -11,8 +11,12 @@ export type ConversationType = {
 export type MessageType = {
   id: number
   conversation_id: number
-  sender_user_id: number
-  body: string //TODO: change it to content in backend and frontend
+  sender: {
+    id: number
+    name: string
+  }
+  body: string
+
   created_at: string
   updated_at: string
 }
