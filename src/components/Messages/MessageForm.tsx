@@ -1,5 +1,6 @@
 import { useState } from 'react'
-import { sendMessage } from '../services/api/messages'
+import toast from 'react-hot-toast'
+import { sendMessage } from '../../services/api/messages'
 
 type MessageFormProps = {
   conversationId: number
@@ -9,38 +10,46 @@ type MessageFormProps = {
 const MessageForm = ({ conversationId, onMessageSent }: MessageFormProps) => {
   const [message, setMessage] = useState('')
   const [isSending, setIsSending] = useState(false)
-  const [error, setError] = useState<string | null>(null)
 
-  const handleSubmit = async (e: React.SubmitEvent) => {
-    e.preventDefault()
+  const send = async () => {
     if (!message.trim() || isSending) return
-
     try {
       setIsSending(true)
-      setError(null)
-      await sendMessage(conversationId, 1, message) // Assuming sender_user_id is 1 for now
+      await sendMessage(conversationId, 1, message)
       setMessage('')
       onMessageSent()
-    } catch (error) {
-      console.error('Error sending message:', error)
-      setError('Failed to send message. Please try again.')
+    } catch {
+      toast.error('Failed to send message. Please try again.')
     } finally {
       setIsSending(false)
     }
   }
 
+  const handleSubmit = (e: React.SubmitEvent) => {
+    e.preventDefault()
+    void send()
+  }
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault()
+      void send()
+    }
+  }
+
   return (
     <form
-      className='message-form'
+      className='message-form flex justify-between items-center my-4'
       onSubmit={handleSubmit}
     >
-      <input
-        type='text'
+      <textarea
         id='message-input'
         placeholder='Type your message...'
-        className='message-input'
+        className='message-input w-100'
+        rows={1}
         value={message}
         onChange={(e) => setMessage(e.target.value)}
+        onKeyDown={handleKeyDown}
       />
       <button
         type='submit'
@@ -49,7 +58,6 @@ const MessageForm = ({ conversationId, onMessageSent }: MessageFormProps) => {
       >
         {isSending ? 'Sending...' : 'Send'}
       </button>
-      {error && <p className='error-msg'>{error}</p>}
     </form>
   )
 }

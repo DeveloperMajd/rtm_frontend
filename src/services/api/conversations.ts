@@ -30,7 +30,7 @@ const getConversationById = async (conversationId: number) => {
 const createConversation = async (conversationData: {
   type: 'group' | 'direct'
   title?: string
-  participantIds: number[]
+  participant_ids: number[]
 }) => {
   try {
     const response = await axios.post(

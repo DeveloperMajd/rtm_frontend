@@ -1,5 +1,8 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
+import toast from 'react-hot-toast'
 import { createConversation } from '../services/api/conversations'
+import { getAllUsers } from '../services/api/users'
+import type { UserType } from '../utils/baseTypes'
 import Button from './UI/Buttons/Button'
 
 interface ConversationModalProps {
@@ -10,20 +13,36 @@ interface ConversationModalProps {
 const ConversationModal = ({ onClose, onCreated }: ConversationModalProps) => {
   const [type, setType] = useState<'direct' | 'group'>('direct')
   const [title, setTitle] = useState('')
-  const [participantInput, setParticipantInput] = useState('')
+  const [users, setUsers] = useState<UserType[]>([])
+  const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set())
+  const [isLoadingUsers, setIsLoadingUsers] = useState(true)
   const [isSubmitting, setIsSubmitting] = useState(false)
-  const [error, setError] = useState<string | null>(null)
+
+  useEffect(() => {
+    getAllUsers()
+      .then(setUsers)
+      .catch(() => toast.error('Failed to load users.'))
+      .finally(() => setIsLoadingUsers(false))
+  }, [])
+
+  const toggleUser = (id: number) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev)
+      if (next.has(id)) {
+        next.delete(id)
+      } else {
+        if (type === 'direct') {
+          return new Set([id])
+        }
+        next.add(id)
+      }
+      return next
+    })
+  }
 
   const handleCreate = async () => {
-    setError(null)
-
-    const participantIds = participantInput
-      .split(',')
-      .map((s) => parseInt(s.trim(), 10))
-      .filter((n) => !isNaN(n))
-
-    if (participantIds.length === 0) {
-      setError('Enter at least one participant ID.')
+    if (selectedIds.size === 0) {
+      toast.error('Select at least one participant.')
       return
     }
 
@@ -32,12 +51,12 @@ const ConversationModal = ({ onClose, onCreated }: ConversationModalProps) => {
       await createConversation({
         type,
         title: type === 'group' && title.trim() ? title.trim() : undefined,
-        participantIds,
+        participant_ids: Array.from(selectedIds),
       })
       onCreated()
       onClose()
     } catch {
-      setError('Failed to create conversation. Please try again.')
+      toast.error('Failed to create conversation. Please try again.')
     } finally {
       setIsSubmitting(false)
     }
@@ -69,7 +88,10 @@ const ConversationModal = ({ onClose, onCreated }: ConversationModalProps) => {
             </label>
             <select
               value={type}
-              onChange={(e) => setType(e.target.value as 'direct' | 'group')}
+              onChange={(e) => {
+                setType(e.target.value as 'direct' | 'group')
+                setSelectedIds(new Set())
+              }}
               className='w-full border border-gray-300 rounded px-3 py-2 focus:outline-none focus:ring-1 focus:ring-blue-500'
             >
               <option value='direct'>Direct</option>
@@ -94,21 +116,31 @@ const ConversationModal = ({ onClose, onCreated }: ConversationModalProps) => {
 
           <div>
             <label className='block text-sm font-medium text-gray-700 mb-1'>
-              Participant IDs
+              {type === 'direct' ? 'Select user' : 'Select participants'}
             </label>
-            <input
-              type='text'
-              value={participantInput}
-              onChange={(e) => setParticipantInput(e.target.value)}
-              placeholder='e.g. 1, 2, 3'
-              className='w-full border border-gray-300 rounded px-3 py-2 focus:outline-none focus:ring-1 focus:ring-blue-500'
-            />
-            <p className='text-xs text-gray-400 mt-1'>
-              Comma-separated IDs — will become a user picker once auth is ready.
-            </p>
+            {isLoadingUsers ? (
+              <p className='text-sm text-gray-400'>Loading users…</p>
+            ) : users.length === 0 ? (
+              <p className='text-sm text-gray-400'>No users found.</p>
+            ) : (
+              <ul className='border border-gray-300 rounded max-h-48 overflow-y-auto divide-y divide-gray-100'>
+                {users.map((user) => (
+                  <li key={user.id}>
+                    <label className='flex items-center gap-3 px-3 py-2 hover:bg-gray-50 cursor-pointer'>
+                      <input
+                        type={type === 'direct' ? 'radio' : 'checkbox'}
+                        name='participant'
+                        checked={selectedIds.has(user.id)}
+                        onChange={() => toggleUser(user.id)}
+                        className='accent-blue-500'
+                      />
+                      <span className='text-sm text-gray-800'>{user.name}</span>
+                    </label>
+                  </li>
+                ))}
+              </ul>
+            )}
           </div>
-
-          {error && <p className='text-sm text-red-500'>{error}</p>}
 
           <div className='flex justify-end gap-2 mt-2'>
             <Button
@@ -119,8 +151,10 @@ const ConversationModal = ({ onClose, onCreated }: ConversationModalProps) => {
             />
             <Button
               variant='primary'
-              label={isSubmitting ? 'Creating...' : 'Create'}
-              onClick={() => { void handleCreate() }}
+              label={isSubmitting ? 'Creating…' : 'Create'}
+              onClick={() => {
+                void handleCreate()
+              }}
               disabled={isSubmitting}
             />
           </div>

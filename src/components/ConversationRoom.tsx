@@ -1,12 +1,12 @@
-import MessageForm from './MessageForm'
-import Messages from './Messages'
+import MessageForm from './Messages/MessageForm'
+import Messages from './Messages/Messages'
 import useMessages from '../hooks/useMessages'
 
 const ConversationRoom = ({ conversationId }: { conversationId: number }) => {
   const { messages, isLoading, isLoadingMore, hasMore, error, refetch, loadOlder } = useMessages(conversationId)
 
   return (
-    <div>
+    <div className='conversation-room-container w-full md:w-2/3 p-4 flex flex-col justify-between overflow-y-auto'>
       <Messages
         messages={messages}
         isLoading={isLoading}

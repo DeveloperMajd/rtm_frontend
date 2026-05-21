@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { Toaster } from 'react-hot-toast'
 import './App.scss'
 import Conversations from './components/Conversations'
 import ConversationRoom from './components/ConversationRoom'
@@ -15,6 +16,7 @@ function App() {
 
   return (
     <section className='app-container flex flex-col md:flex-row h-screen gap-12'>
+      <Toaster position='top-right' />
       <div>
         <Conversations
           conversations={conversations}
@@ -28,15 +30,17 @@ function App() {
           onClick={() => setIsModalOpen(true)}
         />
       </div>
-      <div>
-        {selectedConversation && (
-          <ConversationRoom conversationId={selectedConversation} />
-        )}
-      </div>
+
+      {selectedConversation && (
+        <ConversationRoom conversationId={selectedConversation} />
+      )}
+
       {isModalOpen && (
         <ConversationModal
           onClose={() => setIsModalOpen(false)}
-          onCreated={() => { void refetch() }}
+          onCreated={() => {
+            void refetch()
+          }}
         />
       )}
     </section>

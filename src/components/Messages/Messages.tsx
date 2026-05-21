@@ -1,7 +1,8 @@
 import { useEffect, useRef } from 'react'
-import type { MessageType } from '../utils/baseTypes'
-import Spinner from './UI/loaders/Spinner'
+import type { MessageType } from '../../utils/baseTypes'
+import Spinner from '../UI/loaders/Spinner'
 import { formatDistanceToNow } from 'date-fns'
+import './Messages.scss'
 
 type MessagesProps = {
   messages: MessageType[]
@@ -12,7 +13,14 @@ type MessagesProps = {
   onLoadOlder: () => void
 }
 
-const Messages = ({ messages, isLoading, isLoadingMore, hasMore, error, onLoadOlder }: MessagesProps) => {
+const Messages = ({
+  messages,
+  isLoading,
+  isLoadingMore,
+  hasMore,
+  error,
+  onLoadOlder,
+}: MessagesProps) => {
   const listRef = useRef<HTMLUListElement>(null)
   const lastMessageIdRef = useRef<number | null>(null)
 
@@ -20,13 +28,13 @@ const Messages = ({ messages, isLoading, isLoadingMore, hasMore, error, onLoadOl
     if (messages.length === 0) return
     const lastMessageId = messages[messages.length - 1].id
     if (lastMessageId !== lastMessageIdRef.current) {
-      listRef.current?.lastElementChild?.scrollIntoView({ behavior: 'smooth' })
+      listRef.current?.lastElementChild?.scrollIntoView({ behavior: 'instant' })
     }
     lastMessageIdRef.current = lastMessageId
   }, [messages])
 
   return (
-    <div className='messages-container w-full md:w-2/3 p-4 overflow-y-auto'>
+    <div className='messages-container'>
       {isLoading && (
         <Spinner
           position='left'
@@ -58,14 +66,16 @@ const Messages = ({ messages, isLoading, isLoadingMore, hasMore, error, onLoadOl
           messages.map((message) => (
             <li
               key={message.id}
-              className='message-item border border-gray-300 rounded p-2 mb-2'
+              className='message-item flex flex-col border border-gray-300 rounded p-2 mb-2'
             >
-              <strong>{message.sender.name || 'Unknown Sender'}: </strong>
-              <div>{message.body}</div>
+              <strong className='sender-name'>
+                {message.sender.name || 'Unknown Sender'}:{' '}
+              </strong>
+              <div className='message-body whitespace-pre-wrap'>{message.body}</div>
               {message.created_at && (
                 <time
                   dateTime={message.created_at}
-                  className='text-sm text-gray-500 ml-2'
+                  className='timestamp text-right text-sm text-gray-500 ml-2'
                 >
                   {formatDistanceToNow(new Date(message.created_at), {
                     includeSeconds: true,

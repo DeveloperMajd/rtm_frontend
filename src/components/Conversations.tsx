@@ -1,6 +1,6 @@
 import type { ConversationType } from '../utils/baseTypes'
 import Spinner from './UI/loaders/Spinner'
-import { formatDistanceToNow, format as formatDate } from 'date-fns'
+import { formatDistanceToNow } from 'date-fns'
 
 const Conversations = ({
   conversations,
@@ -35,27 +35,50 @@ const Conversations = ({
             className='conversation-item border border-gray-300 rounded p-2 mb-2 cursor-pointer hover:bg-gray-100'
             onClick={() => setSelectedConversation(conversation.id)}
           >
-            {/* TODO: No title then show first 10 char from the last message */}
-            {/* {conversation.title ||
-              (conversation.last_message &&
-                conversation.last_message.body.slice(0, 10) + '...') ||
-              'Untitled Conversation'} */}
-            {conversation.title || 'Untitled Conversation'}
-            {conversation.last_message_at && (
-              <span className='text-sm text-gray-500 ml-2'>
-                {formatDate(conversation.last_message_at, 'MMMM dd, HH:mm')}
-              </span>
-            )}
-            {conversation.updated_at && (
-              <time
-                data-datetime={conversation.updated_at}
-                className='text-sm text-gray-500 ml-2'
-              >
-                {formatDistanceToNow(new Date(conversation.updated_at), {
-                  includeSeconds: true,
-                }) + ' ago'}
-              </time>
-            )}
+            <div>
+              <div className='flex items-center justify-between'>
+                <span>
+                  {
+                    //first display the title if it's a group conversation, otherwise show the other user's name for direct conversations
+                    // TODO: we should ideally have the other user's name in the conversation object for direct conversations to avoid having to fetch it separately
+                    conversation.type === 'group'
+                      ? conversation.title || ''
+                      : conversation.latest_message?.sender_name ||
+                        'Direct Conversation'
+                  }
+                </span>
+                <span>
+                  {(conversation.last_message_at ||
+                    conversation.updated_at) && (
+                    <time
+                      data-datetime={
+                        conversation.last_message_at || conversation.updated_at
+                      }
+                      className='text-sm text-gray-500 ml-2'
+                    >
+                      {formatDistanceToNow(
+                        new Date(
+                          conversation.last_message_at ||
+                            conversation.updated_at,
+                        ),
+                        {
+                          includeSeconds: true,
+                        },
+                      ) + ' ago'}
+                    </time>
+                  )}
+                </span>
+              </div>
+
+              {conversation.latest_message && (
+                <p className='text-sm text-gray-600 mt-1 truncate'>
+                  {/* first 20 characters then ... if longer */}
+                  {conversation.latest_message.body.length > 20
+                    ? conversation.latest_message.body.substring(0, 20) + '...'
+                    : conversation.latest_message.body}
+                </p>
+              )}
+            </div>
           </li>
         ))}
       </ul>
