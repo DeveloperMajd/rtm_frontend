@@ -1,66 +1,46 @@
-import { useCallback, useEffect, useState } from 'react'
-import type { MessageType } from '../utils/baseTypes'
+import { useState } from 'react'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { getMessagesByConversationId } from '../services/api/messages'
+import type { MessageType } from '../utils/baseTypes'
 
-const useMessages = (conversationId: number) => {
-  const [messages, setMessages] = useState<MessageType[]>([])
-  const [currentPage, setCurrentPage] = useState(1)
-  const [lastPage, setLastPage] = useState(1)
-  const [isLoading, setIsLoading] = useState(true)
-  const [isLoadingMore, setIsLoadingMore] = useState(false)
-  const [error, setError] = useState<Error | null>(null)
+const useMessages = (conversationId: string) => {
+  const [page, setPage] = useState(1)
+  const queryClient = useQueryClient()
 
-  const fetchMessages = useCallback(async () => {
-    try {
-      const response = await getMessagesByConversationId(conversationId, 1)
-      setMessages(response.data)
-      setCurrentPage(1)
-      setLastPage(response.meta.last_page)
-      setError(null)
-    } catch (error) {
-      console.error('Error fetching messages:', error)
-      setError(error as Error)
-    } finally {
-      setIsLoading(false)
+  const { data, isLoading, isFetching, error } = useQuery({
+    queryKey: ['messages', conversationId, page],
+    queryFn: () => getMessagesByConversationId(conversationId, page),
+    placeholderData: (prev) => prev,
+  })
+
+  const loadOlder = () => {
+    if (page < (data?.meta.last_page ?? 1)) {
+      setPage((p) => p + 1)
     }
-  }, [conversationId])
+  }
 
-  const refetch = useCallback(async () => {
-    setIsLoading(true)
-    await fetchMessages()
-  }, [fetchMessages])
-
-  const loadOlder = useCallback(async () => {
-    if (currentPage >= lastPage) return
-    setIsLoadingMore(true)
-    try {
-      const nextPage = currentPage + 1
-      const response = await getMessagesByConversationId(conversationId, nextPage)
-      setMessages((prev) => [...response.data, ...prev])
-      setCurrentPage(nextPage)
-    } catch (error) {
-      console.error('Error loading older messages:', error)
-    } finally {
-      setIsLoadingMore(false)
+  const allMessages: MessageType[] = (() => {
+    if (!data) return []
+    if (page === 1) return data.data
+    const cached: MessageType[] = []
+    for (let p = page; p >= 1; p--) {
+      const pageData = queryClient.getQueryData<typeof data>([
+        'messages',
+        conversationId,
+        p,
+      ])
+      if (pageData) cached.push(...pageData.data)
     }
-  }, [conversationId, currentPage, lastPage])
-
-  useEffect(() => {
-    const timeoutId = setTimeout(() => {
-      void refetch()
-    }, 0)
-
-    return () => clearTimeout(timeoutId)
-  }, [refetch])
+    return cached
+  })()
 
   return {
-    messages,
+    messages: allMessages,
     isLoading,
-    isLoadingMore,
-    error,
-    refetch,
+    isLoadingMore: page > 1 && isFetching,
+    hasMore: page < (data?.meta.last_page ?? 1),
+    error: error as Error | null,
     loadOlder,
-    hasMore: currentPage < lastPage,
   }
 }
 

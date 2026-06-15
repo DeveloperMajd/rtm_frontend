@@ -1,47 +1,33 @@
-import axios from 'axios'
+import api from './axios'
+import type { ConversationType } from '../../utils/baseTypes'
 
-const baseUrl = import.meta.env.VITE_API_BASE_URL
+type ConversationsResponse = { data: ConversationType[] }
+type ConversationResponse = { data: ConversationType }
 
-const getAllConversations = async () => {
-  try {
-    const response = await axios.get(`${baseUrl}/conversations`)
-    return response.data
-  } catch (error) {
-    console.error('Error fetching conversations:', error)
-    throw error
-  }
+const getAllConversations = async (): Promise<ConversationsResponse> => {
+  const response = await api.get<ConversationsResponse>('/conversations')
+  return response.data
 }
 
-const getConversationById = async (conversationId: number) => {
-  try {
-    const response = await axios.get(
-      `${baseUrl}/conversations/${conversationId}`,
-    )
-    return response.data
-  } catch (error) {
-    console.error(
-      `Error fetching conversation with ID ${conversationId}:`,
-      error,
-    )
-    throw error
-  }
+const getConversationById = async (
+  conversationId: string,
+): Promise<ConversationResponse> => {
+  const response = await api.get<ConversationResponse>(
+    `/conversations/${conversationId}`,
+  )
+  return response.data
 }
 
 const createConversation = async (conversationData: {
   type: 'group' | 'direct'
   title?: string
   participant_ids: number[]
-}) => {
-  try {
-    const response = await axios.post(
-      `${baseUrl}/conversations`,
-      conversationData,
-    )
-    return response.data
-  } catch (error) {
-    console.error('Error creating conversation:', error)
-    throw error
-  }
+}): Promise<ConversationResponse> => {
+  const response = await api.post<ConversationResponse>(
+    '/conversations',
+    conversationData,
+  )
+  return response.data
 }
 
 export { getAllConversations, getConversationById, createConversation }

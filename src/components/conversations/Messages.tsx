@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react'
 import type { MessageType } from '../../utils/baseTypes'
-import Spinner from '../UI/loaders/Spinner'
+import Spinner from '../ui/Spinner'
 import { formatDistanceToNow } from 'date-fns'
 import './Messages.scss'
 
@@ -61,8 +61,7 @@ const Messages = ({
         {!isLoading && !error && messages.length === 0 && (
           <li className='text-sm text-gray-500'>No messages found.</li>
         )}
-        {messages &&
-          messages.length > 0 &&
+        {messages.length > 0 &&
           messages.map((message) => (
             <li
               key={message.id}

@@ -1,29 +1,33 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import toast from 'react-hot-toast'
-import { createConversation } from '../services/api/conversations'
-import { getAllUsers } from '../services/api/users'
-import type { UserType } from '../utils/baseTypes'
-import Button from './UI/Buttons/Button'
+import { createConversation } from '../../services/api/conversations'
+import { getAllUsers } from '../../services/api/users'
+import Button from '../ui/Button'
 
 interface ConversationModalProps {
   onClose: () => void
-  onCreated: () => void
 }
 
-const ConversationModal = ({ onClose, onCreated }: ConversationModalProps) => {
+const ConversationModal = ({ onClose }: ConversationModalProps) => {
   const [type, setType] = useState<'direct' | 'group'>('direct')
   const [title, setTitle] = useState('')
-  const [users, setUsers] = useState<UserType[]>([])
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set())
-  const [isLoadingUsers, setIsLoadingUsers] = useState(true)
-  const [isSubmitting, setIsSubmitting] = useState(false)
+  const queryClient = useQueryClient()
 
-  useEffect(() => {
-    getAllUsers()
-      .then(setUsers)
-      .catch(() => toast.error('Failed to load users.'))
-      .finally(() => setIsLoadingUsers(false))
-  }, [])
+  const { data: users = [], isLoading: isLoadingUsers } = useQuery({
+    queryKey: ['users'],
+    queryFn: getAllUsers,
+  })
+
+  const { mutate: create, isPending: isSubmitting } = useMutation({
+    mutationFn: createConversation,
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ['conversations'] })
+      onClose()
+    },
+    onError: () => toast.error('Failed to create conversation. Please try again.'),
+  })
 
   const toggleUser = (id: number) => {
     setSelectedIds((prev) => {
@@ -31,35 +35,23 @@ const ConversationModal = ({ onClose, onCreated }: ConversationModalProps) => {
       if (next.has(id)) {
         next.delete(id)
       } else {
-        if (type === 'direct') {
-          return new Set([id])
-        }
+        if (type === 'direct') return new Set([id])
         next.add(id)
       }
       return next
     })
   }
 
-  const handleCreate = async () => {
+  const handleCreate = () => {
     if (selectedIds.size === 0) {
       toast.error('Select at least one participant.')
       return
     }
-
-    setIsSubmitting(true)
-    try {
-      await createConversation({
-        type,
-        title: type === 'group' && title.trim() ? title.trim() : undefined,
-        participant_ids: Array.from(selectedIds),
-      })
-      onCreated()
-      onClose()
-    } catch {
-      toast.error('Failed to create conversation. Please try again.')
-    } finally {
-      setIsSubmitting(false)
-    }
+    create({
+      type,
+      title: type === 'group' && title.trim() ? title.trim() : undefined,
+      participant_ids: Array.from(selectedIds),
+    })
   }
 
   return (
@@ -152,9 +144,7 @@ const ConversationModal = ({ onClose, onCreated }: ConversationModalProps) => {
             <Button
               variant='primary'
               label={isSubmitting ? 'Creating…' : 'Create'}
-              onClick={() => {
-                void handleCreate()
-              }}
+              onClick={handleCreate}
               disabled={isSubmitting}
             />
           </div>

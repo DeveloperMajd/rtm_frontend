@@ -1,17 +1,16 @@
-import type { ConversationType } from '../utils/baseTypes'
-import Spinner from './UI/loaders/Spinner'
+import { NavLink } from 'react-router-dom'
+import type { ConversationType } from '../../utils/baseTypes'
+import Spinner from '../ui/Spinner'
 import { formatDistanceToNow } from 'date-fns'
 
 const Conversations = ({
   conversations,
   isLoading,
   error,
-  setSelectedConversation,
 }: {
   conversations: ConversationType[]
   isLoading: boolean
   error: Error | null
-  setSelectedConversation: (conversationId: number) => void
 }) => {
   return (
     <div className='conversations-container w-full p-4 border-r border-gray-300 overflow-y-auto'>
@@ -30,26 +29,22 @@ const Conversations = ({
           <li className='text-sm text-gray-500'>No conversations found.</li>
         )}
         {conversations.map((conversation) => (
-          <li
-            key={conversation.id}
-            className='conversation-item border border-gray-300 rounded p-2 mb-2 cursor-pointer hover:bg-gray-100'
-            onClick={() => setSelectedConversation(conversation.id)}
-          >
-            <div>
+          <li key={conversation.id}>
+            <NavLink
+              to={`/conversations/${conversation.id}`}
+              className={({ isActive }) =>
+                `conversation-item block border border-gray-300 rounded p-2 mb-2 cursor-pointer hover:bg-gray-100${isActive ? ' bg-gray-100' : ''}`
+              }
+            >
               <div className='flex items-center justify-between'>
                 <span>
-                  {
-                    //first display the title if it's a group conversation, otherwise show the other user's name for direct conversations
-                    // TODO: we should ideally have the other user's name in the conversation object for direct conversations to avoid having to fetch it separately
-                    conversation.type === 'group'
-                      ? conversation.title || ''
-                      : conversation.latest_message?.sender_name ||
-                        'Direct Conversation'
-                  }
+                  {conversation.type === 'group'
+                    ? conversation.title || ''
+                    : conversation.latest_message?.sender_name ||
+                      'Direct Conversation'}
                 </span>
                 <span>
-                  {(conversation.last_message_at ||
-                    conversation.updated_at) && (
+                  {(conversation.last_message_at || conversation.updated_at) && (
                     <time
                       data-datetime={
                         conversation.last_message_at || conversation.updated_at
@@ -58,12 +53,9 @@ const Conversations = ({
                     >
                       {formatDistanceToNow(
                         new Date(
-                          conversation.last_message_at ||
-                            conversation.updated_at,
+                          conversation.last_message_at || conversation.updated_at,
                         ),
-                        {
-                          includeSeconds: true,
-                        },
+                        { includeSeconds: true },
                       ) + ' ago'}
                     </time>
                   )}
@@ -72,13 +64,12 @@ const Conversations = ({
 
               {conversation.latest_message && (
                 <p className='text-sm text-gray-600 mt-1 truncate'>
-                  {/* first 20 characters then ... if longer */}
                   {conversation.latest_message.body.length > 20
                     ? conversation.latest_message.body.substring(0, 20) + '...'
                     : conversation.latest_message.body}
                 </p>
               )}
-            </div>
+            </NavLink>
           </li>
         ))}
       </ul>
