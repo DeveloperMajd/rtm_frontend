@@ -1,14 +1,14 @@
 export type UserType = {
-  id: number
+  id: string
   name: string
   email: string
 }
 
 export type ConversationType = {
-  id: number
+  id: string
   type: 'group' | 'direct'
   title?: string
-  created_by_user_id: number
+  created_by_user_id: string
   last_message_at?: string
   latest_message?: {
     body: string
@@ -19,10 +19,10 @@ export type ConversationType = {
 }
 
 export type MessageType = {
-  id: number
-  conversation_id: number
+  id: string
+  conversation_id: string
   sender: {
-    id: number
+    id: string
     name: string
   }
   body: string

@@ -17,11 +17,13 @@ const register = async (
   name: string,
   email: string,
   password: string,
+  password_confirmation: string,
 ): Promise<UserType> => {
   const response = await api.post<{ data: UserType }>('/auth/register', {
     name,
     email,
     password,
+    password_confirmation,
   })
   return response.data.data
 }

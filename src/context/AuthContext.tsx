@@ -1,23 +1,7 @@
-import {
-  createContext,
-  useContext,
-  useEffect,
-  useState,
-  type ReactNode,
-} from 'react'
-import type { UserType } from '../utils/baseTypes'
+import { useEffect, useState, type ReactNode } from 'react'
+import { AuthContext } from '../hooks/useAuth'
 import * as authApi from '../services/api/auth'
-
-type AuthContextType = {
-  user: UserType | null
-  isAuthenticated: boolean
-  isLoading: boolean
-  login: (email: string, password: string) => Promise<void>
-  logout: () => Promise<void>
-  register: (name: string, email: string, password: string) => Promise<void>
-}
-
-const AuthContext = createContext<AuthContextType | null>(null)
+import type { UserType } from '../utils/baseTypes'
 
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [user, setUser] = useState<UserType | null>(null)
@@ -41,8 +25,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     setUser(null)
   }
 
-  const register = async (name: string, email: string, password: string) => {
-    const registeredUser = await authApi.register(name, email, password)
+  const register = async (name: string, email: string, password: string, password_confirmation: string) => {
+    const registeredUser = await authApi.register(name, email, password, password_confirmation)
     setUser(registeredUser)
   }
 
@@ -60,10 +44,4 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       {children}
     </AuthContext.Provider>
   )
-}
-
-export const useAuth = () => {
-  const ctx = useContext(AuthContext)
-  if (!ctx) throw new Error('useAuth must be used within AuthProvider')
-  return ctx
 }

@@ -12,7 +12,7 @@ interface ConversationModalProps {
 const ConversationModal = ({ onClose }: ConversationModalProps) => {
   const [type, setType] = useState<'direct' | 'group'>('direct')
   const [title, setTitle] = useState('')
-  const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set())
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
   const queryClient = useQueryClient()
 
   const { data: users = [], isLoading: isLoadingUsers } = useQuery({
@@ -29,7 +29,7 @@ const ConversationModal = ({ onClose }: ConversationModalProps) => {
     onError: () => toast.error('Failed to create conversation. Please try again.'),
   })
 
-  const toggleUser = (id: number) => {
+  const toggleUser = (id: string) => {
     setSelectedIds((prev) => {
       const next = new Set(prev)
       if (next.has(id)) {
