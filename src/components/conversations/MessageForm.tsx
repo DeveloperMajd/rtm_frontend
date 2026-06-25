@@ -1,15 +1,19 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import toast from 'react-hot-toast'
 import { sendMessage } from '../../services/api/messages'
+import { postTyping } from '../../services/api/conversations'
 
 type MessageFormProps = {
   conversationId: string
 }
 
+const TYPING_THROTTLE_MS = 2000
+
 const MessageForm = ({ conversationId }: MessageFormProps) => {
   const [body, setBody] = useState('')
   const queryClient = useQueryClient()
+  const typingThrottle = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const { mutate, isPending } = useMutation({
     mutationFn: (text: string) => sendMessage(conversationId, text),
@@ -35,6 +39,17 @@ const MessageForm = ({ conversationId }: MessageFormProps) => {
     }
   }
 
+  const handleChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    setBody(e.target.value)
+
+    if (!typingThrottle.current) {
+      void postTyping(conversationId)
+      typingThrottle.current = setTimeout(() => {
+        typingThrottle.current = null
+      }, TYPING_THROTTLE_MS)
+    }
+  }
+
   return (
     <form
       className='message-form flex justify-between items-center my-4'
@@ -46,7 +61,7 @@ const MessageForm = ({ conversationId }: MessageFormProps) => {
         className='message-input w-100'
         rows={1}
         value={body}
-        onChange={(e) => setBody(e.target.value)}
+        onChange={handleChange}
         onKeyDown={handleKeyDown}
       />
       <button

@@ -22,7 +22,7 @@ const Messages = ({
   onLoadOlder,
 }: MessagesProps) => {
   const listRef = useRef<HTMLUListElement>(null)
-  const lastMessageIdRef = useRef<number | null>(null)
+  const lastMessageIdRef = useRef<string | null>(null)
 
   useEffect(() => {
     if (messages.length === 0) return

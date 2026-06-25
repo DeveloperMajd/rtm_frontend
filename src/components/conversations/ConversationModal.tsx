@@ -4,6 +4,7 @@ import toast from 'react-hot-toast'
 import { createConversation } from '../../services/api/conversations'
 import { getAllUsers } from '../../services/api/users'
 import Button from '../ui/Button'
+import useAuth from '../../hooks/useAuth'
 
 interface ConversationModalProps {
   onClose: () => void
@@ -14,11 +15,14 @@ const ConversationModal = ({ onClose }: ConversationModalProps) => {
   const [title, setTitle] = useState('')
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
   const queryClient = useQueryClient()
+  const { user: currentUser } = useAuth()
 
-  const { data: users = [], isLoading: isLoadingUsers } = useQuery({
+  const { data: allUsers = [], isLoading: isLoadingUsers } = useQuery({
     queryKey: ['users'],
     queryFn: getAllUsers,
   })
+
+  const users = allUsers.filter((u) => u.id !== currentUser?.id)
 
   const { mutate: create, isPending: isSubmitting } = useMutation({
     mutationFn: createConversation,
