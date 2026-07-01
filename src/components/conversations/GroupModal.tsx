@@ -6,12 +6,11 @@ import { getAllUsers } from '../../services/api/users'
 import Button from '../ui/Button'
 import useAuth from '../../hooks/useAuth'
 
-interface ConversationModalProps {
+interface GroupModalProps {
   onClose: () => void
 }
 
-const ConversationModal = ({ onClose }: ConversationModalProps) => {
-  const [type, setType] = useState<'direct' | 'group'>('direct')
+const GroupModal = ({ onClose }: GroupModalProps) => {
   const [title, setTitle] = useState('')
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
   const queryClient = useQueryClient()
@@ -30,7 +29,7 @@ const ConversationModal = ({ onClose }: ConversationModalProps) => {
       void queryClient.invalidateQueries({ queryKey: ['conversations'] })
       onClose()
     },
-    onError: () => toast.error('Failed to create conversation. Please try again.'),
+    onError: () => toast.error('Failed to create group. Please try again.'),
   })
 
   const toggleUser = (id: string) => {
@@ -39,7 +38,6 @@ const ConversationModal = ({ onClose }: ConversationModalProps) => {
       if (next.has(id)) {
         next.delete(id)
       } else {
-        if (type === 'direct') return new Set([id])
         next.add(id)
       }
       return next
@@ -52,8 +50,8 @@ const ConversationModal = ({ onClose }: ConversationModalProps) => {
       return
     }
     create({
-      type,
-      title: type === 'group' && title.trim() ? title.trim() : undefined,
+      type: 'group',
+      title: title.trim() || undefined,
       participant_ids: Array.from(selectedIds),
     })
   }
@@ -68,7 +66,7 @@ const ConversationModal = ({ onClose }: ConversationModalProps) => {
         onClick={(e) => e.stopPropagation()}
       >
         <div className='flex justify-between items-center mb-4'>
-          <h2 className='text-lg font-semibold'>New Conversation</h2>
+          <h2 className='text-lg font-semibold'>New Group</h2>
           <button
             onClick={onClose}
             className='text-gray-400 hover:text-gray-600 text-2xl leading-none'
@@ -80,39 +78,20 @@ const ConversationModal = ({ onClose }: ConversationModalProps) => {
         <div className='flex flex-col gap-4'>
           <div>
             <label className='block text-sm font-medium text-gray-700 mb-1'>
-              Type
+              Title
             </label>
-            <select
-              value={type}
-              onChange={(e) => {
-                setType(e.target.value as 'direct' | 'group')
-                setSelectedIds(new Set())
-              }}
+            <input
+              type='text'
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              placeholder='Group name'
               className='w-full border border-gray-300 rounded px-3 py-2 focus:outline-none focus:ring-1 focus:ring-blue-500'
-            >
-              <option value='direct'>Direct</option>
-              <option value='group'>Group</option>
-            </select>
+            />
           </div>
-
-          {type === 'group' && (
-            <div>
-              <label className='block text-sm font-medium text-gray-700 mb-1'>
-                Title
-              </label>
-              <input
-                type='text'
-                value={title}
-                onChange={(e) => setTitle(e.target.value)}
-                placeholder='Group name'
-                className='w-full border border-gray-300 rounded px-3 py-2 focus:outline-none focus:ring-1 focus:ring-blue-500'
-              />
-            </div>
-          )}
 
           <div>
             <label className='block text-sm font-medium text-gray-700 mb-1'>
-              {type === 'direct' ? 'Select user' : 'Select participants'}
+              Select participants
             </label>
             {isLoadingUsers ? (
               <p className='text-sm text-gray-400'>Loading users…</p>
@@ -124,8 +103,7 @@ const ConversationModal = ({ onClose }: ConversationModalProps) => {
                   <li key={user.id}>
                     <label className='flex items-center gap-3 px-3 py-2 hover:bg-gray-50 cursor-pointer'>
                       <input
-                        type={type === 'direct' ? 'radio' : 'checkbox'}
-                        name='participant'
+                        type='checkbox'
                         checked={selectedIds.has(user.id)}
                         onChange={() => toggleUser(user.id)}
                         className='accent-blue-500'
@@ -158,4 +136,4 @@ const ConversationModal = ({ onClose }: ConversationModalProps) => {
   )
 }
 
-export default ConversationModal
+export default GroupModal

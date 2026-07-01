@@ -1,8 +1,10 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import useEcho from './useEcho'
+import useAuth from './useAuth'
 
 const useTypingIndicator = (conversationId: string): string | null => {
   const echo = useEcho()
+  const { user: currentUser } = useAuth()
   const [typingUsers, setTypingUsers] = useState<Map<string, string>>(new Map())
   const timers = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map())
 
@@ -12,6 +14,8 @@ const useTypingIndicator = (conversationId: string): string | null => {
     channel.listen(
       'TypingIndicator',
       ({ user_id, name }: { user_id: string; name: string }) => {
+        if (user_id === currentUser?.id) return
+
         setTypingUsers((prev) => new Map(prev).set(user_id, name))
 
         const existing = timers.current.get(user_id)
@@ -35,7 +39,7 @@ const useTypingIndicator = (conversationId: string): string | null => {
       timers.current.forEach(clearTimeout)
       timers.current.clear()
     }
-  }, [conversationId, echo])
+  }, [conversationId, echo, currentUser?.id])
 
   return useMemo(() => {
     const names = Array.from(typingUsers.values())

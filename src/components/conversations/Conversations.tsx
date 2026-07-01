@@ -40,8 +40,7 @@ const Conversations = ({
                 <span>
                   {conversation.type === 'group'
                     ? conversation.title || ''
-                    : conversation.latest_message?.sender_name ||
-                      'Direct Conversation'}
+                    : conversation.other_participant?.name || 'Direct Conversation'}
                 </span>
                 <span>
                   {(conversation.last_message_at || conversation.updated_at) && (

@@ -10,6 +10,10 @@ export type ConversationType = {
   title?: string
   created_by_user_id: string
   last_message_at?: string
+  other_participant?: {
+    id: string
+    name: string
+  } | null
   latest_message?: {
     body: string
     sender_name: string

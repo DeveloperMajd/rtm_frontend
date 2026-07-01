@@ -3,13 +3,17 @@ import { Outlet, useNavigate } from 'react-router-dom'
 import { Toaster } from 'react-hot-toast'
 import './ConversationsLayout.scss'
 import Conversations from '../components/conversations/Conversations'
-import ConversationModal from '../components/conversations/ConversationModal'
+import Contacts from '../components/conversations/Contacts'
+import GroupModal from '../components/conversations/GroupModal'
 import Button from '../components/ui/Button'
 import useConversations from '../hooks/useConversations'
 import useAuth from '../hooks/useAuth'
 
+type Tab = 'chats' | 'contacts'
+
 function ConversationsLayout() {
-  const [isModalOpen, setIsModalOpen] = useState(false)
+  const [activeTab, setActiveTab] = useState<Tab>('chats')
+  const [isGroupModalOpen, setIsGroupModalOpen] = useState(false)
   const { conversations, isLoading, error } = useConversations()
   const { logout, user } = useAuth()
   const navigate = useNavigate()
@@ -27,22 +31,49 @@ function ConversationsLayout() {
           <span className='text-sm font-medium text-gray-700 truncate'>{user?.name}</span>
           <Button variant='secondary' label='Logout' onClick={() => void handleLogout()} />
         </div>
-        <Conversations
-          conversations={conversations}
-          isLoading={isLoading}
-          error={error}
-        />
+
+        <div className='flex items-center gap-1 px-4 pt-3'>
+          <button
+            type='button'
+            onClick={() => setActiveTab('chats')}
+            className={`flex-1 text-sm font-medium py-2 rounded cursor-pointer ${
+              activeTab === 'chats' ? 'bg-gray-100 text-gray-900' : 'text-gray-500 hover:bg-gray-50'
+            }`}
+          >
+            Chats
+          </button>
+          <button
+            type='button'
+            onClick={() => setActiveTab('contacts')}
+            className={`flex-1 text-sm font-medium py-2 rounded cursor-pointer ${
+              activeTab === 'contacts' ? 'bg-gray-100 text-gray-900' : 'text-gray-500 hover:bg-gray-50'
+            }`}
+          >
+            Contacts
+          </button>
+        </div>
+
+        {activeTab === 'chats' ? (
+          <Conversations
+            conversations={conversations}
+            isLoading={isLoading}
+            error={error}
+          />
+        ) : (
+          <Contacts onConversationOpened={() => setActiveTab('chats')} />
+        )}
+
         <Button
           variant='primary'
-          label='New Conversation'
-          onClick={() => setIsModalOpen(true)}
+          label='New Group'
+          onClick={() => setIsGroupModalOpen(true)}
         />
       </div>
 
       <Outlet />
 
-      {isModalOpen && (
-        <ConversationModal onClose={() => setIsModalOpen(false)} />
+      {isGroupModalOpen && (
+        <GroupModal onClose={() => setIsGroupModalOpen(false)} />
       )}
     </section>
   )
