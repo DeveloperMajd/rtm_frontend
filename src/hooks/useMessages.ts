@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { getMessagesByConversationId } from '../services/api/messages'
+import { markConversationAsRead } from '../services/api/conversations'
 import type { ConversationType, MessageType } from '../utils/baseTypes'
 import useEcho from './useEcho'
 
@@ -23,6 +24,24 @@ const useMessages = (conversationId: string) => {
   })
 
   useEffect(() => {
+    const markRead = () => {
+      markConversationAsRead(conversationId)
+        .then(() => {
+          queryClient.setQueryData<ConversationsResponse>(['conversations'], (old) => {
+            if (!old) return old
+            return {
+              ...old,
+              data: old.data.map((c) =>
+                c.id === conversationId ? { ...c, unread_count: 0 } : c,
+              ),
+            }
+          })
+        })
+        .catch(() => {})
+    }
+
+    markRead()
+
     const channel = echo
       .private(`conversation.${conversationId}`)
       .listen('MessageSent', (message: MessageType) => {
@@ -56,6 +75,10 @@ const useMessages = (conversationId: string) => {
             }
           },
         )
+
+        // Already viewing this conversation, so the just-arrived message
+        // counts as read too — advance the server-side read pointer.
+        markRead()
       })
 
     return () => {

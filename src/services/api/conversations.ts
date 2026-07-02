@@ -34,4 +34,14 @@ const postTyping = async (conversationId: string): Promise<void> => {
   await api.post(`/conversations/${conversationId}/typing`)
 }
 
-export { getAllConversations, getConversationById, createConversation, postTyping }
+const markConversationAsRead = async (conversationId: string): Promise<void> => {
+  await api.post(`/conversations/${conversationId}/read`)
+}
+
+export {
+  getAllConversations,
+  getConversationById,
+  createConversation,
+  postTyping,
+  markConversationAsRead,
+}

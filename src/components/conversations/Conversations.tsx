@@ -61,13 +61,20 @@ const Conversations = ({
                 </span>
               </div>
 
-              {conversation.latest_message && (
-                <p className='text-sm text-gray-600 mt-1 truncate'>
-                  {conversation.latest_message.body.length > 20
-                    ? conversation.latest_message.body.substring(0, 20) + '...'
-                    : conversation.latest_message.body}
-                </p>
-              )}
+              <div className='flex items-center justify-between mt-1'>
+                {conversation.latest_message && (
+                  <p className='text-sm text-gray-600 truncate'>
+                    {conversation.latest_message.body.length > 20
+                      ? conversation.latest_message.body.substring(0, 20) + '...'
+                      : conversation.latest_message.body}
+                  </p>
+                )}
+                {!!conversation.unread_count && (
+                  <span className='shrink-0 ml-2 min-w-5 h-5 px-1.5 flex items-center justify-center rounded-full bg-blue-500 text-white text-xs font-medium'>
+                    {conversation.unread_count}
+                  </span>
+                )}
+              </div>
             </NavLink>
           </li>
         ))}

@@ -18,6 +18,7 @@ export type ConversationType = {
     body: string
     sender_name: string
   }
+  unread_count?: number
   created_at: string
   updated_at: string
 }
