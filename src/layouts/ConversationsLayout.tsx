@@ -5,6 +5,7 @@ import './ConversationsLayout.scss'
 import Conversations from '../components/conversations/Conversations'
 import Contacts from '../components/conversations/Contacts'
 import GroupModal from '../components/conversations/GroupModal'
+import MessageSearch from '../components/conversations/MessageSearch'
 import Button from '../components/ui/Button'
 import useConversations from '../hooks/useConversations'
 import useAuth from '../hooks/useAuth'
@@ -31,6 +32,8 @@ function ConversationsLayout() {
           <span className='text-sm font-medium text-gray-700 truncate'>{user?.name}</span>
           <Button variant='secondary' label='Logout' onClick={() => void handleLogout()} />
         </div>
+
+        <MessageSearch />
 
         <div className='flex items-center gap-1 px-4 pt-3'>
           <button

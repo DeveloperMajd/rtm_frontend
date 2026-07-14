@@ -35,3 +35,15 @@ export type MessageType = {
   created_at: string
   updated_at: string
 }
+
+export type MessageSearchResultType = {
+  id: string
+  conversation_id: string
+  conversation_title?: string
+  body: string
+  sender: {
+    id: string
+    name: string
+  }
+  created_at: string
+}
