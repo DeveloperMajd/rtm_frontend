@@ -1,5 +1,5 @@
-import { useEffect, useState } from 'react'
-import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { useEffect } from 'react'
+import { useInfiniteQuery, useQueryClient, type InfiniteData } from '@tanstack/react-query'
 import { getMessagesByConversationId } from '../services/api/messages'
 import { markConversationAsRead } from '../services/api/conversations'
 import type { ConversationType, MessageType } from '../utils/baseTypes'
@@ -13,15 +13,19 @@ type MessagesResponse = {
 type ConversationsResponse = { data: ConversationType[] }
 
 const useMessages = (conversationId: string) => {
-  const [page, setPage] = useState(1)
   const queryClient = useQueryClient()
   const echo = useEcho()
 
-  const { data, isLoading, isFetching, error } = useQuery({
-    queryKey: ['messages', conversationId, page],
-    queryFn: () => getMessagesByConversationId(conversationId, page),
-    placeholderData: (prev) => prev,
-  })
+  const { data, isLoading, isFetchingNextPage, hasNextPage, fetchNextPage, error } =
+    useInfiniteQuery({
+      queryKey: ['messages', conversationId],
+      queryFn: ({ pageParam }) => getMessagesByConversationId(conversationId, pageParam),
+      initialPageParam: 1,
+      getNextPageParam: (lastPage) =>
+        lastPage.meta.current_page < lastPage.meta.last_page
+          ? lastPage.meta.current_page + 1
+          : undefined,
+    })
 
   useEffect(() => {
     const markRead = () => {
@@ -45,12 +49,19 @@ const useMessages = (conversationId: string) => {
     const channel = echo
       .private(`conversation.${conversationId}`)
       .listen('MessageSent', (message: MessageType) => {
-        queryClient.setQueryData<MessagesResponse>(
-          ['messages', conversationId, 1],
+        // The most recently fetched page is always the newest batch of
+        // messages, regardless of how many older pages have since been
+        // loaded via loadOlder — so a live message is always appended there.
+        queryClient.setQueryData<InfiniteData<MessagesResponse>>(
+          ['messages', conversationId],
           (old) => {
             if (!old) return old
-            if (old.data.some((m) => m.id === message.id)) return old
-            return { ...old, data: [...old.data, message] }
+            const [latest, ...older] = old.pages
+            if (latest.data.some((m) => m.id === message.id)) return old
+            return {
+              ...old,
+              pages: [{ ...latest, data: [...latest.data, message] }, ...older],
+            }
           },
         )
 
@@ -87,34 +98,17 @@ const useMessages = (conversationId: string) => {
     }
   }, [conversationId, echo, queryClient])
 
-  const loadOlder = () => {
-    if (page < (data?.meta.last_page ?? 1)) {
-      setPage((p) => p + 1)
-    }
-  }
-
-  const allMessages: MessageType[] = (() => {
-    if (!data) return []
-    if (page === 1) return data.data
-    const cached: MessageType[] = []
-    for (let p = page; p >= 1; p--) {
-      const pageData = queryClient.getQueryData<MessagesResponse>([
-        'messages',
-        conversationId,
-        p,
-      ])
-      if (pageData) cached.push(...pageData.data)
-    }
-    return cached
-  })()
+  const messages: MessageType[] = data
+    ? [...data.pages].reverse().flatMap((page) => page.data)
+    : []
 
   return {
-    messages: allMessages,
+    messages,
     isLoading,
-    isLoadingMore: page > 1 && isFetching,
-    hasMore: page < (data?.meta.last_page ?? 1),
+    isLoadingMore: isFetchingNextPage,
+    hasMore: hasNextPage,
     error: error as Error | null,
-    loadOlder,
+    loadOlder: () => { void fetchNextPage() },
   }
 }
 
