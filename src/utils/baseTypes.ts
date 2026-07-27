@@ -23,6 +23,15 @@ export type ConversationType = {
   updated_at: string
 }
 
+export type ReactionType = {
+  id: string
+  reaction: string
+  user: {
+    id: string
+    name: string
+  }
+}
+
 export type MessageType = {
   id: string
   conversation_id: string
@@ -31,6 +40,7 @@ export type MessageType = {
     name: string
   }
   body: string
+  reactions: ReactionType[]
 
   created_at: string
   updated_at: string

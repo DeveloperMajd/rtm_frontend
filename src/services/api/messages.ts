@@ -34,4 +34,12 @@ const searchMessages = async (
   return response.data.data
 }
 
-export { getMessagesByConversationId, sendMessage, searchMessages }
+const addReaction = async (messageId: string, reaction: string): Promise<void> => {
+  await api.post(`/messages/${messageId}/reactions`, { reaction })
+}
+
+const removeReaction = async (messageId: string, reaction: string): Promise<void> => {
+  await api.delete(`/messages/${messageId}/reactions/${encodeURIComponent(reaction)}`)
+}
+
+export { getMessagesByConversationId, sendMessage, searchMessages, addReaction, removeReaction }

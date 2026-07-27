@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react'
 import type { MessageType } from '../../utils/baseTypes'
 import Spinner from '../ui/Spinner'
+import MessageReactions from './MessageReactions'
 import { formatDistanceToNow } from 'date-fns'
 import './Messages.scss'
 
@@ -65,12 +66,13 @@ const Messages = ({
           messages.map((message) => (
             <li
               key={message.id}
-              className='message-item flex flex-col border border-gray-300 rounded p-2 mb-2'
+              className='message-item group flex flex-col border border-gray-300 rounded p-2 mb-2'
             >
               <strong className='sender-name'>
                 {message.sender.name || 'Unknown Sender'}:{' '}
               </strong>
               <div className='message-body whitespace-pre-wrap'>{message.body}</div>
+              <MessageReactions messageId={message.id} reactions={message.reactions} />
               {message.created_at && (
                 <time
                   dateTime={message.created_at}

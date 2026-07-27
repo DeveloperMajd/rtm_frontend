@@ -91,9 +91,27 @@ const useMessages = (conversationId: string) => {
         // counts as read too — advance the server-side read pointer.
         markRead()
       })
+      .listen('MessageReactionUpdated', (updatedMessage: MessageType) => {
+        // A reaction can land on a message from any loaded page (not just
+        // the newest one), so every page has to be searched for it.
+        queryClient.setQueryData<InfiniteData<MessagesResponse>>(
+          ['messages', conversationId],
+          (old) => {
+            if (!old) return old
+            return {
+              ...old,
+              pages: old.pages.map((page) => ({
+                ...page,
+                data: page.data.map((m) => (m.id === updatedMessage.id ? updatedMessage : m)),
+              })),
+            }
+          },
+        )
+      })
 
     return () => {
       channel.stopListening('MessageSent')
+      channel.stopListening('MessageReactionUpdated')
       echo.leave(`conversation.${conversationId}`)
     }
   }, [conversationId, echo, queryClient])
