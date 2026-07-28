@@ -18,6 +18,12 @@ export type ConversationType = {
     body: string
     sender_name: string
   }
+  participants?: {
+    user_id: string
+    name: string
+    role: string
+  }[]
+  participants_count?: number
   unread_count?: number
   created_at: string
   updated_at: string

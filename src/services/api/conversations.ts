@@ -38,10 +38,20 @@ const markConversationAsRead = async (conversationId: string): Promise<void> => 
   await api.post(`/conversations/${conversationId}/read`)
 }
 
+const addParticipant = async (conversationId: string, userId: string): Promise<void> => {
+  await api.post(`/conversations/${conversationId}/participants`, { user_id: userId })
+}
+
+const kickParticipant = async (conversationId: string, userId: string): Promise<void> => {
+  await api.delete(`/conversations/${conversationId}/participants/${userId}/kick`)
+}
+
 export {
   getAllConversations,
   getConversationById,
   createConversation,
   postTyping,
   markConversationAsRead,
+  addParticipant,
+  kickParticipant,
 }

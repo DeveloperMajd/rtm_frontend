@@ -1,16 +1,37 @@
+import { useState } from 'react'
 import { useParams } from 'react-router-dom'
 import MessageForm from './MessageForm'
 import Messages from './Messages'
+import GroupSettingsPanel from './GroupSettingsPanel'
 import useMessages from '../../hooks/useMessages'
 import useTypingIndicator from '../../hooks/useTypingIndicator'
+import useConversations from '../../hooks/useConversations'
+import useAuth from '../../hooks/useAuth'
 
 const ConversationRoom = () => {
   const { id } = useParams<{ id: string }>()
   const { messages, isLoading, isLoadingMore, hasMore, error, loadOlder } = useMessages(id!)
   const typingText = useTypingIndicator(id!)
+  const { conversations } = useConversations()
+  const { user } = useAuth()
+  const [isGroupSettingsOpen, setIsGroupSettingsOpen] = useState(false)
+
+  const conversation = conversations.find((c) => c.id === id)
 
   return (
     <div className='conversation-room-container w-full md:w-2/3 p-4 flex flex-col justify-between overflow-y-auto'>
+      {conversation?.type === 'group' && (
+        <div className='flex items-center justify-between mb-2 pb-2 border-b border-gray-200'>
+          <span className='font-medium text-gray-800'>{conversation.title}</span>
+          <button
+            type='button'
+            onClick={() => setIsGroupSettingsOpen(true)}
+            className='text-sm text-blue-500 hover:underline'
+          >
+            Manage group
+          </button>
+        </div>
+      )}
       <Messages
         messages={messages}
         isLoading={isLoading}
@@ -23,6 +44,14 @@ const ConversationRoom = () => {
         {typingText ?? ''}
       </div>
       <MessageForm conversationId={id!} />
+
+      {isGroupSettingsOpen && conversation && user && (
+        <GroupSettingsPanel
+          conversation={conversation}
+          currentUserId={user.id}
+          onClose={() => setIsGroupSettingsOpen(false)}
+        />
+      )}
     </div>
   )
 }

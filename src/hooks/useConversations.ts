@@ -39,9 +39,17 @@ const useConversations = () => {
 
         void queryClient.invalidateQueries({ queryKey: ['conversations'] })
       })
+      .listen('ConversationParticipantsUpdated', () => {
+        // Membership changes rarely fire and the payload doesn't carry
+        // every field ConversationType needs (last_message_at, unread_count,
+        // etc.), so refetching is simpler and safer than patching the cache
+        // in place — unlike messages, this isn't latency-sensitive.
+        void queryClient.invalidateQueries({ queryKey: ['conversations'] })
+      })
 
     return () => {
       channel.stopListening('MessageSent')
+      channel.stopListening('ConversationParticipantsUpdated')
       echo.leave(`App.Models.User.${user.id}`)
     }
   }, [user, echo, queryClient])
