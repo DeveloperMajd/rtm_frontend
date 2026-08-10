@@ -7,6 +7,7 @@ import useMessages from '../../hooks/useMessages'
 import useTypingIndicator from '../../hooks/useTypingIndicator'
 import useConversations from '../../hooks/useConversations'
 import useAuth from '../../hooks/useAuth'
+import type { MessageType } from '../../utils/baseTypes'
 
 const ConversationRoom = () => {
   const { id } = useParams<{ id: string }>()
@@ -15,6 +16,7 @@ const ConversationRoom = () => {
   const { conversations } = useConversations()
   const { user } = useAuth()
   const [isGroupSettingsOpen, setIsGroupSettingsOpen] = useState(false)
+  const [replyingTo, setReplyingTo] = useState<MessageType | null>(null)
 
   const conversation = conversations.find((c) => c.id === id)
 
@@ -39,11 +41,16 @@ const ConversationRoom = () => {
         hasMore={hasMore}
         error={error}
         onLoadOlder={() => { void loadOlder() }}
+        onReply={setReplyingTo}
       />
       <div className='h-5 px-1 text-sm text-gray-400 italic'>
         {typingText ?? ''}
       </div>
-      <MessageForm conversationId={id!} />
+      <MessageForm
+        conversationId={id!}
+        replyingTo={replyingTo}
+        onCancelReply={() => setReplyingTo(null)}
+      />
 
       {isGroupSettingsOpen && conversation && user && (
         <GroupSettingsPanel

@@ -47,6 +47,18 @@ export type MessageType = {
   }
   body: string
   reactions: ReactionType[]
+  reply_to_message_id?: string
+  reply_to?: {
+    id: string
+    body: string
+    deleted_at?: string
+    sender: {
+      id: string
+      name: string
+    }
+  } | null
+  edited_at?: string
+  deleted_at?: string
 
   created_at: string
   updated_at: string

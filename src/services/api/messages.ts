@@ -20,8 +20,21 @@ const getMessagesByConversationId = async (
 const sendMessage = async (
   conversationId: string,
   body: string,
+  replyToMessageId?: string,
 ): Promise<void> => {
-  await api.post('/messages', { conversation_id: conversationId, body })
+  await api.post('/messages', {
+    conversation_id: conversationId,
+    body,
+    reply_to_message_id: replyToMessageId,
+  })
+}
+
+const updateMessage = async (messageId: string, body: string): Promise<void> => {
+  await api.patch(`/messages/${messageId}`, { body })
+}
+
+const deleteMessage = async (messageId: string): Promise<void> => {
+  await api.delete(`/messages/${messageId}`)
 }
 
 const searchMessages = async (
@@ -42,4 +55,12 @@ const removeReaction = async (messageId: string, reaction: string): Promise<void
   await api.delete(`/messages/${messageId}/reactions/${encodeURIComponent(reaction)}`)
 }
 
-export { getMessagesByConversationId, sendMessage, searchMessages, addReaction, removeReaction }
+export {
+  getMessagesByConversationId,
+  sendMessage,
+  updateMessage,
+  deleteMessage,
+  searchMessages,
+  addReaction,
+  removeReaction,
+}

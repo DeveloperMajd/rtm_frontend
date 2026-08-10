@@ -108,10 +108,44 @@ const useMessages = (conversationId: string) => {
           },
         )
       })
+      .listen('MessageUpdated', (updatedMessage: MessageType) => {
+        // An edit or a delete (redaction) can land on a message from any
+        // loaded page, so every page has to be searched for it. Any other
+        // message quoting this one as a reply carries its own snapshot of
+        // it, so that snapshot needs patching too or a delete would leave a
+        // stale, un-redacted reply preview behind.
+        queryClient.setQueryData<InfiniteData<MessagesResponse>>(
+          ['messages', conversationId],
+          (old) => {
+            if (!old) return old
+            return {
+              ...old,
+              pages: old.pages.map((page) => ({
+                ...page,
+                data: page.data.map((m) => {
+                  if (m.id === updatedMessage.id) return updatedMessage
+                  if (m.reply_to?.id === updatedMessage.id) {
+                    return {
+                      ...m,
+                      reply_to: {
+                        ...m.reply_to,
+                        body: updatedMessage.body,
+                        deleted_at: updatedMessage.deleted_at,
+                      },
+                    }
+                  }
+                  return m
+                }),
+              })),
+            }
+          },
+        )
+      })
 
     return () => {
       channel.stopListening('MessageSent')
       channel.stopListening('MessageReactionUpdated')
+      channel.stopListening('MessageUpdated')
       echo.leave(`conversation.${conversationId}`)
     }
   }, [conversationId, echo, queryClient])

@@ -1,8 +1,7 @@
 import { useEffect, useRef } from 'react'
 import type { MessageType } from '../../utils/baseTypes'
 import Spinner from '../ui/Spinner'
-import MessageReactions from './MessageReactions'
-import { formatDistanceToNow } from 'date-fns'
+import MessageItem from './MessageItem'
 import './Messages.scss'
 
 type MessagesProps = {
@@ -12,6 +11,7 @@ type MessagesProps = {
   hasMore: boolean
   error: Error | null
   onLoadOlder: () => void
+  onReply: (message: MessageType) => void
 }
 
 const Messages = ({
@@ -21,6 +21,7 @@ const Messages = ({
   hasMore,
   error,
   onLoadOlder,
+  onReply,
 }: MessagesProps) => {
   const listRef = useRef<HTMLUListElement>(null)
   const lastMessageIdRef = useRef<string | null>(null)
@@ -64,26 +65,11 @@ const Messages = ({
         )}
         {messages.length > 0 &&
           messages.map((message) => (
-            <li
+            <MessageItem
               key={message.id}
-              className='message-item group flex flex-col border border-gray-300 rounded p-2 mb-2'
-            >
-              <strong className='sender-name'>
-                {message.sender.name || 'Unknown Sender'}:{' '}
-              </strong>
-              <div className='message-body whitespace-pre-wrap'>{message.body}</div>
-              <MessageReactions messageId={message.id} reactions={message.reactions} />
-              {message.created_at && (
-                <time
-                  dateTime={message.created_at}
-                  className='timestamp text-right text-sm text-gray-500 ml-2'
-                >
-                  {formatDistanceToNow(new Date(message.created_at), {
-                    includeSeconds: true,
-                  }) + ' ago'}
-                </time>
-              )}
-            </li>
+              message={message}
+              onReply={onReply}
+            />
           ))}
       </ul>
     </div>
