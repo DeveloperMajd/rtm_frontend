@@ -1,10 +1,11 @@
 import { useState } from 'react'
-import { Link, Navigate } from 'react-router-dom'
+import { Link, Navigate, useSearchParams } from 'react-router-dom'
 import { useMutation } from '@tanstack/react-query'
 import type { AxiosError } from 'axios'
 import useAuth from '../hooks/useAuth'
 import Button from '../components/ui/Button'
 import Spinner from '../components/ui/Spinner'
+import { oauthRedirectUrl } from '../services/api/auth'
 
 type LoginVars = { email: string; password: string }
 
@@ -12,6 +13,7 @@ const LoginPage = () => {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const { login, isAuthenticated, isLoading } = useAuth()
+  const [searchParams] = useSearchParams()
 
   const { mutate, isPending, error } = useMutation<
     void,
@@ -20,7 +22,7 @@ const LoginPage = () => {
   >({
     mutationFn: ({ email, password }) => login(email, password),
   })
-  
+
   if (isLoading) {
     return (
       <div className='min-h-screen flex items-center justify-center'>
@@ -39,6 +41,11 @@ const LoginPage = () => {
   }
 
   const apiError = error?.response?.data?.message
+  const oauthError =
+    searchParams.get('error') === 'oauth_failed'
+      ? 'Sign-in with that provider failed. Please try again.'
+      : null
+  const displayedError = apiError ?? oauthError
 
   return (
     <main className='min-h-screen flex items-center justify-center bg-gray-50'>
@@ -52,9 +59,9 @@ const LoginPage = () => {
             mutate({ email, password })
           }}
         >
-          {apiError && (
+          {displayedError && (
             <p className='text-sm text-red-600 bg-red-50 border border-red-200 rounded px-3 py-2'>
-              {apiError}
+              {displayedError}
             </p>
           )}
 
@@ -100,6 +107,27 @@ const LoginPage = () => {
             disabled={isPending}
           />
         </form>
+
+        <div className='flex items-center gap-3 text-xs text-gray-400'>
+          <span className='flex-1 border-t border-gray-200' />
+          or
+          <span className='flex-1 border-t border-gray-200' />
+        </div>
+
+        <div className='flex flex-col gap-2'>
+          <a
+            href={oauthRedirectUrl('google')}
+            className='text-center border border-gray-300 rounded px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50'
+          >
+            Continue with Google
+          </a>
+          <a
+            href={oauthRedirectUrl('facebook')}
+            className='text-center border border-gray-300 rounded px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50'
+          >
+            Continue with Facebook
+          </a>
+        </div>
 
         <p className='text-sm text-center text-gray-500'>
           No account?{' '}

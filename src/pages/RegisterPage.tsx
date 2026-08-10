@@ -5,6 +5,7 @@ import type { AxiosError } from 'axios'
 import useAuth from '../hooks/useAuth'
 import Button from '../components/ui/Button'
 import Spinner from '../components/ui/Spinner'
+import { oauthRedirectUrl } from '../services/api/auth'
 
 type RegisterVars = {
   name: string
@@ -127,6 +128,27 @@ const RegisterPage = () => {
             disabled={isPending}
           />
         </form>
+
+        <div className='flex items-center gap-3 text-xs text-gray-400'>
+          <span className='flex-1 border-t border-gray-200' />
+          or
+          <span className='flex-1 border-t border-gray-200' />
+        </div>
+
+        <div className='flex flex-col gap-2'>
+          <a
+            href={oauthRedirectUrl('google')}
+            className='text-center border border-gray-300 rounded px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50'
+          >
+            Continue with Google
+          </a>
+          <a
+            href={oauthRedirectUrl('facebook')}
+            className='text-center border border-gray-300 rounded px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50'
+          >
+            Continue with Facebook
+          </a>
+        </div>
 
         <p className='text-sm text-center text-gray-500'>
           Already have an account?{' '}

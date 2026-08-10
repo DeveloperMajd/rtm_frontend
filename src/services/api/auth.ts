@@ -33,4 +33,7 @@ const me = async (): Promise<UserType> => {
   return response.data.data
 }
 
-export { login, logout, register, me }
+const oauthRedirectUrl = (provider: 'google' | 'facebook'): string =>
+  `${import.meta.env.VITE_API_BASE_URL}/auth/${provider}/redirect`
+
+export { login, logout, register, me, oauthRedirectUrl }
