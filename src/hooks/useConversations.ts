@@ -16,6 +16,9 @@ const useConversations = () => {
     queryKey: ['conversations'],
     queryFn: getAllConversations,
     select: (response): ConversationType[] => response.data,
+    // Online status has no realtime push (it's a Redis TTL heartbeat, not a
+    // broadcast event), so poll at the same cadence as the heartbeat itself.
+    refetchInterval: 15000,
   })
 
   // Tracked via a ref (not an effect dependency) so the channel subscription

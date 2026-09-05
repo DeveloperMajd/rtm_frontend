@@ -3,6 +3,7 @@ import toast from 'react-hot-toast'
 import { addParticipant, kickParticipant } from '../../services/api/conversations'
 import { getAllUsers } from '../../services/api/users'
 import Button from '../ui/Button'
+import OnlineStatus from '../ui/OnlineStatus'
 import type { ConversationType } from '../../utils/baseTypes'
 
 type GroupSettingsPanelProps = {
@@ -64,7 +65,8 @@ const GroupSettingsPanel = ({ conversation, currentUserId, onClose }: GroupSetti
                   key={p.user_id}
                   className='flex items-center justify-between px-3 py-2'
                 >
-                  <span className='text-sm text-gray-800'>
+                  <span className='flex items-center gap-2 text-sm text-gray-800'>
+                    <OnlineStatus isOnline={p.is_online} />
                     {p.name}
                     {p.role === 'admin' && (
                       <span className='ml-2 text-xs text-blue-600 font-medium'>Admin</span>

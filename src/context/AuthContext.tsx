@@ -1,6 +1,7 @@
 import { useEffect, useState, type ReactNode } from 'react'
 import { AuthContext } from '../hooks/useAuth'
 import * as authApi from '../services/api/auth'
+import * as presenceApi from '../services/api/presence'
 import type { UserType } from '../utils/baseTypes'
 
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
@@ -21,6 +22,15 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   }
 
   const logout = async () => {
+    // Must run before authApi.logout() invalidates the session — once the
+    // session is gone, this request can't authenticate as this user anymore
+    // and presence would only clear later via the Redis TTL expiring.
+    try {
+      await presenceApi.leave()
+    } catch {
+      // best-effort; the Redis TTL will still expire the key on its own
+    }
+
     await authApi.logout()
     setUser(null)
   }

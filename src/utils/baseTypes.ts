@@ -2,6 +2,8 @@ export type UserType = {
   id: string
   name: string
   email: string
+  is_online?: boolean
+  last_seen_at?: string | null
 }
 
 export type ConversationType = {
@@ -13,6 +15,8 @@ export type ConversationType = {
   other_participant?: {
     id: string
     name: string
+    is_online: boolean
+    last_seen_at?: string | null
   } | null
   latest_message?: {
     body: string
@@ -22,6 +26,8 @@ export type ConversationType = {
     user_id: string
     name: string
     role: string
+    is_online: boolean
+    last_seen_at?: string | null
   }[]
   participants_count?: number
   unread_count?: number

@@ -7,6 +7,7 @@ import useMessages from '../../hooks/useMessages'
 import useTypingIndicator from '../../hooks/useTypingIndicator'
 import useConversations from '../../hooks/useConversations'
 import useAuth from '../../hooks/useAuth'
+import OnlineStatus from '../ui/OnlineStatus'
 import type { MessageType } from '../../utils/baseTypes'
 
 const ConversationRoom = () => {
@@ -32,6 +33,16 @@ const ConversationRoom = () => {
           >
             Manage group
           </button>
+        </div>
+      )}
+      {conversation?.type === 'direct' && conversation.other_participant && (
+        <div className='flex flex-col mb-2 pb-2 border-b border-gray-200'>
+          <span className='font-medium text-gray-800'>{conversation.other_participant.name}</span>
+          <OnlineStatus
+            isOnline={conversation.other_participant.is_online}
+            lastSeenAt={conversation.other_participant.last_seen_at}
+            showLabel
+          />
         </div>
       )}
       <Messages

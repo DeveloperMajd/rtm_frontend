@@ -9,6 +9,7 @@ import MessageSearch from '../components/conversations/MessageSearch'
 import Button from '../components/ui/Button'
 import useConversations from '../hooks/useConversations'
 import useAuth from '../hooks/useAuth'
+import usePresenceHeartbeat from '../hooks/usePresenceHeartbeat'
 
 type Tab = 'chats' | 'contacts'
 
@@ -18,6 +19,7 @@ function ConversationsLayout() {
   const { conversations, isLoading, error } = useConversations()
   const { logout, user } = useAuth()
   const navigate = useNavigate()
+  usePresenceHeartbeat(true)
 
   const handleLogout = async () => {
     await logout()
