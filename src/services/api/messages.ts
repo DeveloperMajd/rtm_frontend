@@ -1,5 +1,9 @@
 import api from './axios'
-import type { MessageSearchResultType, MessageType } from '../../utils/baseTypes'
+import type {
+  AttachmentType,
+  MessageSearchResultType,
+  MessageType,
+} from '../../utils/baseTypes'
 
 type MessagesResponse = {
   data: MessageType[]
@@ -21,12 +25,32 @@ const sendMessage = async (
   conversationId: string,
   body: string,
   replyToMessageId?: string,
+  attachmentIds?: string[],
 ): Promise<void> => {
   await api.post('/messages', {
     conversation_id: conversationId,
-    body,
+    body: body.trim() || undefined,
     reply_to_message_id: replyToMessageId,
+    attachment_ids: attachmentIds && attachmentIds.length > 0 ? attachmentIds : undefined,
   })
+}
+
+const uploadAttachment = async (
+  file: File,
+  onProgress?: (percent: number) => void,
+): Promise<AttachmentType> => {
+  const form = new FormData()
+  form.append('file', file)
+
+  const response = await api.post<{ data: AttachmentType }>('/attachments', form, {
+    onUploadProgress: (event) => {
+      if (onProgress && event.total) {
+        onProgress(Math.round((event.loaded / event.total) * 100))
+      }
+    },
+  })
+
+  return response.data.data
 }
 
 const updateMessage = async (messageId: string, body: string): Promise<void> => {
@@ -58,6 +82,7 @@ const removeReaction = async (messageId: string, reaction: string): Promise<void
 export {
   getMessagesByConversationId,
   sendMessage,
+  uploadAttachment,
   updateMessage,
   deleteMessage,
   searchMessages,

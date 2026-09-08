@@ -44,6 +44,20 @@ export type ReactionType = {
   }
 }
 
+export type AttachmentType = {
+  id: string
+  message_id: string | null
+  original_name: string
+  mime_type: string
+  size_bytes: number
+  width?: number | null
+  height?: number | null
+  duration_ms?: number | null
+  is_image: boolean
+  url: string
+  created_at: string
+}
+
 export type MessageType = {
   id: string
   conversation_id: string
@@ -53,6 +67,8 @@ export type MessageType = {
   }
   body: string
   reactions: ReactionType[]
+  attachments?: AttachmentType[]
+  attachments_count?: number
   reply_to_message_id?: string
   reply_to?: {
     id: string

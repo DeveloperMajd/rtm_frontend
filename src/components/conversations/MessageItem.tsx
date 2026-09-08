@@ -6,6 +6,7 @@ import type { MessageType } from '../../utils/baseTypes'
 import { updateMessage, deleteMessage } from '../../services/api/messages'
 import useAuth from '../../hooks/useAuth'
 import MessageReactions from './MessageReactions'
+import MessageAttachment from './MessageAttachment'
 
 type MessageItemProps = {
   message: MessageType
@@ -75,7 +76,18 @@ const MessageItem = ({ message, onReply }: MessageItemProps) => {
           </div>
         </div>
       ) : (
-        <div className='message-body whitespace-pre-wrap'>{message.body}</div>
+        message.body && <div className='message-body whitespace-pre-wrap'>{message.body}</div>
+      )}
+
+      {!isDeleted && message.attachments && message.attachments.length > 0 && (
+        <div className='attachments flex flex-wrap gap-2 mt-2'>
+          {message.attachments.map((attachment) => (
+            <MessageAttachment
+              key={attachment.id}
+              attachment={attachment}
+            />
+          ))}
+        </div>
       )}
 
       {!isDeleted && <MessageReactions messageId={message.id} reactions={message.reactions} />}
