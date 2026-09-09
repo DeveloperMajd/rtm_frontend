@@ -1,7 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import toast from 'react-hot-toast'
 import { addParticipant, kickParticipant } from '../../services/api/conversations'
-import { getAllUsers } from '../../services/api/users'
+import { getContacts } from '../../services/api/contacts'
 import Button from '../ui/Button'
 import Avatar from '../ui/Avatar'
 import Modal from '../ui/Modal'
@@ -19,14 +19,14 @@ const GroupSettingsPanel = ({ open, conversation, currentUserId, onClose }: Grou
   const participants = (conversation.participants ?? []).filter((p) => !p.left_at)
   const isAdmin = participants.some((p) => p.user_id === currentUserId && p.role === 'admin')
 
-  const { data: allUsers = [] } = useQuery({
-    queryKey: ['users'],
-    queryFn: getAllUsers,
+  const { data: myContacts = [] } = useQuery({
+    queryKey: ['contacts'],
+    queryFn: getContacts,
     enabled: isAdmin && open,
   })
 
   const participantIds = new Set(participants.map((p) => p.user_id))
-  const addableUsers = allUsers.filter((u) => !participantIds.has(u.id))
+  const addableUsers = myContacts.filter((u) => !participantIds.has(u.id))
 
   const invalidate = () => {
     void queryClient.invalidateQueries({ queryKey: ['conversations'] })

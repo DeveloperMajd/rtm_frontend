@@ -3,8 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useNavigate } from 'react-router-dom'
 import toast from 'react-hot-toast'
 import { createConversation } from '../../services/api/conversations'
-import { getAllUsers } from '../../services/api/users'
-import useAuth from '../../hooks/useAuth'
+import { getContacts } from '../../services/api/contacts'
 import Button from '../ui/Button'
 import Avatar from '../ui/Avatar'
 import Modal from '../ui/Modal'
@@ -19,14 +18,12 @@ const GroupModal = ({ open, onClose }: GroupModalProps) => {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
   const queryClient = useQueryClient()
   const navigate = useNavigate()
-  const { user: currentUser } = useAuth()
 
-  const { data: allUsers = [], isLoading } = useQuery({
-    queryKey: ['users'],
-    queryFn: getAllUsers,
+  const { data: users = [], isLoading } = useQuery({
+    queryKey: ['contacts'],
+    queryFn: getContacts,
     enabled: open,
   })
-  const users = allUsers.filter((u) => u.id !== currentUser?.id)
 
   const { mutate: create, isPending: isSubmitting } = useMutation({
     mutationFn: createConversation,
@@ -102,12 +99,12 @@ const GroupModal = ({ open, onClose }: GroupModalProps) => {
       </div>
 
       <p className='field__label' style={{ margin: '1rem 0 0.35rem' }}>
-        Add people ({selectedIds.size} selected)
+        Add contacts ({selectedIds.size} selected)
       </p>
       {isLoading ? (
         <p className='muted'>Loading…</p>
       ) : users.length === 0 ? (
-        <p className='muted'>No one to add.</p>
+        <p className='muted'>No contacts yet — add some from the Contacts tab first.</p>
       ) : (
         <ul className='picker-list'>
           {users.map((u) => (

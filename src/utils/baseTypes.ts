@@ -14,6 +14,15 @@ export type PersonRef = {
   avatar_url?: string | null
 }
 
+/** A person in the current user's contact list, or a directory search hit. */
+export type ContactType = {
+  id: string
+  name: string
+  avatar_url?: string | null
+  is_online?: boolean
+  last_seen_at?: string | null
+}
+
 export type ConversationType = {
   id: string
   type: 'group' | 'direct'

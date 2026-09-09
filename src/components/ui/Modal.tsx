@@ -24,6 +24,14 @@ const Modal = ({ open, onClose, title, children, footer, hideHeader }: ModalProp
   const restoreRef = useRef<HTMLElement | null>(null)
   const titleId = useId()
 
+  // Hold the latest onClose in a ref so the focus-trap effect below depends
+  // only on `open` — a parent passing a new onClose each render must not
+  // re-run setup (which would yank focus back to the first focusable).
+  const onCloseRef = useRef(onClose)
+  useEffect(() => {
+    onCloseRef.current = onClose
+  })
+
   useEffect(() => {
     if (!open) return
 
@@ -34,13 +42,17 @@ const Modal = ({ open, onClose, title, children, footer, hideHeader }: ModalProp
     document.body.style.overflow = 'hidden'
 
     const panel = panelRef.current
-    const first = panel?.querySelector<HTMLElement>(FOCUSABLE)
+    // Prefer the first focusable inside the body (usually a real field) over
+    // the header close button.
+    const body = panel?.querySelector<HTMLElement>('.modal-panel__body')
+    const first =
+      body?.querySelector<HTMLElement>(FOCUSABLE) ?? panel?.querySelector<HTMLElement>(FOCUSABLE)
     ;(first ?? panel)?.focus()
 
     const onKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
         e.stopPropagation()
-        onClose()
+        onCloseRef.current()
         return
       }
       if (e.key !== 'Tab' || !panel) return
@@ -70,7 +82,7 @@ const Modal = ({ open, onClose, title, children, footer, hideHeader }: ModalProp
       document.body.style.overflow = prevOverflow
       restoreRef.current?.focus?.()
     }
-  }, [open, onClose])
+  }, [open])
 
   if (!open) return null
 

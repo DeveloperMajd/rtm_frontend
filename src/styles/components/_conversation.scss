@@ -139,6 +139,36 @@
   }
 }
 
+// Contacts tab row: a clickable person + a remove affordance.
+.contact-row {
+  display: flex;
+  align-items: center;
+  border-bottom: 1px solid color-mix(in oklab, var(--c-line) 60%, transparent);
+
+  &:hover {
+    background-color: var(--c-surface-2);
+  }
+
+  &__open {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    flex: 1;
+    min-width: 0;
+    padding: 0.6rem 0.5rem 0.6rem 1rem;
+    border: 0;
+    background: transparent;
+    color: inherit;
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+  }
+
+  &__remove {
+    margin-right: 0.5rem;
+  }
+}
+
 .room {
   flex: 1;
   display: flex;
