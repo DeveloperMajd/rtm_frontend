@@ -1,0 +1,42 @@
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.05rem 0.45rem;
+  border-radius: 999px;
+  font-size: 0.7rem;
+  font-weight: 600;
+  line-height: 1.6;
+  background-color: var(--c-surface-2);
+  color: var(--c-muted);
+
+  &--primary {
+    background-color: color-mix(in oklab, var(--c-primary) 16%, transparent);
+    color: var(--c-primary);
+  }
+
+  &--admin {
+    background-color: color-mix(in oklab, var(--c-primary) 16%, transparent);
+    color: var(--c-primary);
+  }
+
+  &--left {
+    background-color: color-mix(in oklab, var(--c-muted) 18%, transparent);
+    color: var(--c-muted);
+  }
+}
+
+// Unread count pill on a conversation row.
+.unread-pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.25rem;
+  height: 1.25rem;
+  padding: 0 0.35rem;
+  border-radius: 999px;
+  background-color: var(--c-primary);
+  color: var(--c-on-primary);
+  font-size: 0.7rem;
+  font-weight: 700;
+}

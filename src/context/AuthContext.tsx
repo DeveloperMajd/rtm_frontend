@@ -1,7 +1,8 @@
-import { useEffect, useState, type ReactNode } from 'react'
+import { useCallback, useEffect, useState, type ReactNode } from 'react'
 import { AuthContext } from '../hooks/useAuth'
 import * as authApi from '../services/api/auth'
 import * as presenceApi from '../services/api/presence'
+import { primeCsrf } from '../services/api/csrf'
 import type { UserType } from '../utils/baseTypes'
 
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
@@ -9,14 +10,28 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [isLoading, setIsLoading] = useState(true)
 
   useEffect(() => {
-    authApi
-      .me()
+    // Prime the CSRF cookie once so the first mutating request has a token,
+    // then resolve the current session.
+    primeCsrf()
+      .catch(() => {
+        /* non-fatal: same-site dev works without it */
+      })
+      .then(() => authApi.me())
       .then(setUser)
       .catch(() => setUser(null))
       .finally(() => setIsLoading(false))
   }, [])
 
+  const refreshUser = useCallback(async () => {
+    try {
+      setUser(await authApi.me())
+    } catch {
+      setUser(null)
+    }
+  }, [])
+
   const login = async (email: string, password: string) => {
+    await primeCsrf()
     const loggedInUser = await authApi.login(email, password)
     setUser(loggedInUser)
   }
@@ -36,6 +51,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   }
 
   const register = async (name: string, email: string, password: string, password_confirmation: string) => {
+    await primeCsrf()
     const registeredUser = await authApi.register(name, email, password, password_confirmation)
     setUser(registeredUser)
   }
@@ -49,6 +65,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         login,
         logout,
         register,
+        refreshUser,
       }}
     >
       {children}

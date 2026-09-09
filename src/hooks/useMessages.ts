@@ -78,7 +78,7 @@ const useMessages = (conversationId: string) => {
                       last_message_at: message.created_at,
                       latest_message: {
                         body: message.body,
-                        sender_name: message.sender.name,
+                        sender_name: message.sender?.name ?? '',
                       },
                     }
                   : c,

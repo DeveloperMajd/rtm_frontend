@@ -29,18 +29,18 @@ const MessageItem = ({ message, onReply }: MessageItemProps) => {
     onError: () => toast.error('Failed to delete message. Please try again.'),
   })
 
-  const isOwn = message.sender.id === user?.id
+  const isOwn = message.sender?.id === user?.id
   const isDeleted = Boolean(message.deleted_at)
 
   return (
     <li className='message-item group flex flex-col border border-gray-300 rounded p-2 mb-2'>
-      <strong className='sender-name'>{message.sender.name || 'Unknown Sender'}: </strong>
+      <strong className='sender-name'>{message.sender?.name || 'Unknown Sender'}: </strong>
 
       {message.reply_to && (
         <div className='reply-preview border-l-2 border-gray-300 pl-2 mb-1 text-xs text-gray-500 italic'>
           {message.reply_to.deleted_at
             ? 'Original message deleted'
-            : `${message.reply_to.sender.name}: ${message.reply_to.body}`}
+            : `${message.reply_to.sender?.name ?? 'Unknown'}: ${message.reply_to.body}`}
         </div>
       )}
 

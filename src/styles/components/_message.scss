@@ -1,0 +1,186 @@
+@use '../abstracts/mixins' as *;
+
+.msg-day {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 1rem 0 0.75rem;
+
+  span {
+    padding: 0.15rem 0.7rem;
+    border-radius: 999px;
+    background-color: var(--c-surface-2);
+    color: var(--c-muted);
+    font-size: 0.72rem;
+    font-weight: 600;
+  }
+}
+
+.msg-row {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 0.15rem;
+
+  &.is-own {
+    flex-direction: row-reverse;
+  }
+
+  &.is-grouped {
+    margin-top: 0.08rem;
+  }
+
+  &__avatar-slot {
+    width: 1.75rem;
+    flex: 0 0 auto;
+  }
+}
+
+.bubble {
+  position: relative;
+  max-width: min(78%, 34rem);
+  padding: 0.45rem 0.7rem;
+  border-radius: var(--radius-lg);
+  background-color: var(--c-bubble-other);
+  color: var(--c-bubble-other-fg);
+  font-size: 0.88rem;
+  line-height: 1.4;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+
+  .is-own & {
+    background-color: var(--c-bubble-own);
+    color: var(--c-bubble-own-fg);
+  }
+
+  &__sender {
+    display: block;
+    font-size: 0.72rem;
+    font-weight: 700;
+    margin-bottom: 0.1rem;
+    color: var(--c-primary);
+  }
+
+  &__reply {
+    display: block;
+    padding: 0.3rem 0.5rem;
+    margin-bottom: 0.3rem;
+    border-left: 3px solid currentColor;
+    border-radius: var(--radius-sm);
+    background-color: color-mix(in oklab, currentColor 8%, transparent);
+    font-size: 0.78rem;
+    opacity: 0.85;
+  }
+
+  &__meta {
+    display: block;
+    margin-top: 0.15rem;
+    font-size: 0.66rem;
+    opacity: 0.65;
+    text-align: right;
+  }
+
+  &.is-deleted {
+    font-style: italic;
+    opacity: 0.7;
+  }
+
+  &__actions {
+    position: absolute;
+    top: -0.6rem;
+    display: flex;
+    gap: 0.15rem;
+    padding: 0.15rem;
+    border-radius: 999px;
+    background-color: var(--c-surface);
+    border: 1px solid var(--c-line);
+    box-shadow: var(--shadow-e1);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 120ms ease;
+
+    .msg-row:hover &,
+    .msg-row:focus-within & {
+      opacity: 1;
+      pointer-events: auto;
+    }
+
+    .is-own & {
+      right: 0;
+    }
+    .is-other & {
+      left: 0;
+    }
+  }
+}
+
+.reactions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+  margin-top: 0.3rem;
+
+  &__pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.2rem;
+    padding: 0.05rem 0.4rem;
+    border-radius: 999px;
+    border: 1px solid var(--c-line);
+    background-color: var(--c-surface);
+    color: var(--c-fg);
+    font-size: 0.72rem;
+    cursor: pointer;
+
+    &.is-mine {
+      border-color: var(--c-primary);
+      background-color: color-mix(in oklab, var(--c-primary) 14%, transparent);
+    }
+  }
+}
+
+.attachment {
+  margin-top: 0.35rem;
+
+  &__image {
+    max-width: 15rem;
+    max-height: 15rem;
+    border-radius: var(--radius-DEFAULT);
+    border: 1px solid var(--c-line);
+  }
+
+  &__file {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.4rem 0.6rem;
+    border: 1px solid var(--c-line);
+    border-radius: var(--radius-DEFAULT);
+    background-color: var(--c-surface);
+    font-size: 0.8rem;
+  }
+}
+
+.typing-line {
+  min-height: 1.1rem;
+  padding: 0.15rem 1rem;
+  font-size: 0.76rem;
+  font-style: italic;
+  color: var(--c-muted);
+}
+
+.composer {
+  display: flex;
+  align-items: flex-end;
+  gap: 0.5rem;
+
+  &__text {
+    flex: 1;
+    max-height: 8rem;
+    resize: none;
+  }
+
+  &__reply-chip,
+  &__uploads {
+    margin-bottom: 0.5rem;
+  }
+}

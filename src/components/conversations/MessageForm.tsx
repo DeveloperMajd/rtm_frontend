@@ -181,7 +181,7 @@ const MessageForm = ({ conversationId, replyingTo, onCancelReply }: MessageFormP
       {replyingTo && (
         <div className='reply-chip flex items-center justify-between border-l-2 border-blue-400 bg-blue-50 rounded px-2 py-1 text-xs text-gray-600'>
           <span className='truncate'>
-            Replying to <strong>{replyingTo.sender.name}</strong>: {replyingTo.body}
+            Replying to <strong>{replyingTo.sender?.name ?? 'Unknown'}</strong>: {replyingTo.body}
           </span>
           <button
             type='button'

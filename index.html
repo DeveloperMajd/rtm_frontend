@@ -4,7 +4,31 @@
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>rtm_frontend</title>
+    <meta name="color-scheme" content="light dark" />
+    <meta name="theme-color" content="#4f46e5" />
+    <title>RTM — Real-Time Messenger</title>
+    <meta
+      name="description"
+      content="RTM is a real-time chat app: direct messages and groups, presence, reactions, replies, attachments and full-text search, built on Laravel Reverb and React."
+    />
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="RTM — Real-Time Messenger" />
+    <meta
+      property="og:description"
+      content="Real-time chat with groups, presence, reactions, replies, attachments and search."
+    />
+    <meta name="twitter:card" content="summary_large_image" />
+    <script>
+      // Apply the saved theme before first paint to avoid a flash.
+      (function () {
+        try {
+          var t = localStorage.getItem('rtm.theme');
+          if (t === 'light' || t === 'dark') {
+            document.documentElement.setAttribute('data-theme', t);
+          }
+        } catch (e) {}
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>

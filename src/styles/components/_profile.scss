@@ -1,0 +1,73 @@
+@use '../abstracts/mixins' as *;
+@use '../abstracts/tokens' as *;
+
+.profile {
+  max-width: 32rem;
+  margin: 0 auto;
+  padding: 1.5rem 1rem 3rem;
+
+  &__back {
+    margin-bottom: 1rem;
+  }
+
+  &__card {
+    padding: 1.5rem;
+    background-color: var(--c-surface);
+    border: 1px solid var(--c-line);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-e1);
+  }
+
+  &__avatar-row {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+  }
+
+  &__avatar-actions {
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+  }
+
+  &__form {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+  }
+
+  &__section {
+    margin-top: 2rem;
+    padding-top: 1.5rem;
+    border-top: 1px solid var(--c-line);
+  }
+
+  &__section-title {
+    margin: 0 0 0.75rem;
+    font-size: 0.95rem;
+  }
+
+  &__row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+  }
+}
+
+.avatar-upload {
+  position: relative;
+
+  &__progress {
+    position: absolute;
+    inset: 0;
+    display: grid;
+    place-items: center;
+    border-radius: 999px;
+    background-color: var(--c-overlay);
+    color: #fff;
+    font-size: 0.75rem;
+    font-weight: 600;
+  }
+}

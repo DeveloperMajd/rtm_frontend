@@ -1,0 +1,27 @@
+.tabs {
+  display: flex;
+  gap: 0.25rem;
+  padding: 0.5rem 0.75rem 0;
+
+  &__tab {
+    flex: 1;
+    padding: 0.5rem;
+    border: 0;
+    border-radius: var(--radius-sm);
+    background: transparent;
+    color: var(--c-muted);
+    font-size: 0.85rem;
+    font-weight: 550;
+    cursor: pointer;
+    transition: background-color 120ms ease;
+
+    &:hover {
+      background-color: var(--c-surface-2);
+    }
+
+    &[aria-selected='true'] {
+      background-color: var(--c-surface-2);
+      color: var(--c-fg);
+    }
+  }
+}

@@ -1,0 +1,125 @@
+/*
+ * Tailwind entry + design tokens.
+ *
+ * This file is plain CSS on purpose: the Sass compiler cannot resolve
+ * `@import "tailwindcss"`, so the Tailwind layer and the theme tokens live
+ * here, and every hand-authored rule lives in `index.scss` and its partials.
+ *
+ * Token model:
+ *   --c-*      swappable raw values, redefined per theme below
+ *   @theme inline maps them to `--color-*` so utilities (bg-surface, text-fg,
+ *   border-line, …) reference the live custom property and follow the theme.
+ */
+@import 'tailwindcss';
+
+@custom-variant dark (&:where([data-theme='dark'], [data-theme='dark'] *));
+
+/* ---- Light theme (default, also the bare :root fallback) ---- */
+:root {
+  color-scheme: light;
+
+  --c-bg: #f5f6f8;
+  --c-surface: #ffffff;
+  --c-surface-2: #eef0f3;
+  --c-line: #e2e5ea;
+  --c-fg: #16191d;
+  --c-muted: #667085;
+  --c-primary: #4f46e5;
+  --c-primary-hover: #4338ca;
+  --c-on-primary: #ffffff;
+  --c-danger: #dc2626;
+  --c-danger-hover: #b91c1c;
+  --c-success: #16a34a;
+  --c-online: #22c55e;
+  --c-bubble-own: #4f46e5;
+  --c-bubble-own-fg: #ffffff;
+  --c-bubble-other: #eef0f3;
+  --c-bubble-other-fg: #16191d;
+  --c-overlay: rgb(15 18 23 / 0.45);
+  --c-focus: #6366f1;
+
+  --shadow-e1: 0 1px 2px rgb(16 24 40 / 0.06);
+  --shadow-e2: 0 4px 14px rgb(16 24 40 / 0.1);
+  --shadow-e3: 0 18px 40px rgb(16 24 40 / 0.18);
+}
+
+/* ---- Dark theme: explicit opt-in wins in both directions ---- */
+:root[data-theme='dark'] {
+  color-scheme: dark;
+
+  --c-bg: #0e1014;
+  --c-surface: #171a21;
+  --c-surface-2: #212530;
+  --c-line: #2a2f3a;
+  --c-fg: #e6e8ec;
+  --c-muted: #98a2b3;
+  --c-primary: #6366f1;
+  --c-primary-hover: #818cf8;
+  --c-on-primary: #ffffff;
+  --c-danger: #ef4444;
+  --c-danger-hover: #f87171;
+  --c-success: #22c55e;
+  --c-online: #22c55e;
+  --c-bubble-own: #4f46e5;
+  --c-bubble-own-fg: #ffffff;
+  --c-bubble-other: #212530;
+  --c-bubble-other-fg: #e6e8ec;
+  --c-overlay: rgb(0 0 0 / 0.6);
+  --c-focus: #818cf8;
+
+  --shadow-e1: 0 1px 2px rgb(0 0 0 / 0.4);
+  --shadow-e2: 0 4px 14px rgb(0 0 0 / 0.5);
+  --shadow-e3: 0 18px 40px rgb(0 0 0 / 0.6);
+}
+
+/* ---- Dark theme: follow the OS when the user has not chosen ---- */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) {
+    color-scheme: dark;
+
+    --c-bg: #0e1014;
+    --c-surface: #171a21;
+    --c-surface-2: #212530;
+    --c-line: #2a2f3a;
+    --c-fg: #e6e8ec;
+    --c-muted: #98a2b3;
+    --c-primary: #6366f1;
+    --c-primary-hover: #818cf8;
+    --c-on-primary: #ffffff;
+    --c-danger: #ef4444;
+    --c-danger-hover: #f87171;
+    --c-success: #22c55e;
+    --c-online: #22c55e;
+    --c-bubble-own: #4f46e5;
+    --c-bubble-own-fg: #ffffff;
+    --c-bubble-other: #212530;
+    --c-bubble-other-fg: #e6e8ec;
+    --c-overlay: rgb(0 0 0 / 0.6);
+    --c-focus: #818cf8;
+
+    --shadow-e1: 0 1px 2px rgb(0 0 0 / 0.4);
+    --shadow-e2: 0 4px 14px rgb(0 0 0 / 0.5);
+    --shadow-e3: 0 18px 40px rgb(0 0 0 / 0.6);
+  }
+}
+
+@theme inline {
+  --color-bg: var(--c-bg);
+  --color-surface: var(--c-surface);
+  --color-surface-2: var(--c-surface-2);
+  --color-line: var(--c-line);
+  --color-fg: var(--c-fg);
+  --color-muted: var(--c-muted);
+  --color-primary: var(--c-primary);
+  --color-primary-hover: var(--c-primary-hover);
+  --color-on-primary: var(--c-on-primary);
+  --color-danger: var(--c-danger);
+  --color-danger-hover: var(--c-danger-hover);
+  --color-success: var(--c-success);
+  --color-online: var(--c-online);
+
+  --radius-sm: 6px;
+  --radius-DEFAULT: 10px;
+  --radius-lg: 14px;
+  --radius-xl: 20px;
+}

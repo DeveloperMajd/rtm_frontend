@@ -1,0 +1,58 @@
+.avatar {
+  --size: 2.25rem;
+
+  position: relative;
+  flex: 0 0 auto;
+  width: var(--size);
+  height: var(--size);
+  border-radius: 999px;
+  overflow: hidden;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, var(--c-primary), var(--c-primary-hover));
+  color: var(--c-on-primary);
+  font-weight: 600;
+  font-size: calc(var(--size) * 0.4);
+  line-height: 1;
+  user-select: none;
+
+  &__img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+
+  &--xs {
+    --size: 1.5rem;
+  }
+  &--sm {
+    --size: 2rem;
+  }
+  &--md {
+    --size: 2.75rem;
+  }
+  &--lg {
+    --size: 3.5rem;
+  }
+  &--xl {
+    --size: 6rem;
+  }
+
+  &__status {
+    position: absolute;
+    right: -1px;
+    bottom: -1px;
+    width: 28%;
+    height: 28%;
+    min-width: 8px;
+    min-height: 8px;
+    border-radius: 999px;
+    border: 2px solid var(--c-surface);
+    background-color: var(--c-muted);
+
+    &.is-online {
+      background-color: var(--c-online);
+    }
+  }
+}

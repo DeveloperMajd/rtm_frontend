@@ -1,0 +1,48 @@
+.skeleton {
+  --sk-base: color-mix(in oklab, var(--c-line) 70%, var(--c-surface));
+  --sk-shine: color-mix(in oklab, var(--c-line) 30%, var(--c-surface));
+
+  position: relative;
+  overflow: hidden;
+  background-color: var(--sk-base);
+  border-radius: var(--radius-sm);
+
+  &::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    transform: translateX(-100%);
+    background: linear-gradient(
+      90deg,
+      transparent,
+      var(--sk-shine),
+      transparent
+    );
+    animation: skeleton-shimmer 1.4s ease-in-out infinite;
+  }
+
+  &--text {
+    height: 0.75rem;
+    margin: 0.25rem 0;
+  }
+
+  &--line {
+    height: 1rem;
+  }
+
+  &--circle {
+    border-radius: 999px;
+  }
+}
+
+@keyframes skeleton-shimmer {
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .skeleton::after {
+    animation: none;
+  }
+}

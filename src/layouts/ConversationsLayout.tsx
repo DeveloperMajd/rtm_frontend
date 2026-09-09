@@ -1,7 +1,6 @@
 import { useState } from 'react'
 import { Outlet, useNavigate } from 'react-router-dom'
 import { Toaster } from 'react-hot-toast'
-import './ConversationsLayout.scss'
 import Conversations from '../components/conversations/Conversations'
 import Contacts from '../components/conversations/Contacts'
 import GroupModal from '../components/conversations/GroupModal'

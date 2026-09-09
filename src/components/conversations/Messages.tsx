@@ -2,7 +2,6 @@ import { useEffect, useRef } from 'react'
 import type { MessageType } from '../../utils/baseTypes'
 import Spinner from '../ui/Spinner'
 import MessageItem from './MessageItem'
-import './Messages.scss'
 
 type MessagesProps = {
   messages: MessageType[]

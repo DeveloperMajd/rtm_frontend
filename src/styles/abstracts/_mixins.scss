@@ -1,0 +1,61 @@
+@use 'tokens' as *;
+
+// Respond at / above a named breakpoint.
+@mixin from($bp) {
+  @media (min-width: $bp) {
+    @content;
+  }
+}
+
+// Respond below a named breakpoint. `calc` keeps the rem/px subtraction in CSS
+// so mixed-unit breakpoints don't trip Sass's unit arithmetic.
+@mixin until($bp) {
+  @media (max-width: calc(#{$bp} - 0.02px)) {
+    @content;
+  }
+}
+
+// Consistent keyboard focus treatment.
+@mixin focus-ring($offset: 2px) {
+  outline: 2px solid var(--c-focus);
+  outline-offset: $offset;
+  border-radius: var(--radius-sm);
+}
+
+@mixin truncate {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+// Visually hidden but available to assistive tech.
+@mixin visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+
+// Thin, theme-aware scrollbar.
+@mixin custom-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: var(--c-line) transparent;
+
+  &::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+
+  &::-webkit-scrollbar-thumb {
+    background-color: var(--c-line);
+    border-radius: 999px;
+    border: 2px solid transparent;
+    background-clip: content-box;
+  }
+}

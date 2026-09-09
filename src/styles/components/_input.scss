@@ -1,0 +1,62 @@
+@use '../abstracts/tokens' as *;
+@use '../abstracts/mixins' as *;
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+
+  &__label {
+    font-size: 0.8rem;
+    font-weight: 550;
+    color: var(--c-muted);
+  }
+
+  &__hint {
+    font-size: 0.75rem;
+    color: var(--c-muted);
+  }
+
+  &__error {
+    font-size: 0.78rem;
+    color: var(--c-danger);
+  }
+}
+
+.input,
+.textarea {
+  width: 100%;
+  padding: 0.55rem 0.75rem;
+  background-color: var(--c-surface);
+  color: var(--c-fg);
+  border: 1px solid var(--c-line);
+  border-radius: var(--radius-DEFAULT);
+  font-size: 0.9rem;
+  transition:
+    border-color $dur-fast $ease-out,
+    box-shadow $dur-fast $ease-out;
+
+  &::placeholder {
+    color: color-mix(in oklab, var(--c-muted) 80%, transparent);
+  }
+
+  &:focus-visible {
+    outline: none;
+    border-color: var(--c-primary);
+    box-shadow: 0 0 0 3px color-mix(in oklab, var(--c-primary) 25%, transparent);
+  }
+
+  &:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+  }
+
+  &[aria-invalid='true'] {
+    border-color: var(--c-danger);
+  }
+}
+
+.textarea {
+  resize: vertical;
+  min-height: 2.5rem;
+}

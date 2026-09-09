@@ -1,0 +1,173 @@
+@use '../abstracts/mixins' as *;
+@use '../abstracts/tokens' as *;
+
+.app-shell {
+  height: 100dvh;
+  display: flex;
+  overflow: hidden;
+  background-color: var(--c-bg);
+}
+
+.sidebar {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  border-right: 1px solid var(--c-line);
+  background-color: var(--c-surface);
+
+  @include from($bp-md) {
+    width: 22rem;
+    flex: 0 0 22rem;
+  }
+
+  &__header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    padding: 0.75rem 1rem;
+    border-bottom: 1px solid var(--c-line);
+  }
+
+  &__identity {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    min-width: 0;
+    color: inherit;
+
+    span {
+      @include truncate;
+      font-weight: 600;
+      font-size: 0.9rem;
+    }
+  }
+
+  &__list {
+    flex: 1;
+    overflow-y: auto;
+    @include custom-scrollbar;
+  }
+
+  &__footer {
+    padding: 0.75rem 1rem;
+    border-top: 1px solid var(--c-line);
+  }
+}
+
+// On mobile the room takes the whole screen; the sidebar hides when a
+// conversation is open. Driven by a `data-view` attribute on `.app-shell`.
+@include until($bp-md) {
+  .app-shell[data-view='room'] .sidebar {
+    display: none;
+  }
+  .app-shell[data-view='list'] .room {
+    display: none;
+  }
+}
+
+.conversation-item {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  width: 100%;
+  padding: 0.6rem 1rem;
+  border: 0;
+  border-bottom: 1px solid color-mix(in oklab, var(--c-line) 60%, transparent);
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+  transition: background-color 120ms ease;
+
+  &:hover {
+    background-color: var(--c-surface-2);
+  }
+
+  &.is-active {
+    background-color: color-mix(in oklab, var(--c-primary) 10%, transparent);
+  }
+
+  &.is-left {
+    opacity: 0.62;
+  }
+
+  &__body {
+    flex: 1;
+    min-width: 0;
+  }
+
+  &__top {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 0.5rem;
+  }
+
+  &__title {
+    @include truncate;
+    font-weight: 600;
+    font-size: 0.9rem;
+  }
+
+  &__time {
+    flex: 0 0 auto;
+    font-size: 0.7rem;
+    color: var(--c-muted);
+  }
+
+  &__preview {
+    @include truncate;
+    font-size: 0.8rem;
+    color: var(--c-muted);
+  }
+}
+
+.room {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  background-color: var(--c-bg);
+
+  &__header {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.75rem 1rem;
+    border-bottom: 1px solid var(--c-line);
+    background-color: var(--c-surface);
+  }
+
+  &__back {
+    @include from($bp-md) {
+      display: none;
+    }
+  }
+
+  &__title {
+    font-weight: 650;
+    font-size: 0.95rem;
+  }
+
+  &__scroll {
+    flex: 1;
+    overflow-y: auto;
+    padding: 1rem;
+    @include custom-scrollbar;
+  }
+
+  &__composer {
+    border-top: 1px solid var(--c-line);
+    background-color: var(--c-surface);
+    padding: 0.75rem 1rem;
+  }
+
+  &__locked {
+    padding: 0.85rem 1rem;
+    text-align: center;
+    font-size: 0.82rem;
+    color: var(--c-muted);
+    background-color: var(--c-surface-2);
+    border-top: 1px solid var(--c-line);
+  }
+}

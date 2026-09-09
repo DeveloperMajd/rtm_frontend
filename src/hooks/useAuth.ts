@@ -8,6 +8,8 @@ export type AuthContextType = {
   login: (email: string, password: string) => Promise<void>
   logout: () => Promise<void>
   register: (name: string, email: string, password: string, password_confirmation: string) => Promise<void>
+  /** Re-fetch the current user (e.g. after a profile update). */
+  refreshUser: () => Promise<void>
 }
 
 export const AuthContext = createContext<AuthContextType | null>(null)

@@ -1,0 +1,21 @@
+// Permanent in-thread event lines: "You left", "Alice added Bob", …
+.system-message {
+  display: flex;
+  justify-content: center;
+  margin: 0.6rem 0;
+
+  &__text {
+    max-width: 32rem;
+    padding: 0.25rem 0.75rem;
+    border-radius: 999px;
+    background-color: var(--c-surface-2);
+    color: var(--c-muted);
+    font-size: 0.75rem;
+    text-align: center;
+
+    b {
+      color: var(--c-fg);
+      font-weight: 600;
+    }
+  }
+}

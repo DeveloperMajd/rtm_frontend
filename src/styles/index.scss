@@ -1,0 +1,20 @@
+// Hand-authored styles. `tailwind.css` (Tailwind layer + design tokens) is
+// imported separately in `main.tsx` because Sass cannot resolve
+// `@import "tailwindcss"`. Everything here is plain Sass referencing the
+// runtime CSS custom properties those tokens define.
+
+@use 'base';
+
+@use 'components/button';
+@use 'components/input';
+@use 'components/card';
+@use 'components/modal';
+@use 'components/badge';
+@use 'components/avatar';
+@use 'components/skeleton';
+@use 'components/tabs';
+@use 'components/auth';
+@use 'components/conversation';
+@use 'components/message';
+@use 'components/system-message';
+@use 'components/profile';
