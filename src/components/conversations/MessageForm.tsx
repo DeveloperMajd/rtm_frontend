@@ -172,52 +172,40 @@ const MessageForm = ({ conversationId, replyingTo, onCancelReply }: MessageFormP
 
   return (
     <form
-      className='message-form flex flex-col gap-1 my-4'
+      className='composer-form'
       onSubmit={(e) => {
         e.preventDefault()
         submit()
       }}
     >
       {replyingTo && (
-        <div className='reply-chip flex items-center justify-between border-l-2 border-blue-400 bg-blue-50 rounded px-2 py-1 text-xs text-gray-600'>
+        <div className='composer__reply-chip'>
           <span className='truncate'>
             Replying to <strong>{replyingTo.sender?.name ?? 'Unknown'}</strong>: {replyingTo.body}
           </span>
-          <button
-            type='button'
-            onClick={onCancelReply}
-            className='text-gray-400 hover:text-gray-600 ml-2'
-          >
+          <button type='button' onClick={onCancelReply} aria-label='Cancel reply'>
             &times;
           </button>
         </div>
       )}
 
       {uploads.length > 0 && (
-        <div className='attachment-previews flex flex-wrap gap-2 mb-1'>
+        <div className='composer__uploads'>
           {uploads.map((upload) => (
-            <div
-              key={upload.id}
-              className='attachment-preview relative flex items-center gap-2 rounded border border-gray-300 bg-gray-50 px-2 py-1 text-xs'
-            >
+            <div key={upload.id} className='upload-chip'>
               {upload.previewUrl ? (
-                <img
-                  src={upload.previewUrl}
-                  alt={upload.name}
-                  className='h-8 w-8 rounded object-cover'
-                />
+                <img src={upload.previewUrl} alt={upload.name} />
               ) : (
-                <span aria-hidden>📄</span>
+                <span aria-hidden='true'>📄</span>
               )}
-              <span className='max-w-30 truncate text-gray-600'>{upload.name}</span>
-              {upload.status === 'uploading' && (
-                <span className='text-gray-400'>{upload.progress}%</span>
+              <span className='truncate'>{upload.name}</span>
+              {upload.status === 'uploading' && <span className='muted'>{upload.progress}%</span>}
+              {upload.status === 'error' && (
+                <span style={{ color: 'var(--c-danger)' }}>failed</span>
               )}
-              {upload.status === 'error' && <span className='text-red-500'>failed</span>}
               <button
                 type='button'
                 onClick={() => removeUpload(upload.id)}
-                className='text-gray-400 hover:text-gray-600'
                 aria-label={`Remove ${upload.name}`}
               >
                 &times;
@@ -227,27 +215,30 @@ const MessageForm = ({ conversationId, replyingTo, onCancelReply }: MessageFormP
         </div>
       )}
 
-      <div className='flex justify-between items-center gap-2'>
+      <div className='composer'>
         <input
           ref={fileInputRef}
           type='file'
           multiple
           accept={ACCEPTED_TYPES.join(',')}
-          className='hidden'
+          hidden
           onChange={(e) => handleFilesSelected(e.target.files)}
         />
         <button
           type='button'
+          className='btn ghost icon'
           onClick={() => fileInputRef.current?.click()}
-          className='attach-button text-xl text-gray-500 hover:text-gray-700'
           aria-label='Attach files'
         >
-          📎
+          <span aria-hidden='true'>📎</span>
         </button>
+        <label htmlFor='message-input' className='sr-only'>
+          Message
+        </label>
         <textarea
           id='message-input'
-          placeholder='Type your message...'
-          className='message-input w-100'
+          placeholder='Type a message…'
+          className='textarea composer__text'
           rows={1}
           value={body}
           onChange={handleChange}
@@ -255,10 +246,11 @@ const MessageForm = ({ conversationId, replyingTo, onCancelReply }: MessageFormP
         />
         <button
           type='submit'
-          className='send-button'
+          className='btn primary icon'
           disabled={!canSend}
+          aria-label={isPending ? 'Sending' : uploading ? 'Uploading' : 'Send message'}
         >
-          {isPending ? 'Sending...' : uploading ? 'Uploading...' : 'Send'}
+          <span aria-hidden='true'>{isPending || uploading ? '…' : '➤'}</span>
         </button>
       </div>
     </form>

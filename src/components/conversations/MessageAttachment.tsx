@@ -6,45 +6,39 @@ const formatBytes = (bytes: number): string => {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
 }
 
-type MessageAttachmentProps = {
-  attachment: AttachmentType
-}
-
-const MessageAttachment = ({ attachment }: MessageAttachmentProps) => {
+const MessageAttachment = ({ attachment }: { attachment: AttachmentType }) => {
   if (attachment.is_image) {
     return (
       <a
         href={attachment.url}
         target='_blank'
         rel='noreferrer'
-        className='attachment-image block'
+        className='attachment'
         title={attachment.original_name}
       >
         <img
+          className='attachment__image'
           src={attachment.url}
           alt={attachment.original_name}
           width={attachment.width ?? undefined}
           height={attachment.height ?? undefined}
           loading='lazy'
-          className='max-h-60 max-w-60 rounded border border-gray-200 object-cover'
+          decoding='async'
         />
       </a>
     )
   }
 
   return (
-    <a
-      href={attachment.url}
-      target='_blank'
-      rel='noreferrer'
-      className='attachment-file flex items-center gap-2 rounded border border-gray-200 bg-gray-50 px-3 py-2 text-sm hover:bg-gray-100'
-    >
-      <span aria-hidden>📄</span>
-      <span className='flex flex-col overflow-hidden'>
-        <span className='font-medium text-gray-700 truncate max-w-45'>
+    <a href={attachment.url} target='_blank' rel='noreferrer' className='attachment__file'>
+      <span aria-hidden='true'>📄</span>
+      <span style={{ display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+        <span className='truncate' style={{ fontWeight: 600 }}>
           {attachment.original_name}
         </span>
-        <span className='text-xs text-gray-400'>{formatBytes(attachment.size_bytes)}</span>
+        <span className='muted' style={{ fontSize: '0.72rem' }}>
+          {formatBytes(attachment.size_bytes)}
+        </span>
       </span>
     </a>
   )

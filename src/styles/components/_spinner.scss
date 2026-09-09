@@ -1,0 +1,82 @@
+.spinner {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+
+  &--left {
+    justify-content: flex-start;
+  }
+  &--right {
+    justify-content: flex-end;
+  }
+  &--block {
+    display: flex;
+    width: 100%;
+    padding: 1.5rem 0;
+  }
+
+  &__ring {
+    --sp-size: 2.25rem;
+    --sp-weight: 3px;
+    --sp-color: var(--c-primary);
+
+    width: var(--sp-size);
+    height: var(--sp-size);
+    border-radius: 999px;
+    border: var(--sp-weight) solid color-mix(in oklab, var(--sp-color) 22%, transparent);
+    border-top-color: var(--sp-color);
+    animation: spinner-rotate 0.7s linear infinite;
+  }
+}
+
+@keyframes spinner-rotate {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+// Three-dot typing pulse (used in the typing indicator).
+.typing-dots {
+  display: inline-flex;
+  gap: 3px;
+  align-items: center;
+
+  span {
+    width: 5px;
+    height: 5px;
+    border-radius: 999px;
+    background-color: currentColor;
+    opacity: 0.4;
+    animation: typing-bounce 1.2s ease-in-out infinite;
+
+    &:nth-child(2) {
+      animation-delay: 0.15s;
+    }
+    &:nth-child(3) {
+      animation-delay: 0.3s;
+    }
+  }
+}
+
+@keyframes typing-bounce {
+  0%,
+  60%,
+  100% {
+    transform: translateY(0);
+    opacity: 0.4;
+  }
+  30% {
+    transform: translateY(-3px);
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .spinner__ring {
+    animation-duration: 1.4s;
+  }
+  .typing-dots span {
+    animation: none;
+    opacity: 0.6;
+  }
+}

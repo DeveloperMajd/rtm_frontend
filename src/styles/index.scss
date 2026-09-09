@@ -6,6 +6,7 @@
 @use 'base';
 
 @use 'components/button';
+@use 'components/spinner';
 @use 'components/input';
 @use 'components/card';
 @use 'components/modal';
@@ -13,6 +14,7 @@
 @use 'components/avatar';
 @use 'components/skeleton';
 @use 'components/tabs';
+@use 'components/search';
 @use 'components/auth';
 @use 'components/conversation';
 @use 'components/message';

@@ -1,11 +1,14 @@
 import { useState } from 'react'
-import { Outlet, useNavigate } from 'react-router-dom'
+import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { Toaster } from 'react-hot-toast'
 import Conversations from '../components/conversations/Conversations'
 import Contacts from '../components/conversations/Contacts'
 import GroupModal from '../components/conversations/GroupModal'
 import MessageSearch from '../components/conversations/MessageSearch'
 import Button from '../components/ui/Button'
+import Avatar from '../components/ui/Avatar'
+import BrandMark from '../components/ui/BrandMark'
+import ThemeToggle from '../components/ui/ThemeToggle'
 import useConversations from '../hooks/useConversations'
 import useAuth from '../hooks/useAuth'
 import usePresenceHeartbeat from '../hooks/usePresenceHeartbeat'
@@ -18,7 +21,11 @@ function ConversationsLayout() {
   const { conversations, isLoading, error } = useConversations()
   const { logout, user } = useAuth()
   const navigate = useNavigate()
+  const location = useLocation()
   usePresenceHeartbeat(true)
+
+  // On mobile: show the list, or the open room — never both.
+  const roomOpen = /^\/conversations\/[^/]+/.test(location.pathname)
 
   const handleLogout = async () => {
     await logout()
@@ -26,60 +33,81 @@ function ConversationsLayout() {
   }
 
   return (
-    <section className='app-container flex flex-col md:flex-row h-screen gap-12'>
-      <Toaster position='top-right' />
-      <div className='flex flex-col h-full'>
-        <div className='flex items-center justify-between px-4 py-3 border-b border-gray-200'>
-          <span className='text-sm font-medium text-gray-700 truncate'>{user?.name}</span>
-          <Button variant='secondary' label='Logout' onClick={() => void handleLogout()} />
-        </div>
+    <div className='app-shell' data-view={roomOpen ? 'room' : 'list'}>
+      <Toaster position='top-right' toastOptions={{ className: 'rtm-toast' }} />
+
+      <aside className='sidebar'>
+        <header className='sidebar__header'>
+          <BrandMark size={26} />
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+            <ThemeToggle compact />
+            <Link to='/profile' aria-label='Your profile'>
+              <Avatar name={user?.name ?? '?'} src={user?.avatar_url} size='sm' />
+            </Link>
+            <Button variant='ghost' icon aria-label='Log out' onClick={() => void handleLogout()}>
+              <span aria-hidden='true'>⏻</span>
+            </Button>
+          </div>
+        </header>
 
         <MessageSearch />
 
-        <div className='flex items-center gap-1 px-4 pt-3'>
+        <div className='tabs' role='tablist' aria-label='Conversations and contacts'>
           <button
             type='button'
+            role='tab'
+            id='tab-chats'
+            aria-selected={activeTab === 'chats'}
+            aria-controls='panel-chats'
+            className='tabs__tab'
             onClick={() => setActiveTab('chats')}
-            className={`flex-1 text-sm font-medium py-2 rounded cursor-pointer ${
-              activeTab === 'chats' ? 'bg-gray-100 text-gray-900' : 'text-gray-500 hover:bg-gray-50'
-            }`}
           >
             Chats
           </button>
           <button
             type='button'
+            role='tab'
+            id='tab-contacts'
+            aria-selected={activeTab === 'contacts'}
+            aria-controls='panel-contacts'
+            className='tabs__tab'
             onClick={() => setActiveTab('contacts')}
-            className={`flex-1 text-sm font-medium py-2 rounded cursor-pointer ${
-              activeTab === 'contacts' ? 'bg-gray-100 text-gray-900' : 'text-gray-500 hover:bg-gray-50'
-            }`}
           >
             Contacts
           </button>
         </div>
 
-        {activeTab === 'chats' ? (
-          <Conversations
-            conversations={conversations}
-            isLoading={isLoading}
-            error={error}
-          />
-        ) : (
-          <Contacts onConversationOpened={() => setActiveTab('chats')} />
-        )}
+        <div
+          className='sidebar__list scroll-y'
+          role='tabpanel'
+          id={activeTab === 'chats' ? 'panel-chats' : 'panel-contacts'}
+          aria-labelledby={activeTab === 'chats' ? 'tab-chats' : 'tab-contacts'}
+        >
+          {activeTab === 'chats' ? (
+            <Conversations conversations={conversations} isLoading={isLoading} error={error} />
+          ) : (
+            <Contacts onConversationOpened={() => setActiveTab('chats')} />
+          )}
+        </div>
 
-        <Button
-          variant='primary'
-          label='New Group'
-          onClick={() => setIsGroupModalOpen(true)}
-        />
-      </div>
+        <footer className='sidebar__footer'>
+          <Button variant='primary' block onClick={() => setIsGroupModalOpen(true)}>
+            + New group
+          </Button>
+        </footer>
+      </aside>
 
       <Outlet />
 
-      {isGroupModalOpen && (
-        <GroupModal onClose={() => setIsGroupModalOpen(false)} />
+      {!roomOpen && (
+        <div className='room room--empty'>
+          <BrandMark size={44} withWordmark={false} />
+          <p>Select a conversation to start chatting</p>
+        </div>
       )}
-    </section>
+
+      <GroupModal open={isGroupModalOpen} onClose={() => setIsGroupModalOpen(false)} />
+    </div>
   )
 }
 

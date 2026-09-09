@@ -5,6 +5,7 @@ import type { AxiosError } from 'axios'
 import useAuth from '../hooks/useAuth'
 import Button from '../components/ui/Button'
 import Spinner from '../components/ui/Spinner'
+import BrandMark from '../components/ui/BrandMark'
 import { oauthRedirectUrl } from '../services/api/auth'
 
 type LoginVars = { email: string; password: string }
@@ -24,20 +25,11 @@ const LoginPage = () => {
   })
 
   if (isLoading) {
-    return (
-      <div className='min-h-screen flex items-center justify-center'>
-        <Spinner />
-      </div>
-    )
+    return <Spinner block />
   }
 
   if (isAuthenticated) {
-    return (
-      <Navigate
-        to='/conversations'
-        replace
-      />
-    )
+    return <Navigate to='/conversations' replace />
   }
 
   const apiError = error?.response?.data?.message
@@ -48,95 +40,73 @@ const LoginPage = () => {
   const displayedError = apiError ?? oauthError
 
   return (
-    <main className='min-h-screen flex items-center justify-center bg-gray-50'>
-      <div className='w-full max-w-sm bg-white rounded-lg shadow-md p-8 flex flex-col gap-6'>
-        <h1 className='text-2xl font-semibold text-center'>Sign in to RTM</h1>
+    <main className='auth'>
+      <div className='auth__card'>
+        <BrandMark />
+        <h1 className='auth__title'>Welcome back</h1>
+        <p className='auth__subtitle'>Sign in to continue to RTM</p>
 
         <form
-          className='flex flex-col gap-4'
+          className='auth__form'
           onSubmit={(e) => {
             e.preventDefault()
             mutate({ email, password })
           }}
         >
           {displayedError && (
-            <p className='text-sm text-red-600 bg-red-50 border border-red-200 rounded px-3 py-2'>
+            <p className='auth__error' role='alert'>
               {displayedError}
             </p>
           )}
 
-          <div className='flex flex-col gap-1'>
-            <label
-              htmlFor='email'
-              className='text-sm font-medium text-gray-700'
-            >
+          <div className='field'>
+            <label className='field__label' htmlFor='email'>
               Email
             </label>
             <input
               id='email'
+              className='input'
               type='email'
               autoComplete='email'
               required
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              className='border border-gray-300 rounded px-3 py-2 focus:outline-none focus:ring-1 focus:ring-blue-500'
             />
           </div>
 
-          <div className='flex flex-col gap-1'>
-            <label
-              htmlFor='password'
-              className='text-sm font-medium text-gray-700'
-            >
+          <div className='field'>
+            <label className='field__label' htmlFor='password'>
               Password
             </label>
             <input
               id='password'
+              className='input'
               type='password'
               autoComplete='current-password'
               required
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              className='border border-gray-300 rounded px-3 py-2 focus:outline-none focus:ring-1 focus:ring-blue-500'
             />
           </div>
 
-          <Button
-            type='submit'
-            label={isPending ? 'Signing in…' : 'Sign in'}
-            disabled={isPending}
-          />
+          <Button type='submit' block loading={isPending}>
+            {isPending ? 'Signing in…' : 'Sign in'}
+          </Button>
         </form>
 
-        <div className='flex items-center gap-3 text-xs text-gray-400'>
-          <span className='flex-1 border-t border-gray-200' />
-          or
-          <span className='flex-1 border-t border-gray-200' />
-        </div>
+        <div className='auth__divider'>or</div>
 
-        <div className='flex flex-col gap-2'>
-          <a
-            href={oauthRedirectUrl('google')}
-            className='text-center border border-gray-300 rounded px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50'
-          >
+        <div className='auth__oauth'>
+          <a href={oauthRedirectUrl('google')} className='btn secondary block'>
             Continue with Google
           </a>
-          <a
-            href={oauthRedirectUrl('facebook')}
-            className='text-center border border-gray-300 rounded px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50'
-          >
+          <a href={oauthRedirectUrl('facebook')} className='btn secondary block'>
             Continue with Facebook
           </a>
         </div>
 
-        <p className='text-sm text-center text-gray-500'>
-          No account?{' '}
-          <Link
-            to='/register'
-            className='text-blue-600 hover:underline'
-          >
-            Create one
-          </Link>
+        <p className='auth__alt'>
+          No account? <Link to='/register'>Create one</Link>
         </p>
       </div>
     </main>

@@ -10,22 +10,35 @@ const OnlineStatus = ({ isOnline, lastSeenAt, showLabel = false }: OnlineStatusP
   const dot = (
     <span
       aria-hidden='true'
-      className={`inline-block w-2 h-2 rounded-full shrink-0 ${isOnline ? 'bg-green-500' : 'bg-gray-300'}`}
+      style={{
+        display: 'inline-block',
+        width: '0.5rem',
+        height: '0.5rem',
+        borderRadius: '999px',
+        flex: '0 0 auto',
+        backgroundColor: isOnline ? 'var(--c-online)' : 'var(--c-muted)',
+      }}
     />
   )
 
-  if (!showLabel) {
-    return dot
-  }
+  if (!showLabel) return dot
 
   const label = isOnline
     ? 'Online'
     : lastSeenAt
-      ? `Last seen ${formatDistanceToNow(new Date(lastSeenAt), { includeSeconds: true })} ago`
+      ? `Last seen ${formatDistanceToNow(new Date(lastSeenAt), { addSuffix: true })}`
       : 'Offline'
 
   return (
-    <span className='inline-flex items-center gap-1.5 text-xs text-gray-500'>
+    <span
+      style={{
+        display: 'inline-flex',
+        alignItems: 'center',
+        gap: '0.35rem',
+        fontSize: '0.75rem',
+        color: 'var(--c-muted)',
+      }}
+    >
       {dot}
       {label}
     </span>

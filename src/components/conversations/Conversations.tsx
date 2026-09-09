@@ -1,7 +1,13 @@
 import { NavLink } from 'react-router-dom'
-import type { ConversationType } from '../../utils/baseTypes'
-import Spinner from '../ui/Spinner'
 import { formatDistanceToNow } from 'date-fns'
+import type { ConversationType } from '../../utils/baseTypes'
+import Avatar from '../ui/Avatar'
+import { ConversationListSkeleton } from '../ui/Skeleton'
+
+const titleFor = (c: ConversationType) =>
+  c.type === 'group'
+    ? c.title || 'Untitled group'
+    : c.other_participant?.name || 'Direct conversation'
 
 const Conversations = ({
   conversations,
@@ -12,74 +18,73 @@ const Conversations = ({
   isLoading: boolean
   error: Error | null
 }) => {
+  if (isLoading && conversations.length === 0) {
+    return <ConversationListSkeleton />
+  }
+
+  if (error) {
+    return <p className='empty-state'>Couldn&rsquo;t load conversations: {error.message}</p>
+  }
+
+  if (conversations.length === 0) {
+    return <p className='empty-state'>No conversations yet.</p>
+  }
+
   return (
-    <div className='conversations-container w-full p-4 border-r border-gray-300 overflow-y-auto'>
-      {isLoading && (
-        <div className='flex p-2'>
-          <Spinner
-            position='left'
-            size={40}
-            color='#6E026F'
-          />
-        </div>
-      )}
-      {error && <p className='error-msg'>Error: {error.message}</p>}
-      <ul className='flex justify-center flex-col'>
-        {!isLoading && !error && conversations.length === 0 && (
-          <li className='text-sm text-gray-500'>No conversations found.</li>
-        )}
-        {conversations.map((conversation) => (
-          <li key={conversation.id}>
+    <ul>
+      {conversations.map((c) => {
+        const title = titleFor(c)
+        const when = c.last_message_at || c.updated_at
+        const left = Boolean(c.viewer_left_at)
+
+        return (
+          <li key={c.id}>
             <NavLink
-              to={`/conversations/${conversation.id}`}
+              to={`/conversations/${c.id}`}
               className={({ isActive }) =>
-                `conversation-item block border border-gray-300 rounded p-2 mb-2 cursor-pointer hover:bg-gray-100${isActive ? ' bg-gray-100' : ''}`
+                `conversation-item${isActive ? ' is-active' : ''}${left ? ' is-left' : ''}`
               }
             >
-              <div className='flex items-center justify-between'>
-                <span>
-                  {conversation.type === 'group'
-                    ? conversation.title || ''
-                    : conversation.other_participant?.name || 'Direct Conversation'}
-                </span>
-                <span>
-                  {(conversation.last_message_at || conversation.updated_at) && (
-                    <time
-                      data-datetime={
-                        conversation.last_message_at || conversation.updated_at
-                      }
-                      className='text-sm text-gray-500 ml-2'
-                    >
-                      {formatDistanceToNow(
-                        new Date(
-                          conversation.last_message_at || conversation.updated_at,
-                        ),
-                        { includeSeconds: true },
-                      ) + ' ago'}
+              <Avatar
+                name={title}
+                src={c.type === 'direct' ? c.other_participant?.avatar_url : null}
+                kind={c.type === 'group' ? 'group' : 'user'}
+                size='md'
+                online={c.type === 'direct' ? c.other_participant?.is_online : undefined}
+              />
+              <div className='conversation-item__body'>
+                <div className='conversation-item__top'>
+                  <span className='conversation-item__title'>{title}</span>
+                  {when && (
+                    <time className='conversation-item__time' dateTime={when}>
+                      {formatDistanceToNow(new Date(when), { addSuffix: true })}
                     </time>
                   )}
-                </span>
-              </div>
-
-              <div className='flex items-center justify-between mt-1'>
-                {conversation.latest_message && (
-                  <p className='text-sm text-gray-600 truncate'>
-                    {conversation.latest_message.body.length > 20
-                      ? conversation.latest_message.body.substring(0, 20) + '...'
-                      : conversation.latest_message.body}
-                  </p>
-                )}
-                {!!conversation.unread_count && (
-                  <span className='shrink-0 ml-2 min-w-5 h-5 px-1.5 flex items-center justify-center rounded-full bg-blue-500 text-white text-xs font-medium'>
-                    {conversation.unread_count}
+                </div>
+                <div className='conversation-item__top'>
+                  <span className='conversation-item__preview'>
+                    {left
+                      ? 'You left this group'
+                      : c.latest_message
+                        ? `${c.latest_message.sender_name ? c.latest_message.sender_name + ': ' : ''}${c.latest_message.body}`
+                        : 'No messages yet'}
                   </span>
-                )}
+                  {!left && !!c.unread_count && (
+                    <span
+                      className='unread-pill'
+                      aria-label={`${c.unread_count} unread messages`}
+                    >
+                      {c.unread_count}
+                    </span>
+                  )}
+                  {left && <span className='badge badge--left'>Left</span>}
+                </div>
               </div>
             </NavLink>
           </li>
-        ))}
-      </ul>
-    </div>
+        )
+      })}
+    </ul>
   )
 }
 

@@ -29,40 +29,37 @@ const MessageSearch = () => {
   }
 
   return (
-    <div className='relative px-4 pt-3'>
+    <div className='sidebar-search'>
       <input
         type='search'
+        className='input'
         value={query}
         onChange={(e) => setQuery(e.target.value)}
-        placeholder='Search messages...'
-        className='w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500'
+        placeholder='Search messages…'
+        aria-label='Search messages'
       />
 
       {showResults && (
-        <div className='absolute left-4 right-4 mt-1 bg-white border border-gray-300 rounded shadow-lg max-h-72 overflow-y-auto z-10'>
+        <div className='search-results'>
           {isFetching ? (
-            <p className='text-sm text-gray-400 px-3 py-2'>Searching…</p>
+            <p className='search-results__note'>Searching…</p>
           ) : results.length === 0 ? (
-            <p className='text-sm text-gray-400 px-3 py-2'>No messages found.</p>
+            <p className='search-results__note'>No messages found.</p>
           ) : (
-            <ul className='divide-y divide-gray-100'>
+            <ul>
               {results.map((result) => (
                 <li key={result.id}>
-                  <button
-                    type='button'
-                    onClick={() => handleSelect(result.conversation_id)}
-                    className='w-full text-left px-3 py-2 hover:bg-gray-50 cursor-pointer'
-                  >
-                    <div className='flex items-center justify-between'>
-                      <span className='text-sm font-medium text-gray-800'>
+                  <button type='button' onClick={() => handleSelect(result.conversation_id)}>
+                    <div className='search-results__top'>
+                      <span className='search-results__title'>
                         {result.conversation_title || 'Conversation'}
                       </span>
-                      <time className='text-xs text-gray-400 ml-2 shrink-0'>
-                        {formatDistanceToNow(new Date(result.created_at), { includeSeconds: true }) + ' ago'}
+                      <time>
+                        {formatDistanceToNow(new Date(result.created_at), { addSuffix: true })}
                       </time>
                     </div>
-                    <p className='text-sm text-gray-600 truncate'>
-                      <span className='font-medium'>{result.sender.name}: </span>
+                    <p className='search-results__snippet truncate'>
+                      <strong>{result.sender.name}: </strong>
                       {result.body}
                     </p>
                   </button>

@@ -27,34 +27,39 @@ const MessageReactions = ({ messageId, reactions }: MessageReactionsProps) => {
     grouped[reaction.reaction].push(reaction)
   }
 
+  const hasReactions = Object.keys(grouped).length > 0
+
   return (
-    <div className='reactions flex items-center gap-1 mt-1'>
+    <div className={`reactions${hasReactions ? '' : ' reactions--empty'}`}>
       {Object.entries(grouped).map(([reaction, group]) => {
         const reactedByMe = group.some((r) => r.user.id === user?.id)
         return (
           <button
             key={reaction}
             type='button'
+            className={`reactions__pill${reactedByMe ? ' is-mine' : ''}`}
             onClick={() => toggleReaction({ reaction, reacted: reactedByMe })}
-            className={`reaction-pill text-xs rounded-full border px-2 py-0.5 ${
-              reactedByMe ? 'bg-blue-100 border-blue-400' : 'bg-gray-50 border-gray-300'
-            }`}
           >
             {reaction} {group.length}
           </button>
         )
       })}
 
-      <div className='relative'>
+      <div className='reactions__picker-wrap'>
         <button
           type='button'
+          className='reactions__add'
           onClick={() => setPickerOpen((open) => !open)}
-          className='add-reaction opacity-0 group-hover:opacity-100 text-xs text-gray-400 hover:text-gray-600 px-1'
+          aria-label='Add reaction'
+          aria-expanded={pickerOpen}
         >
           + 🙂
         </button>
         {pickerOpen && (
-          <div className='absolute bottom-full mb-1 left-0 flex gap-1 bg-white border border-gray-300 rounded shadow p-1 z-10'>
+          <div
+            className='reactions__picker'
+            onKeyDown={(e) => e.key === 'Escape' && setPickerOpen(false)}
+          >
             {QUICK_REACTIONS.map((emoji) => (
               <button
                 key={emoji}
@@ -64,7 +69,6 @@ const MessageReactions = ({ messageId, reactions }: MessageReactionsProps) => {
                   toggleReaction({ reaction: emoji, reacted: reactedByMe })
                   setPickerOpen(false)
                 }}
-                className='hover:bg-gray-100 rounded px-1'
               >
                 {emoji}
               </button>

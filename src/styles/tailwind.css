@@ -18,10 +18,10 @@
 :root {
   color-scheme: light;
 
-  --c-bg: #f5f6f8;
+  --c-bg: #eaecf0;
   --c-surface: #ffffff;
-  --c-surface-2: #eef0f3;
-  --c-line: #e2e5ea;
+  --c-surface-2: #f0f2f5;
+  --c-line: #dfe2e8;
   --c-fg: #16191d;
   --c-muted: #667085;
   --c-primary: #4f46e5;

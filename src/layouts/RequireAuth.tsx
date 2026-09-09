@@ -6,11 +6,7 @@ const RequireAuth = () => {
   const { isAuthenticated, isLoading } = useAuth()
 
   if (isLoading) {
-    return (
-      <div className='min-h-screen flex items-center justify-center'>
-        <Spinner />
-      </div>
-    )
+    return <Spinner block />
   }
 
   return isAuthenticated ? <Outlet /> : <Navigate to='/login' replace />

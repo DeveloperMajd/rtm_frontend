@@ -23,6 +23,11 @@
     object-fit: cover;
   }
 
+  &--group {
+    background: var(--c-surface-2);
+    color: var(--c-muted);
+  }
+
   &--xs {
     --size: 1.5rem;
   }
