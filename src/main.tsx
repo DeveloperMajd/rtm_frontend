@@ -14,6 +14,8 @@ import Spinner from './components/ui/Spinner.tsx'
 
 const LoginPage = lazy(() => import('./pages/LoginPage.tsx'))
 const RegisterPage = lazy(() => import('./pages/RegisterPage.tsx'))
+const ForgotPasswordPage = lazy(() => import('./pages/ForgotPasswordPage.tsx'))
+const ResetPasswordPage = lazy(() => import('./pages/ResetPasswordPage.tsx'))
 const ProfilePage = lazy(() => import('./pages/ProfilePage.tsx'))
 const NotFoundPage = lazy(() => import('./pages/NotFoundPage.tsx'))
 
@@ -36,6 +38,8 @@ const router = createBrowserRouter([
   { path: '/', element: <Navigate to='/conversations' replace /> },
   { path: '/login', element: withSuspense(<LoginPage />) },
   { path: '/register', element: withSuspense(<RegisterPage />) },
+  { path: '/forgot-password', element: withSuspense(<ForgotPasswordPage />) },
+  { path: '/reset-password', element: withSuspense(<ResetPasswordPage />) },
   {
     element: <RequireAuth />,
     children: [

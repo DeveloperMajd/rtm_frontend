@@ -36,4 +36,19 @@ const me = async (): Promise<UserType> => {
 const oauthRedirectUrl = (provider: 'google' | 'facebook'): string =>
   `${import.meta.env.VITE_API_BASE_URL}/auth/${provider}/redirect`
 
-export { login, logout, register, me, oauthRedirectUrl }
+/** Always resolves — the backend replies the same way whether or not the
+ * email is registered, so no account-enumeration signal leaks here either. */
+const forgotPassword = async (email: string): Promise<void> => {
+  await api.post('/auth/forgot-password', { email })
+}
+
+const resetPassword = async (payload: {
+  token: string
+  email: string
+  password: string
+  password_confirmation: string
+}): Promise<void> => {
+  await api.post('/auth/reset-password', payload)
+}
+
+export { login, logout, register, me, oauthRedirectUrl, forgotPassword, resetPassword }

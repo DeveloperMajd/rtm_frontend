@@ -32,3 +32,11 @@ export const deleteAvatar = async (): Promise<UserType> => {
   const { data } = await api.delete<{ data: UserType }>('/profile/avatar')
   return data.data
 }
+
+export const changePassword = async (payload: {
+  current_password: string
+  password: string
+  password_confirmation: string
+}): Promise<void> => {
+  await api.patch('/profile/password', payload)
+}

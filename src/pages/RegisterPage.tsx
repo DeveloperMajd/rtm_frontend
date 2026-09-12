@@ -6,6 +6,8 @@ import useAuth from '../hooks/useAuth'
 import Button from '../components/ui/Button'
 import Spinner from '../components/ui/Spinner'
 import BrandMark from '../components/ui/BrandMark'
+import PasswordField from '../components/ui/PasswordField'
+import { isPasswordStrong } from '../utils/passwordRules'
 import { oauthRedirectUrl } from '../services/api/auth'
 
 type RegisterVars = {
@@ -40,8 +42,8 @@ const RegisterPage = () => {
   }
 
   const apiError = error?.response?.data?.message
-  const mismatch =
-    passwordConfirmation.length > 0 && password !== passwordConfirmation
+  const mismatch = passwordConfirmation.length > 0 && password !== passwordConfirmation
+  const canSubmit = isPasswordStrong(password) && password === passwordConfirmation
 
   return (
     <main className='auth'>
@@ -54,7 +56,7 @@ const RegisterPage = () => {
           className='auth__form'
           onSubmit={(e) => {
             e.preventDefault()
-            if (mismatch) return
+            if (!canSubmit) return
             mutate({ name, email, password, password_confirmation: passwordConfirmation })
           }}
         >
@@ -94,20 +96,7 @@ const RegisterPage = () => {
             />
           </div>
 
-          <div className='field'>
-            <label className='field__label' htmlFor='password'>
-              Password
-            </label>
-            <input
-              id='password'
-              className='input'
-              type='password'
-              autoComplete='new-password'
-              required
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-            />
-          </div>
+          <PasswordField id='password' label='Password' value={password} onChange={setPassword} />
 
           <div className='field'>
             <label className='field__label' htmlFor='password_confirmation'>
@@ -126,7 +115,7 @@ const RegisterPage = () => {
             {mismatch && <span className='field__error'>Passwords don&rsquo;t match.</span>}
           </div>
 
-          <Button type='submit' block loading={isPending} disabled={mismatch}>
+          <Button type='submit' block loading={isPending} disabled={!canSubmit}>
             {isPending ? 'Creating account…' : 'Create account'}
           </Button>
         </form>

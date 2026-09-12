@@ -2,13 +2,16 @@ import { useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useMutation } from '@tanstack/react-query'
 import toast from 'react-hot-toast'
+import type { AxiosError } from 'axios'
 import useAuth from '../hooks/useAuth'
 import type { UserType } from '../utils/baseTypes'
 import Avatar from '../components/ui/Avatar'
 import Button from '../components/ui/Button'
 import Spinner from '../components/ui/Spinner'
 import ThemeToggle from '../components/ui/ThemeToggle'
-import { updateProfile, uploadAvatar, deleteAvatar } from '../services/api/profile'
+import PasswordField from '../components/ui/PasswordField'
+import { isPasswordStrong } from '../utils/passwordRules'
+import { changePassword, updateProfile, uploadAvatar, deleteAvatar } from '../services/api/profile'
 
 const BIO_MAX = 500
 const AVATAR_TYPES = ['image/jpeg', 'image/png', 'image/webp']
@@ -84,6 +87,88 @@ const ProfileDetailsForm = ({
       <div>
         <Button type='submit' loading={save.isPending} disabled={!dirty || !nameValid}>
           Save changes
+        </Button>
+      </div>
+    </form>
+  )
+}
+
+type FieldErrors = { errors?: Record<string, string[]> }
+
+/** Change-password form. Self-contained: clears its own fields on success. */
+const ChangePasswordForm = () => {
+  const [currentPassword, setCurrentPassword] = useState('')
+  const [password, setPassword] = useState('')
+  const [passwordConfirmation, setPasswordConfirmation] = useState('')
+
+  const change = useMutation<void, AxiosError<FieldErrors>, void>({
+    mutationFn: () =>
+      changePassword({
+        current_password: currentPassword,
+        password,
+        password_confirmation: passwordConfirmation,
+      }),
+    onSuccess: () => {
+      toast.success('Password changed')
+      setCurrentPassword('')
+      setPassword('')
+      setPasswordConfirmation('')
+    },
+    onError: (err) => {
+      const message = err.response?.data?.errors?.current_password?.[0]
+      toast.error(message ?? 'Could not change password')
+    },
+  })
+
+  const mismatch = passwordConfirmation.length > 0 && password !== passwordConfirmation
+  const canSubmit =
+    currentPassword.length > 0 && isPasswordStrong(password) && password === passwordConfirmation
+
+  return (
+    <form
+      className='profile__form'
+      onSubmit={(e) => {
+        e.preventDefault()
+        if (canSubmit) change.mutate()
+      }}
+    >
+      <div className='field'>
+        <label className='field__label' htmlFor='current-password'>
+          Current password
+        </label>
+        <input
+          id='current-password'
+          className='input'
+          type='password'
+          autoComplete='current-password'
+          required
+          value={currentPassword}
+          onChange={(e) => setCurrentPassword(e.target.value)}
+        />
+      </div>
+
+      <PasswordField id='new-password' label='New password' value={password} onChange={setPassword} />
+
+      <div className='field'>
+        <label className='field__label' htmlFor='new-password-confirmation'>
+          Confirm new password
+        </label>
+        <input
+          id='new-password-confirmation'
+          className='input'
+          type='password'
+          autoComplete='new-password'
+          required
+          aria-invalid={mismatch || undefined}
+          value={passwordConfirmation}
+          onChange={(e) => setPasswordConfirmation(e.target.value)}
+        />
+        {mismatch && <span className='field__error'>Passwords don&rsquo;t match.</span>}
+      </div>
+
+      <div>
+        <Button type='submit' loading={change.isPending} disabled={!canSubmit}>
+          Change password
         </Button>
       </div>
     </form>
@@ -175,6 +260,11 @@ const ProfilePage = () => {
           user={user}
           onSaved={refreshUser}
         />
+
+        <section className='profile__section'>
+          <h2 className='profile__section-title'>Security</h2>
+          <ChangePasswordForm />
+        </section>
 
         <section className='profile__section'>
           <h2 className='profile__section-title'>Appearance</h2>

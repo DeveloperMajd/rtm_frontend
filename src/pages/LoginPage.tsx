@@ -75,9 +75,14 @@ const LoginPage = () => {
           </div>
 
           <div className='field'>
-            <label className='field__label' htmlFor='password'>
-              Password
-            </label>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
+              <label className='field__label' htmlFor='password'>
+                Password
+              </label>
+              <Link to='/forgot-password' style={{ fontSize: '0.78rem' }}>
+                Forgot password?
+              </Link>
+            </div>
             <input
               id='password'
               className='input'
