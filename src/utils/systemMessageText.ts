@@ -1,4 +1,4 @@
-import type { MessageType, SystemEventType } from './baseTypes'
+import type { SystemEventType } from './baseTypes'
 
 type Meta = {
   actor_id?: string
@@ -9,12 +9,20 @@ type Meta = {
   new_title?: string
 }
 
+/** The subset of a message needed to resolve its display text — satisfied by
+ * both a full `MessageType` and a conversation's leaner `latest_message`. */
+type SystemEventLike = {
+  body: string
+  event_type?: SystemEventType
+  metadata?: Record<string, unknown>
+}
+
 /**
  * Render a system (group event) message to display text. Centralised here so
  * copy for "X added Y", "You left", etc. lives in one place rather than being
  * baked into the backend. `viewerId` lets us say "You" instead of a name.
  */
-export function systemMessageText(message: MessageType, viewerId?: string): string {
+export function systemMessageText(message: SystemEventLike, viewerId?: string): string {
   const meta = (message.metadata ?? {}) as Meta
   const event = message.event_type as SystemEventType | undefined
 

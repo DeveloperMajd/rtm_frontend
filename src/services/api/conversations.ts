@@ -30,6 +30,17 @@ const createConversation = async (conversationData: {
   return response.data
 }
 
+const renameConversation = async (
+  conversationId: string,
+  title: string,
+): Promise<ConversationResponse> => {
+  const response = await api.patch<ConversationResponse>(
+    `/conversations/${conversationId}`,
+    { title },
+  )
+  return response.data
+}
+
 const postTyping = async (conversationId: string): Promise<void> => {
   await api.post(`/conversations/${conversationId}/typing`)
 }
@@ -46,12 +57,29 @@ const kickParticipant = async (conversationId: string, userId: string): Promise<
   await api.delete(`/conversations/${conversationId}/participants/${userId}/kick`)
 }
 
+/** Leave a group on your own. Throws (422) if you're the sole admin and
+ * other active members remain — promote someone first. */
+const leaveConversation = async (conversationId: string, userId: string): Promise<void> => {
+  await api.delete(`/conversations/${conversationId}/participants/${userId}`)
+}
+
+const updateParticipantRole = async (
+  conversationId: string,
+  userId: string,
+  role: 'admin' | 'participant',
+): Promise<void> => {
+  await api.patch(`/conversations/${conversationId}/participants/${userId}`, { role })
+}
+
 export {
   getAllConversations,
   getConversationById,
   createConversation,
+  renameConversation,
   postTyping,
   markConversationAsRead,
   addParticipant,
   kickParticipant,
+  leaveConversation,
+  updateParticipantRole,
 }

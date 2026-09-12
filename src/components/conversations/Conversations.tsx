@@ -3,11 +3,20 @@ import { formatDistanceToNow } from 'date-fns'
 import type { ConversationType } from '../../utils/baseTypes'
 import Avatar from '../ui/Avatar'
 import { ConversationListSkeleton } from '../ui/Skeleton'
+import { systemMessageText } from '../../utils/systemMessageText'
+import useAuth from '../../hooks/useAuth'
 
 const titleFor = (c: ConversationType) =>
   c.type === 'group'
     ? c.title || 'Untitled group'
     : c.other_participant?.name || 'Direct conversation'
+
+const previewFor = (c: ConversationType, viewerId?: string): string => {
+  if (!c.latest_message) return 'No messages yet'
+  if (c.latest_message.type === 'system') return systemMessageText(c.latest_message, viewerId)
+  const { sender_name, body } = c.latest_message
+  return `${sender_name ? sender_name + ': ' : ''}${body}`
+}
 
 const Conversations = ({
   conversations,
@@ -18,6 +27,8 @@ const Conversations = ({
   isLoading: boolean
   error: Error | null
 }) => {
+  const { user } = useAuth()
+
   if (isLoading && conversations.length === 0) {
     return <ConversationListSkeleton />
   }
@@ -62,13 +73,7 @@ const Conversations = ({
                   )}
                 </div>
                 <div className='conversation-item__top'>
-                  <span className='conversation-item__preview'>
-                    {left
-                      ? 'You left this group'
-                      : c.latest_message
-                        ? `${c.latest_message.sender_name ? c.latest_message.sender_name + ': ' : ''}${c.latest_message.body}`
-                        : 'No messages yet'}
-                  </span>
+                  <span className='conversation-item__preview'>{previewFor(c, user?.id)}</span>
                   {!left && !!c.unread_count && (
                     <span
                       className='unread-pill'

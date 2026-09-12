@@ -12,7 +12,7 @@ type MessagesResponse = {
 
 type ConversationsResponse = { data: ConversationType[] }
 
-const useMessages = (conversationId: string) => {
+const useMessages = (conversationId: string, readOnly = false) => {
   const queryClient = useQueryClient()
   const echo = useEcho()
 
@@ -28,6 +28,22 @@ const useMessages = (conversationId: string) => {
     })
 
   useEffect(() => {
+    // The final "you left"/"you were removed" system line is broadcast at
+    // the moment it happens, but it can arrive (via the queue) after this
+    // component has already flipped to read-only and torn down its Echo
+    // subscription — missing it live. Refetch once so the frozen history
+    // (which does include that line) replaces whatever was cached before.
+    if (readOnly) {
+      void queryClient.invalidateQueries({ queryKey: ['messages', conversationId] })
+    }
+  }, [readOnly, conversationId, queryClient])
+
+  useEffect(() => {
+    // A left/kicked member's history is frozen server-side and this channel
+    // rejects their subscription anyway — nothing here can do anything for
+    // them, so skip marking-as-read and the (doomed) Echo subscription.
+    if (readOnly) return
+
     const markRead = () => {
       markConversationAsRead(conversationId)
         .then(() => {
@@ -77,8 +93,11 @@ const useMessages = (conversationId: string) => {
                       ...c,
                       last_message_at: message.created_at,
                       latest_message: {
+                        type: message.type,
                         body: message.body,
                         sender_name: message.sender?.name ?? '',
+                        event_type: message.event_type,
+                        metadata: message.metadata,
                       },
                     }
                   : c,
@@ -148,7 +167,7 @@ const useMessages = (conversationId: string) => {
       channel.stopListening('MessageUpdated')
       echo.leave(`conversation.${conversationId}`)
     }
-  }, [conversationId, echo, queryClient])
+  }, [conversationId, echo, queryClient, readOnly])
 
   const messages: MessageType[] = data
     ? [...data.pages].reverse().flatMap((page) => page.data)

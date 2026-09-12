@@ -39,8 +39,11 @@ export type ConversationType = {
     last_seen_at?: string | null
   } | null
   latest_message?: {
+    type?: 'user' | 'system'
     body: string
     sender_name: string
+    event_type?: SystemEventType
+    metadata?: Record<string, unknown>
   }
   participants?: {
     user_id: string

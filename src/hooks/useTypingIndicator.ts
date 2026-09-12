@@ -2,13 +2,17 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import useEcho from './useEcho'
 import useAuth from './useAuth'
 
-const useTypingIndicator = (conversationId: string): string | null => {
+const useTypingIndicator = (conversationId: string, enabled = true): string | null => {
   const echo = useEcho()
   const { user: currentUser } = useAuth()
   const [typingUsers, setTypingUsers] = useState<Map<string, string>>(new Map())
   const timers = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map())
 
   useEffect(() => {
+    // A left/kicked member can no longer subscribe to this channel (rejected
+    // by routes/channels.php) — don't even try.
+    if (!enabled) return
+
     const channel = echo.private(`conversation.${conversationId}`)
 
     channel.listen(
@@ -39,7 +43,7 @@ const useTypingIndicator = (conversationId: string): string | null => {
       timers.current.forEach(clearTimeout)
       timers.current.clear()
     }
-  }, [conversationId, echo, currentUser?.id])
+  }, [conversationId, echo, currentUser?.id, enabled])
 
   return useMemo(() => {
     const names = Array.from(typingUsers.values())

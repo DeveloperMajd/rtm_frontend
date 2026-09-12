@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState, type ReactNode } from 'react'
+import { useQueryClient } from '@tanstack/react-query'
 import { AuthContext } from '../hooks/useAuth'
 import * as authApi from '../services/api/auth'
 import * as presenceApi from '../services/api/presence'
@@ -8,6 +9,7 @@ import type { UserType } from '../utils/baseTypes'
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [user, setUser] = useState<UserType | null>(null)
   const [isLoading, setIsLoading] = useState(true)
+  const queryClient = useQueryClient()
 
   useEffect(() => {
     // Prime the CSRF cookie once so the first mutating request has a token,
@@ -33,6 +35,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const login = async (email: string, password: string) => {
     await primeCsrf()
     const loggedInUser = await authApi.login(email, password)
+    // Query keys here (['conversations'], ['messages', id], ['contacts'], …)
+    // aren't scoped by user id, so anything cached under them belongs to
+    // whoever was signed in before — never this new session.
+    queryClient.clear()
     setUser(loggedInUser)
   }
 
@@ -47,12 +53,14 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }
 
     await authApi.logout()
+    queryClient.clear()
     setUser(null)
   }
 
   const register = async (name: string, email: string, password: string, password_confirmation: string) => {
     await primeCsrf()
     const registeredUser = await authApi.register(name, email, password, password_confirmation)
+    queryClient.clear()
     setUser(registeredUser)
   }
 

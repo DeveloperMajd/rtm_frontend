@@ -15,8 +15,6 @@ import type { MessageType } from '../../utils/baseTypes'
 const ConversationRoom = () => {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
-  const { messages, isLoading, isLoadingMore, hasMore, error, loadOlder } = useMessages(id!)
-  const typingText = useTypingIndicator(id!)
   const { conversations } = useConversations()
   const { user } = useAuth()
   const [isGroupSettingsOpen, setIsGroupSettingsOpen] = useState(false)
@@ -25,6 +23,9 @@ const ConversationRoom = () => {
   const conversation = conversations.find((c) => c.id === id)
   const isGroup = conversation?.type === 'group'
   const hasLeft = Boolean(conversation?.viewer_left_at)
+
+  const { messages, isLoading, isLoadingMore, hasMore, error, loadOlder } = useMessages(id!, hasLeft)
+  const typingText = useTypingIndicator(id!, !hasLeft)
 
   const headerTitle = isGroup
     ? conversation?.title || 'Untitled group'
@@ -62,7 +63,10 @@ const ConversationRoom = () => {
           )}
           {isGroup && (
             <span className='muted' style={{ fontSize: '0.75rem' }}>
-              {(conversation?.participants ?? []).filter((p) => !p.left_at).length} members
+              {(() => {
+                const count = (conversation?.participants ?? []).filter((p) => !p.left_at).length
+                return `${count} ${count === 1 ? 'member' : 'members'}`
+              })()}
             </span>
           )}
         </div>
