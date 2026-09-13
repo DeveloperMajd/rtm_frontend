@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
+import { mdiArrowLeft } from '@mdi/js'
 import MessageForm from './MessageForm'
 import Messages from './Messages'
 import GroupSettingsPanel from './GroupSettingsPanel'
@@ -9,6 +10,7 @@ import useConversations from '../../hooks/useConversations'
 import useAuth from '../../hooks/useAuth'
 import Avatar from '../ui/Avatar'
 import Button from '../ui/Button'
+import Icon from '../ui/Icon'
 import OnlineStatus from '../ui/OnlineStatus'
 import type { MessageType } from '../../utils/baseTypes'
 
@@ -41,7 +43,7 @@ const ConversationRoom = () => {
           aria-label='Back to conversations'
           onClick={() => navigate('/conversations')}
         >
-          <span aria-hidden='true'>←</span>
+          <Icon path={mdiArrowLeft} />
         </Button>
 
         <Avatar

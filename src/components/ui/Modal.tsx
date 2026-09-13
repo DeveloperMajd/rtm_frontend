@@ -1,5 +1,7 @@
 import { useEffect, useId, useRef, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
+import { mdiClose } from '@mdi/js'
+import Icon from './Icon'
 
 interface ModalProps {
   open: boolean
@@ -116,7 +118,7 @@ const Modal = ({ open, onClose, title, children, footer, hideHeader }: ModalProp
               onClick={onClose}
               aria-label='Close dialog'
             >
-              &times;
+              <Icon path={mdiClose} />
             </button>
           </div>
         )}

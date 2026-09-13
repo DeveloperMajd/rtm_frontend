@@ -116,7 +116,7 @@ const GroupModal = ({ open, onClose }: GroupModalProps) => {
                   onChange={() => toggleUser(u.id)}
                 />
                 <Avatar name={u.name} src={u.avatar_url} size='sm' />
-                <span>{u.name}</span>
+                <span className='picker-list__name'>{u.name}</span>
               </label>
             </li>
           ))}

@@ -1,8 +1,10 @@
 import { useEffect, useRef, useState } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import toast from 'react-hot-toast'
+import { mdiClose, mdiFileDocumentOutline, mdiPaperclip, mdiSend } from '@mdi/js'
 import { sendMessage, uploadAttachment } from '../../services/api/messages'
 import { postTyping } from '../../services/api/conversations'
+import Icon from '../ui/Icon'
 import type { MessageType } from '../../utils/baseTypes'
 
 type MessageFormProps = {
@@ -184,7 +186,7 @@ const MessageForm = ({ conversationId, replyingTo, onCancelReply }: MessageFormP
             Replying to <strong>{replyingTo.sender?.name ?? 'Unknown'}</strong>: {replyingTo.body}
           </span>
           <button type='button' onClick={onCancelReply} aria-label='Cancel reply'>
-            &times;
+            <Icon path={mdiClose} size={14} />
           </button>
         </div>
       )}
@@ -196,7 +198,7 @@ const MessageForm = ({ conversationId, replyingTo, onCancelReply }: MessageFormP
               {upload.previewUrl ? (
                 <img src={upload.previewUrl} alt={upload.name} />
               ) : (
-                <span aria-hidden='true'>📄</span>
+                <Icon path={mdiFileDocumentOutline} />
               )}
               <span className='truncate'>{upload.name}</span>
               {upload.status === 'uploading' && <span className='muted'>{upload.progress}%</span>}
@@ -208,7 +210,7 @@ const MessageForm = ({ conversationId, replyingTo, onCancelReply }: MessageFormP
                 onClick={() => removeUpload(upload.id)}
                 aria-label={`Remove ${upload.name}`}
               >
-                &times;
+                <Icon path={mdiClose} size={14} />
               </button>
             </div>
           ))}
@@ -230,7 +232,7 @@ const MessageForm = ({ conversationId, replyingTo, onCancelReply }: MessageFormP
           onClick={() => fileInputRef.current?.click()}
           aria-label='Attach files'
         >
-          <span aria-hidden='true'>📎</span>
+          <Icon path={mdiPaperclip} />
         </button>
         <label htmlFor='message-input' className='sr-only'>
           Message
@@ -250,7 +252,11 @@ const MessageForm = ({ conversationId, replyingTo, onCancelReply }: MessageFormP
           disabled={!canSend}
           aria-label={isPending ? 'Sending' : uploading ? 'Uploading' : 'Send message'}
         >
-          <span aria-hidden='true'>{isPending || uploading ? '…' : '➤'}</span>
+          {isPending || uploading ? (
+            <span aria-hidden='true'>…</span>
+          ) : (
+            <Icon path={mdiSend} />
+          )}
         </button>
       </div>
     </form>

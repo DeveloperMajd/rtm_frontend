@@ -1,6 +1,29 @@
 @use '../abstracts/mixins' as *;
 @use '../abstracts/tokens' as *;
 
+// Echo/Reverb connection state — auto-reconnect already happens on its own,
+// this just tells the user it's happening instead of failing silently.
+.connection-banner {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: $z-toast;
+  padding: 0.4rem;
+  text-align: center;
+  font-size: 0.78rem;
+  font-weight: 600;
+  background-color: var(--c-surface-2);
+  color: var(--c-muted);
+  border-bottom: 1px solid var(--c-line);
+
+  &.is-failed {
+    background-color: var(--c-danger);
+    color: var(--c-on-primary);
+    border-bottom-color: transparent;
+  }
+}
+
 .app-shell {
   height: 100dvh;
   display: flex;
@@ -167,6 +190,15 @@
   &__remove {
     margin-right: 0.5rem;
   }
+}
+
+// Wraps the routed room / empty-state so there's a `<main>` landmark for the
+// skip link to jump to; it takes over the flex slot `.room` used to occupy
+// directly under `.app-shell`, so the visible layout is unchanged.
+.main-content {
+  flex: 1;
+  display: flex;
+  min-width: 0;
 }
 
 .room {

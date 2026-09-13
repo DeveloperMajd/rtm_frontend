@@ -1,6 +1,8 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { Toaster } from 'react-hot-toast'
+import type { ConnectionStatus } from 'laravel-echo'
+import { mdiLogout } from '@mdi/js'
 import Conversations from '../components/conversations/Conversations'
 import Contacts from '../components/conversations/Contacts'
 import GroupModal from '../components/conversations/GroupModal'
@@ -8,12 +10,24 @@ import MessageSearch from '../components/conversations/MessageSearch'
 import Button from '../components/ui/Button'
 import Avatar from '../components/ui/Avatar'
 import BrandMark from '../components/ui/BrandMark'
+import Icon from '../components/ui/Icon'
 import ThemeToggle from '../components/ui/ThemeToggle'
 import useConversations from '../hooks/useConversations'
 import useAuth from '../hooks/useAuth'
 import usePresenceHeartbeat from '../hooks/usePresenceHeartbeat'
+import useConnectionStatus from '../hooks/useConnectionStatus'
 
 type Tab = 'chats' | 'contacts'
+
+const TAB_ORDER: Tab[] = ['chats', 'contacts']
+
+const CONNECTION_LABEL: Record<ConnectionStatus, string> = {
+  connected: '',
+  connecting: 'Connecting…',
+  reconnecting: 'Reconnecting…',
+  disconnected: 'Reconnecting…',
+  failed: "Connection lost — retrying…",
+}
 
 function ConversationsLayout() {
   const [activeTab, setActiveTab] = useState<Tab>('chats')
@@ -24,8 +38,45 @@ function ConversationsLayout() {
   const location = useLocation()
   usePresenceHeartbeat(true)
 
+  // Echo/Pusher already retries on its own — this only surfaces the state.
+  // Debounced so a sub-400ms blip (a normal reconnect) never flashes a banner;
+  // clearing the banner goes through the same timer (at 0ms) so every branch
+  // sets state from the timeout callback rather than the effect body itself.
+  const rawConnectionStatus = useConnectionStatus()
+  const [connectionStatus, setConnectionStatus] = useState<ConnectionStatus>('connected')
+  useEffect(() => {
+    const delay = rawConnectionStatus === 'connected' ? 0 : 400
+    const timeout = setTimeout(() => setConnectionStatus(rawConnectionStatus), delay)
+    return () => clearTimeout(timeout)
+  }, [rawConnectionStatus])
+
   // On mobile: show the list, or the open room — never both.
   const roomOpen = /^\/conversations\/[^/]+/.test(location.pathname)
+
+  // WAI-ARIA tabs pattern: arrow keys move focus and switch tabs together
+  // (automatic activation, matching the existing click behaviour); Home/End
+  // jump to the first/last tab. Only the active tab is in the Tab order.
+  const tabButtonRefs = useRef<Record<Tab, HTMLButtonElement | null>>({
+    chats: null,
+    contacts: null,
+  })
+
+  const handleTabKeyDown = (e: React.KeyboardEvent<HTMLButtonElement>) => {
+    if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(e.key)) return
+    e.preventDefault()
+
+    const currentIndex = TAB_ORDER.indexOf(activeTab)
+    const nextIndex =
+      e.key === 'Home'
+        ? 0
+        : e.key === 'End'
+          ? TAB_ORDER.length - 1
+          : (currentIndex + (e.key === 'ArrowRight' ? 1 : -1) + TAB_ORDER.length) % TAB_ORDER.length
+
+    const nextTab = TAB_ORDER[nextIndex]
+    setActiveTab(nextTab)
+    tabButtonRefs.current[nextTab]?.focus()
+  }
 
   const handleLogout = async () => {
     await logout()
@@ -34,6 +85,16 @@ function ConversationsLayout() {
 
   return (
     <div className='app-shell' data-view={roomOpen ? 'room' : 'list'}>
+      <a href='#main-content' className='skip-link'>
+        Skip to conversation
+      </a>
+
+      {connectionStatus !== 'connected' && (
+        <div className={`connection-banner${connectionStatus === 'failed' ? ' is-failed' : ''}`} role='status'>
+          {CONNECTION_LABEL[connectionStatus]}
+        </div>
+      )}
+
       <Toaster position='top-right' toastOptions={{ className: 'rtm-toast' }} />
 
       <aside className='sidebar'>
@@ -45,7 +106,7 @@ function ConversationsLayout() {
               <Avatar name={user?.name ?? '?'} src={user?.avatar_url} size='sm' />
             </Link>
             <Button variant='ghost' icon aria-label='Log out' onClick={() => void handleLogout()}>
-              <span aria-hidden='true'>⏻</span>
+              <Icon path={mdiLogout} />
             </Button>
           </div>
         </header>
@@ -54,24 +115,34 @@ function ConversationsLayout() {
 
         <div className='tabs' role='tablist' aria-label='Conversations and contacts'>
           <button
+            ref={(el) => {
+              tabButtonRefs.current.chats = el
+            }}
             type='button'
             role='tab'
             id='tab-chats'
             aria-selected={activeTab === 'chats'}
             aria-controls='panel-chats'
+            tabIndex={activeTab === 'chats' ? 0 : -1}
             className='tabs__tab'
             onClick={() => setActiveTab('chats')}
+            onKeyDown={handleTabKeyDown}
           >
             Chats
           </button>
           <button
+            ref={(el) => {
+              tabButtonRefs.current.contacts = el
+            }}
             type='button'
             role='tab'
             id='tab-contacts'
             aria-selected={activeTab === 'contacts'}
             aria-controls='panel-contacts'
+            tabIndex={activeTab === 'contacts' ? 0 : -1}
             className='tabs__tab'
             onClick={() => setActiveTab('contacts')}
+            onKeyDown={handleTabKeyDown}
           >
             Contacts
           </button>
@@ -97,14 +168,16 @@ function ConversationsLayout() {
         </footer>
       </aside>
 
-      <Outlet />
+      <main id='main-content' className='main-content' tabIndex={-1}>
+        <Outlet />
 
-      {!roomOpen && (
-        <div className='room room--empty'>
-          <BrandMark size={44} withWordmark={false} />
-          <p>Select a conversation to start chatting</p>
-        </div>
-      )}
+        {!roomOpen && (
+          <div className='room room--empty'>
+            <BrandMark size={44} withWordmark={false} />
+            <p>Select a conversation to start chatting</p>
+          </div>
+        )}
+      </main>
 
       <GroupModal open={isGroupModalOpen} onClose={() => setIsGroupModalOpen(false)} />
     </div>

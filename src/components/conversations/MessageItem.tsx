@@ -2,11 +2,14 @@ import { useState } from 'react'
 import { useMutation } from '@tanstack/react-query'
 import toast from 'react-hot-toast'
 import { format } from 'date-fns'
+import { mdiDelete, mdiPencil, mdiReply } from '@mdi/js'
 import type { MessageType } from '../../utils/baseTypes'
 import { updateMessage, deleteMessage } from '../../services/api/messages'
 import useAuth from '../../hooks/useAuth'
 import Avatar from '../ui/Avatar'
+import Icon from '../ui/Icon'
 import MessageReactions from './MessageReactions'
+import ReactionTrigger from './ReactionTrigger'
 import MessageAttachment from './MessageAttachment'
 
 type MessageItemProps = {
@@ -34,7 +37,6 @@ const MessageItem = ({ message, onReply, grouped = false, readOnly = false }: Me
 
   const isOwn = message.sender?.id === user?.id
   const isDeleted = Boolean(message.deleted_at)
-  const showMeta = !grouped
 
   return (
     <li className={`msg-row ${isOwn ? 'is-own' : 'is-other'}${grouped ? ' is-grouped' : ''}`}>
@@ -44,94 +46,102 @@ const MessageItem = ({ message, onReply, grouped = false, readOnly = false }: Me
         )}
       </div>
 
-      <div className={`bubble${isDeleted ? ' is-deleted' : ''}`}>
-        {!isOwn && !grouped && (
-          <span className='bubble__sender'>{message.sender?.name ?? 'Unknown'}</span>
-        )}
+      <div className='msg-row__content'>
+        <div className={`bubble${isDeleted ? ' is-deleted' : ''}`}>
+          {!isOwn && !grouped && (
+            <span className='bubble__sender'>{message.sender?.name ?? 'Unknown'}</span>
+          )}
 
-        {message.reply_to && (
-          <span className='bubble__reply'>
-            {message.reply_to.deleted_at
-              ? 'Original message deleted'
-              : `${message.reply_to.sender?.name ?? 'Unknown'}: ${message.reply_to.body}`}
-          </span>
-        )}
+          {message.reply_to && (
+            <span className='bubble__reply'>
+              {message.reply_to.deleted_at
+                ? 'Original message deleted'
+                : `${message.reply_to.sender?.name ?? 'Unknown'}: ${message.reply_to.body}`}
+            </span>
+          )}
 
-        {isDeleted ? (
-          <span>This message was deleted</span>
-        ) : isEditing ? (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
-            <textarea
-              className='textarea'
-              value={editBody}
-              onChange={(e) => setEditBody(e.target.value)}
-              rows={2}
-              autoFocus
-            />
-            <div style={{ display: 'flex', gap: '0.4rem' }}>
-              <button
-                type='button'
-                className='btn primary'
-                onClick={() => saveEdit(editBody)}
-                disabled={isSaving || !editBody.trim()}
-              >
-                {isSaving ? 'Saving…' : 'Save'}
-              </button>
-              <button
-                type='button'
-                className='btn ghost'
-                onClick={() => {
-                  setIsEditing(false)
-                  setEditBody(message.body)
-                }}
-              >
-                Cancel
-              </button>
+          {isDeleted ? (
+            <span>This message was deleted</span>
+          ) : isEditing ? (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+              <textarea
+                className='textarea'
+                value={editBody}
+                onChange={(e) => setEditBody(e.target.value)}
+                rows={2}
+                autoFocus
+              />
+              <div style={{ display: 'flex', gap: '0.4rem' }}>
+                <button
+                  type='button'
+                  className='btn primary'
+                  onClick={() => saveEdit(editBody)}
+                  disabled={isSaving || !editBody.trim()}
+                >
+                  {isSaving ? 'Saving…' : 'Save'}
+                </button>
+                <button
+                  type='button'
+                  className='btn ghost'
+                  onClick={() => {
+                    setIsEditing(false)
+                    setEditBody(message.body)
+                  }}
+                >
+                  Cancel
+                </button>
+              </div>
             </div>
-          </div>
-        ) : (
-          message.body && <span>{message.body}</span>
-        )}
+          ) : (
+            message.body && <span>{message.body}</span>
+          )}
 
-        {!isDeleted && message.attachments && message.attachments.length > 0 && (
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.4rem' }}>
-            {message.attachments.map((attachment) => (
-              <MessageAttachment key={attachment.id} attachment={attachment} />
-            ))}
-          </div>
-        )}
+          {!isDeleted && message.attachments && message.attachments.length > 0 && (
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.4rem' }}>
+              {message.attachments.map((attachment) => (
+                <MessageAttachment key={attachment.id} attachment={attachment} />
+              ))}
+            </div>
+          )}
 
-        {!isDeleted && <MessageReactions messageId={message.id} reactions={message.reactions} />}
+          {!isDeleted && !readOnly && !isEditing && (
+            <ReactionTrigger messageId={message.id} reactions={message.reactions} isOwn={isOwn} />
+          )}
 
-        {showMeta && (
+          {/* Every message shows its own send time, even tightly grouped
+              ones — otherwise two messages minutes apart from the same
+              sender would look like they were sent at the same instant.
+              Only the sender name/avatar are suppressed when grouped. */}
           <span className='bubble__meta'>
             <time dateTime={message.created_at}>{format(new Date(message.created_at), 'HH:mm')}</time>
             {message.edited_at && !isDeleted ? ' · edited' : ''}
           </span>
-        )}
 
-        {!readOnly && !isDeleted && !isEditing && (
-          <div className='bubble__actions'>
-            <button type='button' onClick={() => onReply(message)} aria-label='Reply'>
-              ↩
-            </button>
-            {isOwn && (
-              <>
-                <button type='button' onClick={() => setIsEditing(true)} aria-label='Edit'>
-                  ✎
-                </button>
-                <button
-                  type='button'
-                  onClick={() => removeMessage()}
-                  disabled={isDeleting}
-                  aria-label='Delete'
-                >
-                  🗑
-                </button>
-              </>
-            )}
-          </div>
-        )}
+          {!readOnly && !isDeleted && !isEditing && (
+            <div className='bubble__actions'>
+              <button type='button' onClick={() => onReply(message)} aria-label='Reply'>
+                <Icon path={mdiReply} size={16} />
+              </button>
+              {isOwn && (
+                <>
+                  <button type='button' onClick={() => setIsEditing(true)} aria-label='Edit'>
+                    <Icon path={mdiPencil} size={16} />
+                  </button>
+                  <button
+                    type='button'
+                    onClick={() => removeMessage()}
+                    disabled={isDeleting}
+                    aria-label='Delete'
+                  >
+                    <Icon path={mdiDelete} size={16} />
+                  </button>
+                </>
+              )}
+            </div>
+          )}
+        </div>
+
+        {!isDeleted && <MessageReactions messageId={message.id} reactions={message.reactions} />}
       </div>
     </li>
   )

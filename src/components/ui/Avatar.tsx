@@ -39,22 +39,27 @@ const Avatar = ({ name, src, size = 'sm', kind = 'user', online, className = '' 
       aria-label={name}
       title={name}
     >
-      {showImg ? (
-        <img
-          className='avatar__img'
-          src={src as string}
-          alt=''
-          loading='lazy'
-          decoding='async'
-          onError={() => setFailed(true)}
-        />
-      ) : kind === 'group' ? (
-        <svg viewBox='0 0 24 24' width='58%' height='58%' aria-hidden='true' fill='currentColor'>
-          <path d='M8 11a3 3 0 1 0 0-6 3 3 0 0 0 0 6Zm8 0a3 3 0 1 0 0-6 3 3 0 0 0 0 6Zm-8 2c-2.7 0-6 1.34-6 4v2h9v-2c0-1.03.4-1.94 1.06-2.7A10.9 10.9 0 0 0 8 13Zm8 0c-.35 0-.74.02-1.15.06.72.78 1.15 1.73 1.15 2.94v2h6v-2c0-2.66-3.3-4-6-4Z' />
-        </svg>
-      ) : (
-        <span aria-hidden='true'>{initials(name)}</span>
-      )}
+      {/* The circular clip has to live on this inner wrapper, not the root —
+          the status dot below is positioned half outside the circle on
+          purpose, and a clip on the root would cut it into a crescent. */}
+      <span className='avatar__clip'>
+        {showImg ? (
+          <img
+            className='avatar__img'
+            src={src as string}
+            alt=''
+            loading='lazy'
+            decoding='async'
+            onError={() => setFailed(true)}
+          />
+        ) : kind === 'group' ? (
+          <svg viewBox='0 0 24 24' width='58%' height='58%' aria-hidden='true' fill='currentColor'>
+            <path d='M8 11a3 3 0 1 0 0-6 3 3 0 0 0 0 6Zm8 0a3 3 0 1 0 0-6 3 3 0 0 0 0 6Zm-8 2c-2.7 0-6 1.34-6 4v2h9v-2c0-1.03.4-1.94 1.06-2.7A10.9 10.9 0 0 0 8 13Zm8 0c-.35 0-.74.02-1.15.06.72.78 1.15 1.73 1.15 2.94v2h6v-2c0-2.66-3.3-4-6-4Z' />
+          </svg>
+        ) : (
+          <span aria-hidden='true'>{initials(name)}</span>
+        )}
+      </span>
       {online !== undefined && (
         <span
           className={`avatar__status${online ? ' is-online' : ''}`}

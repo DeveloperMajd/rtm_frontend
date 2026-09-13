@@ -5,17 +5,27 @@
   flex: 0 0 auto;
   width: var(--size);
   height: var(--size);
-  border-radius: 999px;
-  overflow: hidden;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  background: linear-gradient(135deg, var(--c-primary), var(--c-primary-hover));
-  color: var(--c-on-primary);
+  display: inline-block;
   font-weight: 600;
   font-size: calc(var(--size) * 0.4);
   line-height: 1;
   user-select: none;
+
+  // The circular clip lives here, one level in from the root — the status
+  // dot is a sibling of this, positioned half outside it on purpose, so it
+  // must not share this element's `overflow: hidden` or it gets clipped
+  // into a crescent instead of rendering as a full circle.
+  &__clip {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    height: 100%;
+    border-radius: 999px;
+    overflow: hidden;
+    background: linear-gradient(135deg, var(--c-primary), var(--c-primary-hover));
+    color: var(--c-on-primary);
+  }
 
   &__img {
     width: 100%;
@@ -23,7 +33,7 @@
     object-fit: cover;
   }
 
-  &--group {
+  &--group &__clip {
     background: var(--c-surface-2);
     color: var(--c-muted);
   }

@@ -1,6 +1,8 @@
-import { Fragment, useEffect, useRef } from 'react'
+import { Fragment, useEffect, useRef, useState } from 'react'
 import { format, isToday, isYesterday } from 'date-fns'
 import type { MessageType } from '../../utils/baseTypes'
+import { systemMessageText } from '../../utils/systemMessageText'
+import useAuth from '../../hooks/useAuth'
 import Spinner from '../ui/Spinner'
 import MessageItem from './MessageItem'
 import SystemMessage from './SystemMessage'
@@ -35,9 +37,12 @@ const Messages = ({
   onReply,
   readOnly = false,
 }: MessagesProps) => {
+  const { user } = useAuth()
   const listRef = useRef<HTMLUListElement>(null)
   const lastIdRef = useRef<string | null>(null)
 
+  // Scroll to the newest message on arrival — a ref-based comparison, so
+  // there's no setState here and this stays a plain DOM-syncing effect.
   useEffect(() => {
     if (messages.length === 0) return
     const lastId = messages[messages.length - 1].id
@@ -47,12 +52,40 @@ const Messages = ({
     lastIdRef.current = lastId
   }, [messages])
 
+  // Announce new incoming messages for screen readers. This runs during
+  // render rather than in an effect — React's documented "adjust state when
+  // a prop changes" pattern: comparing against a stored previous id and
+  // calling setState right here lets React re-render with the new
+  // announcement before paint, instead of committing once, then again.
+  const [announcedId, setAnnouncedId] = useState<string | null>(null)
+  const [announcement, setAnnouncement] = useState('')
+  if (messages.length > 0) {
+    const last = messages[messages.length - 1]
+    if (last.id !== announcedId) {
+      setAnnouncedId(last.id)
+      // Skip the very first render (nothing to compare against yet) and
+      // messages the viewer just sent themselves — the composer already
+      // gives them feedback.
+      if (announcedId !== null) {
+        if (last.type === 'system') {
+          setAnnouncement(systemMessageText(last, user?.id))
+        } else if (last.sender?.id !== user?.id) {
+          setAnnouncement(`${last.sender?.name ?? 'Someone'}: ${last.body || 'sent an attachment'}`)
+        }
+      }
+    }
+  }
+
   if (isLoading && messages.length === 0) {
     return <Spinner block />
   }
 
   return (
     <>
+      <div aria-live='polite' className='sr-only'>
+        {announcement}
+      </div>
+
       {hasMore && (
         <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '0.5rem' }}>
           <button

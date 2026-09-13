@@ -108,9 +108,10 @@
       height: 1rem;
     }
 
-    span {
+    &__name {
       flex: 1;
       min-width: 0;
+      @include truncate;
     }
   }
 

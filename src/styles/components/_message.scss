@@ -31,13 +31,19 @@
   display: flex;
   gap: 0.5rem;
   margin-top: 0.55rem;
-  align-items: flex-end;
+  // The avatar sits beside the top of the message (its first line), not the
+  // bottom — matters most for multi-line bubbles.
+  align-items: flex-start;
 
   &.is-own {
     flex-direction: row-reverse;
 
     .msg-row__avatar-slot {
       display: none;
+    }
+
+    .msg-row__content {
+      align-items: flex-end;
     }
   }
 
@@ -50,14 +56,33 @@
     width: 1.75rem;
     flex: 0 0 auto;
   }
+
+  // Stacks the bubble and its (below-bubble) reaction pills vertically,
+  // so pills render as a separate row under the bubble rather than beside
+  // it in `.msg-row`'s own flex row.
+  &__content {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    min-width: 0;
+  }
 }
 
 .bubble {
   position: relative;
   width: fit-content;
   min-width: 2.75rem;
-  max-width: min(82%, 30rem);
-  padding: 0.4rem 0.7rem 0.4rem;
+  // `82%` (relative to the bubble's own containing block) looks equivalent
+  // to `82vw` at a glance, but isn't: `.bubble` is sized via `width:
+  // fit-content` inside a flex item with no definite width of its own, so
+  // the containing block's width is itself resolved via shrink-to-fit in
+  // the same pass — a percentage `max-width` can't resolve safely against
+  // that and silently collapses to something far too small (a short
+  // message like "yes i am" would wrap into three lines). `vw` is always
+  // resolved against the viewport, which is never ambiguous, so it avoids
+  // the circularity entirely while capping the bubble about as tightly.
+  max-width: min(82vw, 30rem);
+  padding: 0.55rem;
   border-radius: var(--radius-lg);
   background-color: var(--c-bubble-other);
   color: var(--c-bubble-other-fg);
@@ -122,7 +147,12 @@
 
   &__actions {
     position: absolute;
+    // Floats above the bubble (not inset — an inset toolbar covers the
+    // message text itself on hover for any short/narrow bubble) and always
+    // on the right, own or other: the old per-side placement put it over
+    // the sender name on "other" messages, which are left-aligned too.
     top: -0.9rem;
+    right: 0.25rem;
     display: flex;
     gap: 0.1rem;
     padding: 0.15rem;
@@ -138,13 +168,6 @@
     .msg-row:focus-within & {
       opacity: 1;
       pointer-events: auto;
-    }
-
-    .is-own & {
-      right: 0.25rem;
-    }
-    .is-other & {
-      left: 0.25rem;
     }
 
     button {
@@ -174,18 +197,19 @@
   }
 }
 
+// Already-placed reaction pills — rendered below the bubble (a sibling of
+// it in `.msg-row__content`, not inside its padding). Margin on both sides
+// so they read as clearly belonging to *this* message: enough gap above to
+// separate them from the bubble they're reacting to, and enough below to
+// separate them from the next message row (which has very little margin of
+// its own when grouped — 0.12rem — so the pills need to supply the rest).
 .reactions {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   gap: 0.25rem;
-  margin-top: 0.3rem;
-
-  &--empty {
-    margin-top: 0;
-    height: 0;
-    overflow: visible;
-  }
+  margin-top: 0.45rem;
+  margin-bottom: 0.4rem;
 
   &__pill {
     display: inline-flex;
@@ -204,21 +228,57 @@
       background-color: color-mix(in oklab, var(--c-primary) 14%, transparent);
     }
   }
+}
 
-  &__picker-wrap {
-    position: relative;
-    display: inline-flex;
+// The add-reaction affordance — floats outside the bubble (left for an own
+// message, right for an other's, i.e. always toward the center of the
+// column rather than the screen edge, WhatsApp-style), positioned against
+// the bubble itself (`.bubble` is `position: relative`) so its vertical
+// center tracks the bubble alone, independent of the reaction pills'
+// height below it.
+.reaction-trigger {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 3;
+
+  &.is-own {
+    left: -2rem;
+
+    .reaction-trigger__picker {
+      left: 0;
+    }
+  }
+
+  &.is-other {
+    right: -2rem;
+
+    .reaction-trigger__picker {
+      right: 0;
+    }
   }
 
   &__add {
-    border: 0;
-    background: transparent;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 1.5rem;
+    height: 1.5rem;
+    border: 1px solid var(--c-line);
+    border-radius: 999px;
+    // A visible surface + border (matching .reactions__pill) rather than a
+    // transparent background — otherwise the icon reads as near-invisible
+    // against a dark "own" bubble or a busy image attachment.
+    background-color: var(--c-surface);
     color: var(--c-muted);
-    font-size: 0.7rem;
-    padding: 0 0.2rem;
+    padding: 0;
     cursor: pointer;
     opacity: 0;
-    transition: opacity 120ms ease;
+    box-shadow: var(--shadow-e1);
+    transition:
+      opacity 120ms ease,
+      background-color 120ms ease,
+      color 120ms ease;
 
     .msg-row:hover &,
     .msg-row:focus-within & {
@@ -226,6 +286,7 @@
     }
 
     &:hover {
+      background-color: var(--c-surface-2);
       color: var(--c-fg);
     }
   }
@@ -233,7 +294,6 @@
   &__picker {
     position: absolute;
     bottom: calc(100% + 4px);
-    left: 0;
     display: flex;
     gap: 0.15rem;
     padding: 0.25rem;
@@ -244,6 +304,8 @@
     z-index: 5;
 
     button {
+      display: inline-flex;
+      align-items: center;
       border: 0;
       background: transparent;
       font-size: 1rem;
@@ -321,11 +383,12 @@
     color: var(--c-muted);
 
     button {
+      display: inline-flex;
+      align-items: center;
       flex: 0 0 auto;
       border: 0;
       background: transparent;
       color: var(--c-muted);
-      font-size: 1rem;
       cursor: pointer;
 
       &:hover {
@@ -361,10 +424,11 @@
   }
 
   button {
+    display: inline-flex;
+    align-items: center;
     border: 0;
     background: transparent;
     color: var(--c-muted);
-    font-size: 0.95rem;
     cursor: pointer;
 
     &:hover {

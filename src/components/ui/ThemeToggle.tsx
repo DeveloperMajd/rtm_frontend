@@ -1,11 +1,13 @@
 import { useState } from 'react'
+import { mdiMonitor, mdiWeatherNight, mdiWeatherSunny } from '@mdi/js'
 import { getStoredTheme, setTheme, type ThemePref } from '../../utils/theme'
+import Icon from './Icon'
 
 const ORDER: ThemePref[] = ['light', 'dark', 'system']
 const META: Record<ThemePref, { icon: string; label: string }> = {
-  light: { icon: '☀', label: 'Light' },
-  dark: { icon: '☾', label: 'Dark' },
-  system: { icon: '⌗', label: 'System' },
+  light: { icon: mdiWeatherSunny, label: 'Light' },
+  dark: { icon: mdiWeatherNight, label: 'Dark' },
+  system: { icon: mdiMonitor, label: 'System' },
 }
 
 interface ThemeToggleProps {
@@ -32,7 +34,7 @@ const ThemeToggle = ({ compact = false }: ThemeToggleProps) => {
         aria-label={`Theme: ${META[pref].label}. Switch to ${META[next].label}`}
         title={`Theme: ${META[pref].label}`}
       >
-        <span aria-hidden='true'>{META[pref].icon}</span>
+        <Icon path={META[pref].icon} />
       </button>
     )
   }
@@ -47,7 +49,7 @@ const ThemeToggle = ({ compact = false }: ThemeToggleProps) => {
           aria-pressed={pref === value}
           onClick={() => choose(value)}
         >
-          <span aria-hidden='true'>{META[value].icon}</span>
+          <Icon path={META[value].icon} />
           {META[value].label}
         </button>
       ))}

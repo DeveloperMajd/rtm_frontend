@@ -1,5 +1,7 @@
 import { useId } from 'react'
+import { mdiCheck, mdiCircleOutline } from '@mdi/js'
 import { PASSWORD_RULES } from '../../utils/passwordRules'
+import Icon from './Icon'
 
 interface PasswordFieldProps {
   id: string
@@ -54,7 +56,7 @@ const PasswordField = ({
               const met = rule.test(value)
               return (
                 <li key={rule.key} className={`pw-meter__rule${met ? ' is-met' : ''}`}>
-                  <span aria-hidden='true'>{met ? '✓' : '○'}</span> {rule.label}
+                  <Icon path={met ? mdiCheck : mdiCircleOutline} size={14} /> {rule.label}
                 </li>
               )
             })}

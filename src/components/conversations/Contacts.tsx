@@ -2,11 +2,13 @@ import { useState } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useNavigate } from 'react-router-dom'
 import toast from 'react-hot-toast'
+import { mdiClose } from '@mdi/js'
 import { removeContact } from '../../services/api/contacts'
 import useContacts from '../../hooks/useContacts'
 import useConversations from '../../hooks/useConversations'
 import Avatar from '../ui/Avatar'
 import Button from '../ui/Button'
+import Icon from '../ui/Icon'
 import { ConversationListSkeleton } from '../ui/Skeleton'
 import AddContactModal from './AddContactModal'
 
@@ -83,7 +85,7 @@ const Contacts = ({ onConversationOpened }: ContactsProps) => {
                 disabled={remove.isPending}
                 aria-label={`Remove ${contact.name} from contacts`}
               >
-                &times;
+                <Icon path={mdiClose} />
               </Button>
             </li>
           ))}
