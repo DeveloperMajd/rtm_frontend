@@ -33,7 +33,7 @@ const me = async (): Promise<UserType> => {
   return response.data.data
 }
 
-const oauthRedirectUrl = (provider: 'google' | 'facebook'): string =>
+const oauthRedirectUrl = (provider: 'google'): string =>
   `${import.meta.env.VITE_API_BASE_URL}/auth/${provider}/redirect`
 
 /** Always resolves — the backend replies the same way whether or not the

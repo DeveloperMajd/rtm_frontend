@@ -126,9 +126,6 @@ const RegisterPage = () => {
           <a href={oauthRedirectUrl('google')} className='btn secondary block'>
             Continue with Google
           </a>
-          <a href={oauthRedirectUrl('facebook')} className='btn secondary block'>
-            Continue with Facebook
-          </a>
         </div>
 
         <p className='auth__alt'>
