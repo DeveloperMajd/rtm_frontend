@@ -49,10 +49,14 @@ const useConversations = () => {
         // in place — unlike messages, this isn't latency-sensitive.
         void queryClient.invalidateQueries({ queryKey: ['conversations'] })
       })
+      .listen('ConversationDeleted', () => {
+        void queryClient.invalidateQueries({ queryKey: ['conversations'] })
+      })
 
     return () => {
       channel.stopListening('MessageSent')
       channel.stopListening('ConversationParticipantsUpdated')
+      channel.stopListening('ConversationDeleted')
       echo.leave(`App.Models.User.${user.id}`)
     }
   }, [user, echo, queryClient])

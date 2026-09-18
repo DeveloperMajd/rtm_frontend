@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { mdiArrowLeft } from '@mdi/js'
 import MessageForm from './MessageForm'
@@ -17,7 +17,7 @@ import type { MessageType } from '../../utils/baseTypes'
 const ConversationRoom = () => {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
-  const { conversations } = useConversations()
+  const { conversations, isLoading: isLoadingConversations } = useConversations()
   const { user } = useAuth()
   const [isGroupSettingsOpen, setIsGroupSettingsOpen] = useState(false)
   const [replyingTo, setReplyingTo] = useState<MessageType | null>(null)
@@ -25,6 +25,15 @@ const ConversationRoom = () => {
   const conversation = conversations.find((c) => c.id === id)
   const isGroup = conversation?.type === 'group'
   const hasLeft = Boolean(conversation?.viewer_left_at)
+
+  // Covers a bad/nonexistent id and a group that just got deleted out from
+  // under us (left/kicked-from groups stay in the list, frozen, so this
+  // never fires for those).
+  useEffect(() => {
+    if (!isLoadingConversations && !conversation) {
+      navigate('/conversations', { replace: true })
+    }
+  }, [isLoadingConversations, conversation, navigate])
 
   const { messages, isLoading, isLoadingMore, hasMore, error, loadOlder } = useMessages(id!, hasLeft)
   const typingText = useTypingIndicator(id!, !hasLeft)

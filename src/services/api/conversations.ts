@@ -71,6 +71,12 @@ const updateParticipantRole = async (
   await api.patch(`/conversations/${conversationId}/participants/${userId}`, { role })
 }
 
+/** Admin-only: deletes a group for every member. Not supported for direct
+ * conversations. */
+const deleteConversation = async (conversationId: string): Promise<void> => {
+  await api.delete(`/conversations/${conversationId}`)
+}
+
 export {
   getAllConversations,
   getConversationById,
@@ -82,4 +88,5 @@ export {
   kickParticipant,
   leaveConversation,
   updateParticipantRole,
+  deleteConversation,
 }
