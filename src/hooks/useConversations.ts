@@ -13,13 +13,20 @@ const useConversations = () => {
   const queryClient = useQueryClient()
   const location = useLocation()
 
-  const { data, isLoading, error } = useQuery({
+  const { data, isLoading, isFetchedAfterMount, error } = useQuery({
     queryKey: ['conversations'],
     queryFn: getAllConversations,
     select: (response): ConversationType[] => sortByRecency(response.data),
     // Online status has no realtime push (it's a Redis TTL heartbeat, not a
     // broadcast event), so poll at the same cadence as the heartbeat itself.
     refetchInterval: 15000,
+    // Opening a conversation reads unread_count from this cache to place the
+    // unread divider, and that read happens once and is then frozen — so it
+    // has to be a number this mount actually fetched. While the room was
+    // closed nothing here was polling (the interval only runs while mounted),
+    // so a cached count can be arbitrarily out of date, and the global
+    // staleTime would suppress the refetch that would have corrected it.
+    refetchOnMount: 'always',
   })
 
   // Tracked via a ref (not an effect dependency) so the channel subscription
@@ -66,6 +73,9 @@ const useConversations = () => {
     conversations: data ?? [],
     isLoading,
     error: error as Error | null,
+    /** True once this mount has fetched its own copy of the list — see the
+     * refetchOnMount note above, and useUnreadSnapshot. */
+    isReady: isFetchedAfterMount,
   }
 }
 

@@ -56,6 +56,10 @@ export type ConversationType = {
   }[]
   participants_count?: number
   unread_count?: number
+  /** The exact message the viewer has read up to — what unread_count is
+   * derived from, and what the unread divider is anchored to. Null when the
+   * viewer has never read this conversation (or has left it). */
+  last_read_message_id?: string | null
   created_at: string
   updated_at: string
 }

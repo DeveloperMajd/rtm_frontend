@@ -7,8 +7,8 @@
   &__text {
     max-width: 32rem;
     padding: 0.25rem 0.75rem;
-    border-radius: 999px;
-    background-color: var(--c-surface-2);
+    border-radius: var(--r-full);
+    background-color: var(--c-raised-2);
     color: var(--c-muted);
     font-size: 0.75rem;
     text-align: center;

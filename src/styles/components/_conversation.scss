@@ -525,9 +525,12 @@
     align-items: center;
     gap: 0.65rem;
     padding: 0.6rem 1rem;
-    min-height: 3.5rem;
+    height: 60px;
+    flex: none;
     border-bottom: 1px solid var(--c-line);
-    background-color: var(--c-surface);
+    // The conversation stage's own tone, matching the list-pane header —
+    // not --c-surface (aliased to the list/sidebar tone, wrong here).
+    background-color: var(--c-stage);
   }
 
   &__back {
@@ -541,8 +544,20 @@
     font-size: 0.95rem;
   }
 
+  // Wraps the scroller without scrolling itself, so .new-messages-pill can
+  // be anchored to the visible area. Anchoring it inside the scroller
+  // instead made it travel with the content and drift out of sight.
+  &__stage {
+    position: relative;
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+  }
+
   &__scroll {
     flex: 1;
+    min-height: 0;
     overflow-y: auto;
     padding: 1rem;
     @include custom-scrollbar;
@@ -550,7 +565,7 @@
 
   &__composer {
     border-top: 1px solid var(--c-line);
-    background-color: var(--c-surface);
+    background-color: var(--c-stage);
     padding: 0.75rem 1rem;
   }
 
@@ -559,7 +574,7 @@
     text-align: center;
     font-size: 0.82rem;
     color: var(--c-muted);
-    background-color: var(--c-surface-2);
+    background-color: var(--c-raised-2);
     border-top: 1px solid var(--c-line);
   }
 }

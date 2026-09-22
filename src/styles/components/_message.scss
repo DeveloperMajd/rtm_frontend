@@ -1,11 +1,13 @@
 @use '../abstracts/mixins' as *;
+@use '../abstracts/tokens' as *;
 
 .message-list {
   list-style: none;
   margin: 0 auto;
   padding: 0;
   width: 100%;
-  max-width: 48rem;
+  // DS-Type-Space: "Chat column stays 720 max" at 1440+.
+  max-width: 45rem;
   display: flex;
   flex-direction: column;
   gap: 0.1rem;
@@ -20,10 +22,89 @@
   span {
     padding: 0.15rem 0.7rem;
     border-radius: 999px;
-    background-color: var(--c-surface-2);
+    background-color: var(--c-raised-2);
     color: var(--c-muted);
     font-size: 0.72rem;
     font-weight: 600;
+  }
+}
+
+// The unread divider — placed once at the boundary a conversation had when
+// it was opened (see useUnreadSnapshot); a line either side keeps it
+// legible without a full-width band. Signal's accent, not a neutral tone,
+// since it marks something to act on rather than just orient by.
+.msg-divider {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin: 1rem 0 0.75rem;
+
+  &::before,
+  &::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+  }
+
+  &--unread {
+    &::before,
+    &::after {
+      background-color: var(--c-line-accent);
+    }
+  }
+
+  &__label {
+    color: var(--c-accent);
+    font-size: 0.72rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+
+  &__count {
+    font-family: var(--f-mono);
+    font-size: 0.68rem;
+    color: var(--c-accent);
+    background-color: var(--c-accent-soft);
+    padding: 0.05rem 0.4rem;
+    border-radius: var(--r-full);
+  }
+}
+
+.message-list__loading-older {
+  display: flex;
+  justify-content: center;
+  padding: 0.5rem 0 0.75rem;
+}
+
+// "N new messages" — offers to jump back down after a message arrives
+// while the viewer is reading older history (see useStickToBottom).
+// Anchored to `.room__stage`, which wraps the scroller without scrolling
+// itself — NOT to `.room__scroll`. An absolutely positioned child of a
+// scrolling element is placed against that element's unscrolled origin and
+// then travels with the content, which put this off-screen except when
+// scrolled to the very top.
+.new-messages-pill {
+  position: absolute;
+  bottom: 1rem;
+  left: 50%;
+  transform: translateX(-50%);
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.4rem 0.85rem;
+  border: 1px solid var(--c-line-2);
+  border-radius: var(--r-full);
+  background-color: var(--c-raised);
+  color: var(--c-fg);
+  font-size: var(--fs-small);
+  font-weight: 600;
+  box-shadow: var(--shadow-e2);
+  cursor: pointer;
+  z-index: $z-sticky;
+
+  &:hover {
+    background-color: var(--c-raised-2);
   }
 }
 
@@ -83,7 +164,8 @@
   // the circularity entirely while capping the bubble about as tightly.
   max-width: min(82vw, 30rem);
   padding: 0.55rem;
-  border-radius: var(--radius-lg);
+  // DS-Type-Space radius scale: "Bubble, menu: 12".
+  border-radius: var(--r-bubble);
   background-color: var(--c-bubble-other);
   color: var(--c-bubble-other-fg);
   font-size: 0.88rem;
@@ -92,24 +174,25 @@
   overflow-wrap: anywhere;
   box-shadow: var(--shadow-e1);
 
+  // DS-Message-Anatomy "Corner logic": only the joined side tightens, to 4px.
   .is-own & {
     background-color: var(--c-bubble-own);
     color: var(--c-bubble-own-fg);
-    border-bottom-right-radius: var(--radius-sm);
+    border-bottom-right-radius: 4px;
   }
 
   .is-other & {
-    border-bottom-left-radius: var(--radius-sm);
+    border-bottom-left-radius: 4px;
   }
 
   .is-grouped.is-other & {
-    border-bottom-left-radius: var(--radius-lg);
-    border-top-left-radius: var(--radius-sm);
+    border-bottom-left-radius: var(--r-bubble);
+    border-top-left-radius: 4px;
   }
 
   .is-grouped.is-own & {
-    border-bottom-right-radius: var(--radius-lg);
-    border-top-right-radius: var(--radius-sm);
+    border-bottom-right-radius: var(--r-bubble);
+    border-top-right-radius: 4px;
   }
 
   &__sender {
@@ -366,7 +449,20 @@
     max-height: 8rem;
     min-height: 2.25rem;
     resize: none;
-    border-radius: var(--radius-lg);
+    border-radius: var(--r-composer);
+  }
+
+  &__hint {
+    margin: 0.3rem 0 0;
+    text-align: center;
+    font-family: var(--f-mono);
+    font-size: var(--fs-meta);
+    line-height: var(--lh-meta);
+    color: var(--c-fg-3);
+
+    kbd {
+      font-family: inherit;
+    }
   }
 
   &__reply-chip {

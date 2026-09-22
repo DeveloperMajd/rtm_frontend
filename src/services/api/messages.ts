@@ -7,32 +7,42 @@ import type {
 
 type MessagesResponse = {
   data: MessageType[]
-  meta: { last_page: number; current_page: number }
+  meta: { has_more: boolean; next_before_id: string | null }
 }
 
+/**
+ * Fetches a page of history, newest first. `beforeId` is a cursor — the id to
+ * read backwards from — rather than a page number, because page numbers are
+ * offsets from an end of the list that keeps moving as messages arrive (see
+ * the API's own note on MessageController::index).
+ */
 const getMessagesByConversationId = async (
   conversationId: string,
-  page = 1,
+  beforeId?: string | null,
 ): Promise<MessagesResponse> => {
   const response = await api.get<MessagesResponse>(
     `/conversations/${conversationId}/messages`,
-    { params: { page } },
+    { params: beforeId ? { before_id: beforeId } : undefined },
   )
   return response.data
 }
 
+/** Resolves with the created message: the server already returns it, and
+ * using it lets the composer put the message on screen straight away
+ * instead of refetching the conversation to find out what it just sent. */
 const sendMessage = async (
   conversationId: string,
   body: string,
   replyToMessageId?: string,
   attachmentIds?: string[],
-): Promise<void> => {
-  await api.post('/messages', {
+): Promise<MessageType> => {
+  const response = await api.post<{ data: MessageType }>('/messages', {
     conversation_id: conversationId,
     body: body.trim() || undefined,
     reply_to_message_id: replyToMessageId,
     attachment_ids: attachmentIds && attachmentIds.length > 0 ? attachmentIds : undefined,
   })
+  return response.data.data
 }
 
 const uploadAttachment = async (

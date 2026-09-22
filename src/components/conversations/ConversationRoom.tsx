@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { mdiArrowLeft } from '@mdi/js'
 import MessageForm from './MessageForm'
 import Messages from './Messages'
 import GroupSettingsPanel from './GroupSettingsPanel'
@@ -8,16 +7,21 @@ import useMessages from '../../hooks/useMessages'
 import useTypingIndicator from '../../hooks/useTypingIndicator'
 import useConversations from '../../hooks/useConversations'
 import useAuth from '../../hooks/useAuth'
+import { useReadStateSnapshot } from '../../hooks/useReadStateSnapshot'
 import Avatar from '../ui/Avatar'
 import Button from '../ui/Button'
 import Icon from '../ui/Icon'
 import OnlineStatus from '../ui/OnlineStatus'
 import type { MessageType } from '../../utils/baseTypes'
 
-const ConversationRoom = () => {
+const ConversationRoomView = () => {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
-  const { conversations, isLoading: isLoadingConversations } = useConversations()
+  const {
+    conversations,
+    isLoading: isLoadingConversations,
+    isReady: areConversationsReady,
+  } = useConversations()
   const { user } = useAuth()
   const [isGroupSettingsOpen, setIsGroupSettingsOpen] = useState(false)
   const [replyingTo, setReplyingTo] = useState<MessageType | null>(null)
@@ -35,8 +39,23 @@ const ConversationRoom = () => {
     }
   }, [isLoadingConversations, conversation, navigate])
 
-  const { messages, isLoading, isLoadingMore, hasMore, error, loadOlder } = useMessages(id!, hasLeft)
+  const {
+    messages,
+    isLoading,
+    isLoadingMore,
+    hasMore,
+    error,
+    loadOlder,
+    isReady: areMessagesReady,
+    isRefreshing: areMessagesRefreshing,
+  } = useMessages(id!, hasLeft, { deferUntilReady: !areConversationsReady })
   const typingText = useTypingIndicator(id!, !hasLeft)
+  const readState = useReadStateSnapshot(
+    id,
+    areConversationsReady,
+    conversation?.unread_count,
+    conversation?.last_read_message_id,
+  )
 
   const headerTitle = isGroup
     ? conversation?.title || 'Untitled group'
@@ -52,7 +71,7 @@ const ConversationRoom = () => {
           aria-label='Back to conversations'
           onClick={() => navigate('/conversations')}
         >
-          <Icon path={mdiArrowLeft} />
+          <Icon name='arrowLeft' />
         </Button>
 
         <Avatar
@@ -89,29 +108,33 @@ const ConversationRoom = () => {
         )}
       </header>
 
-      <div className='room__scroll scroll-y'>
-        <Messages
-          messages={messages}
-          isLoading={isLoading}
-          isLoadingMore={isLoadingMore}
-          hasMore={hasMore}
-          error={error}
-          onLoadOlder={() => {
-            void loadOlder()
-          }}
-          onReply={setReplyingTo}
-          readOnly={hasLeft}
-        />
-      </div>
+      {/* No key needed here: the whole room is keyed by conversation id
+          (see the wrapper at the bottom of this file), so this remounts and
+          resets its scroll position, unread divider and new-message count
+          along with everything else. */}
+      <Messages
+        messages={messages}
+        isLoading={isLoading}
+        isLoadingMore={isLoadingMore}
+        hasMore={hasMore}
+        error={error}
+        onLoadOlder={loadOlder}
+        onReply={setReplyingTo}
+        readOnly={hasLeft}
+        readState={readState}
+        isReady={areMessagesReady}
+        isRefreshing={areMessagesRefreshing}
+      />
 
       {!hasLeft && (
         <div className='typing-line' aria-live='polite'>
           {typingText && (
             <>
-              <span className='typing-dots' aria-hidden='true'>
-                <span />
-                <span />
-                <span />
+              <span className='typing-bars' aria-hidden='true'>
+                <i />
+                <i />
+                <i />
+                <i />
               </span>{' '}
               {typingText}
             </>
@@ -143,6 +166,23 @@ const ConversationRoom = () => {
       )}
     </section>
   )
+}
+
+/**
+ * Keyed by conversation id so that switching conversations is a real mount
+ * rather than a re-render with new params.
+ *
+ * The router reuses one element for /conversations/:id, so without this the
+ * room — and every hook in it — survives a switch, carrying over the
+ * previous conversation's scroll position, unread divider, snapshot and
+ * "has this mount fetched yet" state. It also left the data hooks holding a
+ * single query observer that merely swapped keys, which is the one path
+ * TanStack Query decides by staleness alone (see useMessages), so returning
+ * to a conversation re-used its cache without ever re-checking the server.
+ */
+const ConversationRoom = () => {
+  const { id } = useParams<{ id: string }>()
+  return <ConversationRoomView key={id} />
 }
 
 export default ConversationRoom

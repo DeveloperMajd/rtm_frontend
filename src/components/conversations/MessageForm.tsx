@@ -4,6 +4,7 @@ import toast from 'react-hot-toast'
 import { mdiClose, mdiFileDocumentOutline, mdiPaperclip, mdiSend } from '@mdi/js'
 import { sendMessage, uploadAttachment } from '../../services/api/messages'
 import { postTyping } from '../../services/api/conversations'
+import { appendMessageToCache } from '../../utils/messagePages'
 import Icon from '../ui/Icon'
 import type { MessageType } from '../../utils/baseTypes'
 
@@ -60,13 +61,23 @@ const MessageForm = ({ conversationId, replyingTo, onCancelReply }: MessageFormP
   const { mutate, isPending } = useMutation({
     mutationFn: ({ text, attachmentIds }: { text: string; attachmentIds: string[] }) =>
       sendMessage(conversationId, text, replyingTo?.id, attachmentIds),
-    onSuccess: () => {
+    onSuccess: (created) => {
       setBody('')
       clearUploads()
       onCancelReply()
-      void queryClient.invalidateQueries({
-        queryKey: ['messages', conversationId],
-      })
+
+      // Put the message the server just confirmed straight into the cache.
+      // This used to invalidate the query instead, which on an infinite
+      // query refetches *every* page that has been loaded — five sequential
+      // round trips after a little scrolling back, growing with every page
+      // the viewer pages in, before their own message appeared. Each of
+      // those refetches also re-pulled overlapping pages (see
+      // flattenMessagePages). The Echo broadcast for this same message
+      // arrives later and de-duplicates against it.
+      if (!appendMessageToCache(queryClient, conversationId, created)) {
+        // Nothing cached to patch (the conversation hasn't loaded here yet).
+        void queryClient.invalidateQueries({ queryKey: ['messages', conversationId] })
+      }
     },
     onError: () => toast.error('Failed to send message. Please try again.'),
   })
@@ -259,6 +270,9 @@ const MessageForm = ({ conversationId, replyingTo, onCancelReply }: MessageFormP
           )}
         </button>
       </div>
+      <p className='composer__hint' aria-hidden='true'>
+        <kbd>↵</kbd> send · <kbd>⇧↵</kbd> new line
+      </p>
     </form>
   )
 }
