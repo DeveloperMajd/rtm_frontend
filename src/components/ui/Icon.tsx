@@ -1,29 +1,56 @@
+import { ICONS, type IconName } from './icons'
+
 type IconProps = {
-  /** Raw SVG path data from `@mdi/js`, e.g. `mdiArrowLeft`. */
-  path: string
   size?: number
   className?: string
-}
+} & (
+  | { path: string; name?: undefined }
+  | { name: IconName; path?: undefined }
+)
 
 /**
- * Renders one Material Design Icon. `@mdi/js` ships path data only (plain
- * strings, bundled at build time — nothing is fetched at runtime), so this
- * is the thin wrapper every icon goes through. `fill="currentColor"` means
- * it follows the surrounding text/icon color — and therefore the theme
- * tokens — automatically, unlike the emoji glyphs it replaces. Always
- * decorative here: pair it with `aria-label` on the containing button.
+ * Renders one icon, either the legacy `@mdi/js` fill glyph (`path`, raw SVG
+ * path data — kept only until every call site has moved to `name` below,
+ * see the redesign's Stage 11) or the Signal design system's 24px stroke
+ * set (`name` — DS-Icons-Avatars: 1.75px stroke, round caps/joins,
+ * currentColor, 81 icons in `./icons`). Both follow the surrounding
+ * text/icon color automatically, so they track theme tokens without any
+ * color prop. Always decorative here: pair it with `aria-label` on the
+ * containing button.
  */
-const Icon = ({ path, size = 18, className }: IconProps) => (
-  <svg
-    viewBox='0 0 24 24'
-    width={size}
-    height={size}
-    className={className}
-    aria-hidden='true'
-    focusable='false'
-  >
-    <path fill='currentColor' d={path} />
-  </svg>
-)
+const Icon = ({ size = 18, className, ...rest }: IconProps) => {
+  if (rest.name) {
+    return (
+      <svg
+        viewBox='0 0 24 24'
+        width={size}
+        height={size}
+        fill='none'
+        stroke='currentColor'
+        strokeWidth={1.75}
+        strokeLinecap='round'
+        strokeLinejoin='round'
+        className={className}
+        aria-hidden='true'
+        focusable='false'
+      >
+        {ICONS[rest.name]}
+      </svg>
+    )
+  }
+
+  return (
+    <svg
+      viewBox='0 0 24 24'
+      width={size}
+      height={size}
+      className={className}
+      aria-hidden='true'
+      focusable='false'
+    >
+      <path fill='currentColor' d={rest.path} />
+    </svg>
+  )
+}
 
 export default Icon

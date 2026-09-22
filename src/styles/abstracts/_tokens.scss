@@ -1,9 +1,13 @@
 // Sass-side mirrors of the runtime design tokens.
-// Colours stay as CSS custom properties (they swap per theme); only authoring
+// Colours, type scale and radii are CSS custom properties in
+// `styles/tailwind.css` (the Signal design system's own `--c-*`/`--fs-*`/
+// `--lh-*`/`--r-*` tokens — see that file's header comment); only authoring
 // constants that Sass needs at compile time (breakpoints, z-index, easing)
 // live here as Sass values.
 
-// Breakpoints — keep in sync with Tailwind's `md` (48rem).
+// Breakpoints — keep in sync with Tailwind's `md` (48rem). These also match
+// the Signal design system's own layout breakpoints (DS-Type-Space.dc.html):
+// 768 is its "rail + list + chat" cutover, same role $bp-md already plays.
 $bp-sm: 40rem; // 640px
 $bp-md: 48rem; // 768px  — the list / room single-pane cutover
 $bp-lg: 64rem; // 1024px
