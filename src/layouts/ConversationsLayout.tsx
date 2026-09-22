@@ -1,8 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import type { ConnectionStatus } from 'laravel-echo'
-import { mdiLogout } from '@mdi/js'
-import Conversations from '../components/conversations/Conversations'
+import Conversations, { type ConversationFilter } from '../components/conversations/Conversations'
 import Contacts from '../components/conversations/Contacts'
 import GroupModal from '../components/conversations/GroupModal'
 import MessageSearch from '../components/conversations/MessageSearch'
@@ -10,6 +9,7 @@ import Button from '../components/ui/Button'
 import Avatar from '../components/ui/Avatar'
 import BrandMark from '../components/ui/BrandMark'
 import Icon from '../components/ui/Icon'
+import SignalBars, { type SignalState } from '../components/ui/SignalBars'
 import ThemeToggle from '../components/ui/ThemeToggle'
 import useConversations from '../hooks/useConversations'
 import useAuth from '../hooks/useAuth'
@@ -28,13 +28,33 @@ const CONNECTION_LABEL: Record<ConnectionStatus, string> = {
   failed: "Connection lost — retrying…",
 }
 
+// laravel-echo's ConnectionStatus has a couple more values than the rail's
+// signal glyph distinguishes between — this collapses them onto the same
+// four states DS-Signal-Motion actually draws.
+const SIGNAL_STATE: Record<ConnectionStatus, SignalState> = {
+  connected: 'connected',
+  connecting: 'connecting',
+  reconnecting: 'reconnecting',
+  disconnected: 'reconnecting',
+  failed: 'offline',
+}
+
+const FILTERS: { key: ConversationFilter; label: string }[] = [
+  { key: 'all', label: 'All' },
+  { key: 'unread', label: 'Unread' },
+  { key: 'groups', label: 'Groups' },
+  { key: 'direct', label: 'Direct' },
+]
+
 function ConversationsLayout() {
   const [activeTab, setActiveTab] = useState<Tab>('chats')
+  const [filter, setFilter] = useState<ConversationFilter>('all')
   const [isGroupModalOpen, setIsGroupModalOpen] = useState(false)
   const { conversations, isLoading, error } = useConversations()
   const { logout, user } = useAuth()
   const navigate = useNavigate()
   const location = useLocation()
+  const railSearchInputRef = useRef<HTMLInputElement>(null)
   usePresenceHeartbeat(true)
 
   // Echo/Pusher already retries on its own — this only surfaces the state.
@@ -52,9 +72,18 @@ function ConversationsLayout() {
   // On mobile: show the list, or the open room — never both.
   const roomOpen = /^\/conversations\/[^/]+/.test(location.pathname)
 
+  const hasUnread = conversations.some((c) => !c.viewer_left_at && !!c.unread_count)
+  const unreadCount = conversations.reduce(
+    (total, c) => (!c.viewer_left_at ? total + (c.unread_count ?? 0) : total),
+    0,
+  )
+
   // WAI-ARIA tabs pattern: arrow keys move focus and switch tabs together
   // (automatic activation, matching the existing click behaviour); Home/End
   // jump to the first/last tab. Only the active tab is in the Tab order.
+  // Drives the <1024px sidebar's tab switcher only — the ≥1024px rail below
+  // uses plain nav buttons (aria-current, sequential Tab order), matching
+  // the design's own <nav>-with-aria-current markup rather than a tablist.
   const tabButtonRefs = useRef<Record<Tab, HTMLButtonElement | null>>({
     chats: null,
     contacts: null,
@@ -94,6 +123,111 @@ function ConversationsLayout() {
         </div>
       )}
 
+      {/* ≥1024px: the Signal primary rail. CSS-hidden below that — the
+          <aside className="sidebar"> further down keeps serving every
+          narrower width unchanged until Stage 10 rebuilds it (its own
+          breakpoints: 375/430/768/1024). Both are mounted at once and
+          toggled by CSS, not JS, per the project's responsive rule. */}
+      <nav className='rail' aria-label='Primary'>
+        <div className='rail__brand'>
+          <BrandMark size={24} withWordmark={false} />
+        </div>
+
+        <button
+          type='button'
+          className='rail__nav-btn'
+          aria-current={activeTab === 'chats' ? 'page' : undefined}
+          aria-label='Chats'
+          onClick={() => setActiveTab('chats')}
+        >
+          <Icon name='chatDots' />
+          {hasUnread && <span className='rail__dot' aria-hidden='true' />}
+        </button>
+        <button
+          type='button'
+          className='rail__nav-btn'
+          aria-current={activeTab === 'contacts' ? 'page' : undefined}
+          aria-label='Contacts'
+          onClick={() => setActiveTab('contacts')}
+        >
+          <Icon name='users' />
+        </button>
+        <button
+          type='button'
+          className='rail__nav-btn'
+          aria-label='Search'
+          onClick={() => {
+            setActiveTab('chats')
+            railSearchInputRef.current?.focus()
+          }}
+        >
+          <Icon name='search' />
+        </button>
+
+        <div className='rail__spacer' />
+
+        <span className='rail__signal' title={CONNECTION_LABEL[connectionStatus] || 'Connected'}>
+          <SignalBars state={SIGNAL_STATE[connectionStatus]} />
+        </span>
+        <ThemeToggle compact />
+        <Link to='/profile' aria-label='Your profile' className='rail__avatar'>
+          <Avatar name={user?.name ?? '?'} src={user?.avatar_url} size='sm' />
+        </Link>
+        {/* Interim only: the design tucks "Sign out" into Settings
+            (Stage 9), which doesn't exist yet. Kept here, unstyled into
+            the rail's own icon set, so logging out isn't lost until then. */}
+        <Button variant='ghost' icon aria-label='Log out' onClick={() => void handleLogout()}>
+          <Icon name='logout' />
+        </Button>
+      </nav>
+
+      <section className='list-pane' aria-label={activeTab === 'chats' ? 'Conversations' : 'Contacts'}>
+        <header className='list-pane__header'>
+          <h1 className='list-pane__title'>{activeTab === 'chats' ? 'Chats' : 'Contacts'}</h1>
+          {activeTab === 'chats' && (
+            <button
+              type='button'
+              className='list-pane__icon-btn'
+              aria-label='New group'
+              onClick={() => setIsGroupModalOpen(true)}
+            >
+              <Icon name='plus' />
+            </button>
+          )}
+        </header>
+
+        {activeTab === 'chats' && (
+          <>
+            <div className='list-pane__search'>
+              <MessageSearch inputRef={railSearchInputRef} />
+            </div>
+            <div className='list-pane__filters' role='group' aria-label='Filter conversations'>
+              {FILTERS.map(({ key, label }) => (
+                <button
+                  key={key}
+                  type='button'
+                  className='chip'
+                  aria-pressed={filter === key}
+                  onClick={() => setFilter(key)}
+                >
+                  {label}
+                  {key === 'unread' && unreadCount > 0 && <span className='chip__count'>{unreadCount}</span>}
+                </button>
+              ))}
+            </div>
+          </>
+        )}
+
+        <div className='list-pane__list scroll-y'>
+          {activeTab === 'chats' ? (
+            <Conversations conversations={conversations} isLoading={isLoading} error={error} filter={filter} />
+          ) : (
+            <Contacts onConversationOpened={() => setActiveTab('chats')} />
+          )}
+        </div>
+      </section>
+
+      {/* <1024px: today's existing sidebar, unchanged, until Stage 10. */}
       <aside className='sidebar'>
         <header className='sidebar__header'>
           <BrandMark size={26} />
@@ -103,7 +237,7 @@ function ConversationsLayout() {
               <Avatar name={user?.name ?? '?'} src={user?.avatar_url} size='sm' />
             </Link>
             <Button variant='ghost' icon aria-label='Log out' onClick={() => void handleLogout()}>
-              <Icon path={mdiLogout} />
+              <Icon name='logout' />
             </Button>
           </div>
         </header>

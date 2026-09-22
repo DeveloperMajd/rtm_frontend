@@ -49,6 +49,12 @@
     flex: 0 0 22rem;
   }
 
+  // The rail + list-pane below take over from here — this keeps serving
+  // every width Stage 10 hasn't rebuilt yet (up to and including tablet).
+  @include from($bp-lg) {
+    display: none;
+  }
+
   &__header {
     display: flex;
     align-items: center;
@@ -96,6 +102,265 @@
   }
 }
 
+// ---------------------------------------------------------------------
+// ≥1024px: the Signal shell — a primary icon rail plus a separate list
+// pane, replacing the sidebar above. Below 1024px (including tablet),
+// `.sidebar` above keeps serving every width until Stage 10 rebuilds
+// mobile/tablet against the design's own 375/430/768/1024 breakpoints.
+// ---------------------------------------------------------------------
+
+.rail {
+  display: none;
+
+  @include from($bp-lg) {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    width: 60px;
+    flex: 0 0 60px;
+    height: 100%;
+    padding: 14px 0;
+    gap: 6px;
+    background-color: var(--c-rail);
+    border-right: 1px solid var(--c-line);
+  }
+
+  &__brand {
+    margin-bottom: 14px;
+  }
+
+  &__nav-btn {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 36px;
+    height: 36px;
+    flex: none;
+    border: 0;
+    border-radius: var(--r-control);
+    background: transparent;
+    color: var(--c-fg-3);
+    cursor: pointer;
+    transition:
+      background-color $dur-fast $ease-out,
+      color $dur-fast $ease-out;
+
+    &:hover {
+      background-color: var(--c-raised-2);
+      color: var(--c-fg);
+    }
+
+    &[aria-current='page'] {
+      background-color: var(--c-accent-soft);
+      color: var(--c-accent);
+    }
+  }
+
+  &__dot {
+    position: absolute;
+    top: 6px;
+    right: 6px;
+    width: 7px;
+    height: 7px;
+    border-radius: 999px;
+    background-color: var(--c-accent);
+    box-shadow: 0 0 0 2px var(--c-rail);
+  }
+
+  &__spacer {
+    flex: 1;
+  }
+
+  &__signal {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 32px;
+  }
+
+  &__avatar {
+    display: inline-flex;
+    margin-top: 6px;
+    border-radius: 999px;
+  }
+}
+
+.signal-bars {
+  display: inline-flex;
+  align-items: flex-end;
+  gap: 2px;
+  height: 14px;
+
+  i {
+    display: block;
+    width: 2px;
+    border-radius: 1px;
+    background-color: var(--c-line-3);
+
+    &:nth-child(1) {
+      height: 42%;
+    }
+    &:nth-child(2) {
+      height: 70%;
+    }
+    &:nth-child(3) {
+      height: 100%;
+    }
+
+    &.is-lit {
+      background-color: var(--c-accent);
+    }
+  }
+
+  &.is-connecting i.is-lit,
+  &.is-reconnecting i.is-lit {
+    animation: signal-bars-pulse 1.2s ease-in-out infinite;
+  }
+}
+
+@keyframes signal-bars-pulse {
+  50% {
+    opacity: 0.4;
+  }
+}
+
+.list-pane {
+  display: none;
+
+  @include from($bp-lg) {
+    display: flex;
+    flex-direction: column;
+    width: 340px;
+    flex: 0 0 340px;
+    height: 100%;
+    background-color: var(--c-list);
+    border-right: 1px solid var(--c-line);
+  }
+
+  &__header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    height: 60px;
+    flex: none;
+    padding: 0 10px 0 16px;
+  }
+
+  &__title {
+    font-size: var(--fs-heading);
+    line-height: var(--lh-heading);
+    font-weight: 650;
+    letter-spacing: -0.015em;
+    margin: 0;
+  }
+
+  &__icon-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    flex: none;
+    border: 0;
+    border-radius: var(--r-btn-sm);
+    background: transparent;
+    color: var(--c-fg-3);
+    cursor: pointer;
+
+    &:hover {
+      background-color: var(--c-raised-2);
+      color: var(--c-fg);
+    }
+  }
+
+  &__search {
+    padding: 0 12px 10px;
+    flex: none;
+
+    // The search box already carries its own left/right padding via
+    // .sidebar-search in the old sidebar — that context doesn't apply here.
+    .sidebar-search {
+      padding: 0;
+    }
+  }
+
+  &__filters {
+    display: flex;
+    gap: 6px;
+    padding: 0 12px 10px;
+    flex: none;
+    overflow-x: auto;
+  }
+
+  &__list {
+    flex: 1;
+    min-height: 0;
+    @include custom-scrollbar;
+  }
+}
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.3rem 0.65rem;
+  flex: none;
+  border: 1px solid var(--c-line-2);
+  border-radius: var(--r-full);
+  background: transparent;
+  color: var(--c-fg-2);
+  font-size: var(--fs-caption);
+  line-height: var(--lh-caption);
+  white-space: nowrap;
+  cursor: pointer;
+  transition:
+    background-color $dur-fast $ease-out,
+    color $dur-fast $ease-out,
+    border-color $dur-fast $ease-out;
+
+  &:hover {
+    background-color: var(--c-raised-2);
+  }
+
+  &[aria-pressed='true'] {
+    background-color: var(--c-accent-soft);
+    color: var(--c-accent-text);
+    border-color: var(--c-line-accent);
+  }
+
+  &__count {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 1.1rem;
+    height: 1.1rem;
+    padding: 0 0.3rem;
+    border-radius: var(--r-full);
+    background-color: var(--c-accent);
+    color: var(--c-on-accent);
+    font-size: 0.65rem;
+    font-weight: 700;
+  }
+}
+
+// The <li> wrapping a row's link plus its (sibling, not nested — see
+// Conversations.tsx) Pin/Mute/Archive quick actions.
+.conversation-item-row {
+  position: relative;
+
+  &:hover,
+  &:focus-within {
+    background-color: var(--c-raised-2);
+  }
+
+  &:hover .conversation-item__quick-actions,
+  &:focus-within .conversation-item__quick-actions {
+    opacity: 1;
+    visibility: visible;
+  }
+}
+
 .conversation-item {
   display: flex;
   align-items: center;
@@ -112,7 +377,7 @@
   transition: background-color 120ms ease;
 
   &:hover {
-    background-color: var(--c-surface-2);
+    background-color: var(--c-raised-2);
   }
 
   &:disabled {
@@ -120,8 +385,10 @@
     cursor: default;
   }
 
+  // A thin selection line + soft glow, not a filled block (DS-Surfaces).
   &.is-active {
-    background-color: color-mix(in oklab, var(--c-primary) 10%, transparent);
+    background-color: var(--c-accent-soft);
+    box-shadow: inset 3px 0 0 var(--c-accent);
   }
 
   &.is-left {
@@ -160,6 +427,39 @@
     font-size: 0.8rem;
     color: var(--c-muted);
   }
+
+  // Unread state: the preview line reads as real content, not a muted hint.
+  &.has-unread &__preview {
+    color: var(--c-fg);
+    font-weight: 600;
+  }
+}
+
+// Pin/Mute/Archive — see Conversations.tsx's QuickActions. Overlays the
+// timestamp's own slot (same top-right corner) rather than reserving
+// permanent width for controls that are disabled today.
+.conversation-item__quick-actions {
+  position: absolute;
+  top: 0.6rem;
+  right: 1rem;
+  display: flex;
+  gap: 0.15rem;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity $dur-fast $ease-out;
+}
+
+.conversation-item__action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border: 0;
+  border-radius: var(--r-btn-sm);
+  background: transparent;
+  color: var(--c-fg-3);
+  cursor: not-allowed;
 }
 
 // Contacts tab row: a clickable person + a remove affordance.

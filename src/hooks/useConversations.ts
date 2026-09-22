@@ -3,6 +3,7 @@ import { useLocation } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { getAllConversations } from '../services/api/conversations'
 import type { ConversationType, MessageType } from '../utils/baseTypes'
+import { sortByRecency } from '../utils/conversations'
 import useEcho from './useEcho'
 import useAuth from './useAuth'
 
@@ -15,7 +16,7 @@ const useConversations = () => {
   const { data, isLoading, error } = useQuery({
     queryKey: ['conversations'],
     queryFn: getAllConversations,
-    select: (response): ConversationType[] => response.data,
+    select: (response): ConversationType[] => sortByRecency(response.data),
     // Online status has no realtime push (it's a Redis TTL heartbeat, not a
     // broadcast event), so poll at the same cadence as the heartbeat itself.
     refetchInterval: 15000,

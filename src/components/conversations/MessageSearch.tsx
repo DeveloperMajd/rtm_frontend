@@ -1,10 +1,16 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, type RefObject } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { formatDistanceToNow } from 'date-fns'
 import { searchMessages } from '../../services/api/messages'
 
-const MessageSearch = () => {
+interface MessageSearchProps {
+  /** Lets a caller (the rail's "Search" nav button) focus this field
+   * imperatively instead of duplicating a search input of its own. */
+  inputRef?: RefObject<HTMLInputElement | null>
+}
+
+const MessageSearch = ({ inputRef }: MessageSearchProps = {}) => {
   const [query, setQuery] = useState('')
   const [debouncedQuery, setDebouncedQuery] = useState('')
   const navigate = useNavigate()
@@ -31,6 +37,7 @@ const MessageSearch = () => {
   return (
     <div className='sidebar-search'>
       <input
+        ref={inputRef}
         type='search'
         className='input'
         value={query}
