@@ -1,6 +1,6 @@
 import { forwardRef, type ButtonHTMLAttributes, type ReactNode } from 'react'
 
-type Variant = 'primary' | 'secondary' | 'tertiary' | 'danger' | 'ghost'
+type Variant = 'primary' | 'secondary' | 'tertiary' | 'danger' | 'danger-ghost' | 'ghost'
 
 export interface ButtonProps
   extends Omit<ButtonHTMLAttributes<HTMLButtonElement>, 'className'> {

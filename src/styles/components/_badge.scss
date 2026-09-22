@@ -3,26 +3,31 @@
   align-items: center;
   gap: 0.25rem;
   padding: 0.05rem 0.45rem;
-  border-radius: 999px;
+  border-radius: var(--r-tag);
   font-size: 0.7rem;
   font-weight: 600;
   line-height: 1.6;
-  background-color: var(--c-surface-2);
-  color: var(--c-muted);
-
-  &--primary {
-    background-color: color-mix(in oklab, var(--c-primary) 16%, transparent);
-    color: var(--c-primary);
-  }
+  background-color: var(--c-raised-2);
+  color: var(--c-fg-2);
 
   &--admin {
-    background-color: color-mix(in oklab, var(--c-primary) 16%, transparent);
-    color: var(--c-primary);
+    background-color: var(--c-accent-soft);
+    color: var(--c-accent-text);
   }
 
   &--left {
-    background-color: color-mix(in oklab, var(--c-muted) 18%, transparent);
-    color: var(--c-muted);
+    background-color: var(--c-raised-2);
+    color: var(--c-fg-3);
+  }
+
+  // "Not live yet" — a control this honestly labels stays disabled until
+  // the feature really works (see the redesign's project rules). Dashed to
+  // read as reserved/placeholder rather than an active status.
+  &--soon,
+  &--needs-api {
+    background-color: transparent;
+    color: var(--c-fg-3);
+    border: 1px dashed var(--c-line-3);
   }
 }
 
@@ -34,9 +39,9 @@
   min-width: 1.25rem;
   height: 1.25rem;
   padding: 0 0.35rem;
-  border-radius: 999px;
-  background-color: var(--c-primary);
-  color: var(--c-on-primary);
+  border-radius: var(--r-full);
+  background-color: var(--c-accent);
+  color: var(--c-on-accent);
   font-size: 0.7rem;
   font-weight: 700;
 }

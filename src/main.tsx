@@ -3,6 +3,7 @@ import { StrictMode, Suspense, lazy } from 'react'
 import { createRoot } from 'react-dom/client'
 import { createBrowserRouter, Navigate, RouterProvider } from 'react-router-dom'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import { Toaster } from 'react-hot-toast'
 import './styles/tailwind.css'
 import './styles/index.scss'
 import { AuthProvider } from './context/AuthContext.tsx'
@@ -59,6 +60,18 @@ createRoot(document.getElementById('root')!).render(
     <ErrorBoundary>
       <QueryClientProvider client={queryClient}>
         <AuthProvider>
+          {/* Mounted once, globally — not per-layout — so a toast fired from
+              an auth page (e.g. ResetPasswordPage's "password reset" toast)
+              has somewhere to render too, not just the conversations shell. */}
+          <Toaster
+            position='top-right'
+            toastOptions={{
+              className: 'rtm-toast',
+              duration: 5000,
+              success: { iconTheme: { primary: 'var(--c-success)', secondary: 'var(--c-raised)' } },
+              error: { iconTheme: { primary: 'var(--c-danger)', secondary: 'var(--c-raised)' } },
+            }}
+          />
           <RouterProvider router={router} />
         </AuthProvider>
       </QueryClientProvider>

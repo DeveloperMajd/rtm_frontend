@@ -30,7 +30,7 @@
   background-color: var(--c-surface);
   color: var(--c-fg);
   border: 1px solid var(--c-line);
-  border-radius: var(--radius-DEFAULT);
+  border-radius: var(--r-control);
   font-size: 0.9rem;
   transition:
     border-color $dur-fast $ease-out,
@@ -40,10 +40,13 @@
     color: color-mix(in oklab, var(--c-muted) 80%, transparent);
   }
 
+  // The same 2px ring + 2px offset as every other focusable control
+  // (DS-Accessibility: "Focus is always visible … same in both themes") —
+  // previously a bespoke glow here, inconsistent with the rest of the app.
   &:focus-visible {
-    outline: none;
-    border-color: var(--c-primary);
-    box-shadow: 0 0 0 3px color-mix(in oklab, var(--c-primary) 25%, transparent);
+    outline: 2px solid var(--c-focus);
+    outline-offset: 2px;
+    border-color: var(--c-focus);
   }
 
   &:disabled {

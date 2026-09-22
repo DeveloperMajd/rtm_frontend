@@ -1,0 +1,49 @@
+@use '../abstracts/tokens' as *;
+
+// react-hot-toast renders each toast as a div carrying this class (set via
+// <Toaster toastOptions={{ className: 'rtm-toast' }}> in main.tsx) — its own
+// defaults are unstyled here on purpose so every visual comes from the
+// design tokens instead of the library's inline styles.
+.rtm-toast {
+  position: relative;
+  overflow: hidden;
+  padding: 0.65rem 0.9rem;
+  padding-bottom: calc(0.65rem + 2px);
+  background-color: var(--c-overlay);
+  color: var(--c-fg);
+  border: 1px solid var(--c-line);
+  border-radius: var(--r-btn-sm);
+  box-shadow: var(--shadow-e3);
+  font-size: var(--fs-body);
+  line-height: var(--lh-body);
+
+  // Auto-dismiss countdown hairline (DS-Surfaces: "Auto-dismiss 5 s ·
+  // progress hairline shows the time left"). Matches the 5000ms `duration`
+  // passed to <Toaster>; pausing on hover/focus mirrors the library's own
+  // pause-on-hover behaviour for the dismiss timer itself.
+  &::after {
+    content: '';
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    height: 2px;
+    background-color: var(--c-accent);
+    transform-origin: left;
+    animation: toast-progress 5s linear forwards;
+  }
+
+  &:hover::after,
+  &:focus-within::after {
+    animation-play-state: paused;
+  }
+}
+
+@keyframes toast-progress {
+  from {
+    transform: scaleX(1);
+  }
+  to {
+    transform: scaleX(0);
+  }
+}

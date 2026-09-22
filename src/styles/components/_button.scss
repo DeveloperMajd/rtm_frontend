@@ -13,7 +13,7 @@
   padding: 0.5rem 0.9rem;
   min-height: 2.25rem;
   border: 1px solid var(--btn-bd);
-  border-radius: var(--radius-DEFAULT);
+  border-radius: var(--r-control);
   background-color: var(--btn-bg);
   color: var(--btn-fg);
   font-size: 0.875rem;
@@ -58,12 +58,27 @@
     }
   }
 
+  // Solid, final destructive actions only (Leave group, Delete group, a
+  // destructive confirm dialog) — Signal's "Danger solid".
   &.danger {
     --btn-bg: var(--c-danger);
-    --btn-fg: #fff;
+    --btn-fg: var(--c-on-accent);
 
     &:hover:not(:disabled) {
       --btn-bg: var(--c-danger-hover);
+    }
+  }
+
+  // Outline danger for a lighter-weight removal (e.g. a member/contact
+  // "Remove") — Signal's "Danger" (as opposed to "Danger solid" above).
+  &.danger-ghost {
+    --btn-bg: transparent;
+    --btn-fg: var(--c-danger);
+    --btn-bd: var(--c-line-2);
+
+    &:hover:not(:disabled) {
+      --btn-bg: color-mix(in oklab, var(--c-danger) 12%, transparent);
+      --btn-bd: var(--c-danger);
     }
   }
 

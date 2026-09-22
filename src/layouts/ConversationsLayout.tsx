@@ -1,6 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
 import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom'
-import { Toaster } from 'react-hot-toast'
 import type { ConnectionStatus } from 'laravel-echo'
 import { mdiLogout } from '@mdi/js'
 import Conversations from '../components/conversations/Conversations'
@@ -94,8 +93,6 @@ function ConversationsLayout() {
           {CONNECTION_LABEL[connectionStatus]}
         </div>
       )}
-
-      <Toaster position='top-right' toastOptions={{ className: 'rtm-toast' }} />
 
       <aside className='sidebar'>
         <header className='sidebar__header'>

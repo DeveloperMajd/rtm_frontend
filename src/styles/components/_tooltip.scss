@@ -1,0 +1,43 @@
+@use '../abstracts/tokens' as *;
+@use '../abstracts/mixins' as *;
+
+.tooltip {
+  position: relative;
+  display: inline-flex;
+
+  &__bubble {
+    position: absolute;
+    bottom: calc(100% + 6px);
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: $z-overlay;
+    padding: 0.3rem 0.55rem;
+    border-radius: var(--r-btn-sm);
+    background-color: var(--c-overlay);
+    color: var(--c-fg);
+    font-size: var(--fs-caption);
+    line-height: var(--lh-caption);
+    white-space: nowrap;
+    box-shadow: var(--shadow-e2);
+    pointer-events: none;
+    opacity: 0;
+    visibility: hidden;
+    transition:
+      opacity $dur-fast $ease-out,
+      visibility $dur-fast $ease-out;
+    // Mouse users get a short delay so passing over several triggers in a
+    // row doesn't flash a tooltip on each one; keyboard focus (below)
+    // overrides this back to instant.
+    transition-delay: 400ms;
+  }
+
+  &:hover &__bubble,
+  &:focus-within &__bubble {
+    opacity: 1;
+    visibility: visible;
+  }
+
+  &:focus-within &__bubble {
+    transition-delay: 0ms;
+  }
+}

@@ -2,14 +2,24 @@ import { useState } from 'react'
 
 type Size = 'xs' | 'sm' | 'md' | 'lg' | 'xl'
 
+/** Shape-coded presence, matching Signal's DS-Icons-Avatars: online is
+ * filled, offline is a hollow ring, away is half-filled, connecting is a
+ * dashed ring — shape carries the meaning, colour only reinforces it. */
+type Presence = 'online' | 'offline' | 'away' | 'connecting'
+
 interface AvatarProps {
   name: string
   src?: string | null
   size?: Size
   /** 'group' renders a neutral group glyph instead of initials */
   kind?: 'user' | 'group'
-  /** undefined = don't render a presence dot at all */
+  /** Legacy boolean form — true/false map to 'online'/'offline'. Kept
+   * because most call sites only ever distinguish those two; prefer
+   * `status` for 'away' or 'connecting'. undefined (on either prop) = no
+   * presence dot at all. */
   online?: boolean
+  /** Takes precedence over `online` when both are given. */
+  status?: Presence
   className?: string
 }
 
@@ -28,9 +38,10 @@ function initials(name: string): string {
  * User / group avatar: image when available, initials (or a group glyph)
  * fallback otherwise, with an optional presence dot.
  */
-const Avatar = ({ name, src, size = 'sm', kind = 'user', online, className = '' }: AvatarProps) => {
+const Avatar = ({ name, src, size = 'sm', kind = 'user', online, status, className = '' }: AvatarProps) => {
   const [failed, setFailed] = useState(false)
   const showImg = Boolean(src) && !failed
+  const presence: Presence | undefined = status ?? (online === undefined ? undefined : online ? 'online' : 'offline')
 
   return (
     <span
@@ -60,11 +71,8 @@ const Avatar = ({ name, src, size = 'sm', kind = 'user', online, className = '' 
           <span aria-hidden='true'>{initials(name)}</span>
         )}
       </span>
-      {online !== undefined && (
-        <span
-          className={`avatar__status${online ? ' is-online' : ''}`}
-          aria-hidden='true'
-        />
+      {presence !== undefined && (
+        <span className={`avatar__status is-${presence}`} aria-hidden='true' />
       )}
     </span>
   )

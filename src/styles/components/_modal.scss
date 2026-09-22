@@ -19,10 +19,11 @@
   max-height: min(85dvh, 44rem);
   display: flex;
   flex-direction: column;
-  background-color: var(--c-surface);
+  // Signal's dedicated dialog surface, not the generic list/sidebar one.
+  background-color: var(--c-overlay);
   color: var(--c-fg);
   border: 1px solid var(--c-line);
-  border-radius: var(--radius-lg);
+  border-radius: var(--r-dialog);
   box-shadow: var(--shadow-e3);
   animation: modal-pop $dur $ease-out;
 
@@ -62,7 +63,7 @@
     width: 2rem;
     height: 2rem;
     border: 0;
-    border-radius: var(--radius-sm);
+    border-radius: var(--r-btn-sm);
     background: transparent;
     color: var(--c-muted);
     font-size: 1.25rem;
@@ -70,7 +71,7 @@
     cursor: pointer;
 
     &:hover {
-      background: var(--c-surface-2);
+      background: var(--c-raised-2);
       color: var(--c-fg);
     }
   }
@@ -84,7 +85,7 @@
   max-height: 15rem;
   overflow-y: auto;
   border: 1px solid var(--c-line);
-  border-radius: var(--radius-DEFAULT);
+  border-radius: var(--r-control);
 
   &__row {
     display: flex;
