@@ -457,13 +457,47 @@
 }
 
 // Contacts tab row: a clickable person + a remove affordance.
+// Contacts (Contacts-1440): filter + Add contact, one row per contact with
+// Message / Remove revealed on hover or focus, and a count at the foot.
+.contacts {
+  display: flex;
+  flex-direction: column;
+  min-height: 100%;
+
+  &__tools {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    padding: 0.75rem 12px 0.5rem;
+  }
+
+  &__list {
+    flex: 1;
+    margin: 0;
+    padding: 0 0.35rem;
+    list-style: none;
+  }
+
+  &__footer {
+    margin: 0;
+    padding: 0.75rem 1rem;
+    border-top: 1px solid var(--c-line);
+    font-family: var(--f-mono);
+    font-size: var(--fs-meta);
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--c-fg-3);
+  }
+}
+
 .contact-row {
   display: flex;
   align-items: center;
-  border-bottom: 1px solid color-mix(in oklab, var(--c-line) 60%, transparent);
+  border-radius: var(--r-control);
 
-  &:hover {
-    background-color: var(--c-surface-2);
+  &:hover,
+  &:focus-within {
+    background-color: var(--c-raised-2);
   }
 
   &__open {
@@ -472,7 +506,7 @@
     gap: 0.75rem;
     flex: 1;
     min-width: 0;
-    padding: 0.6rem 0.5rem 0.6rem 1rem;
+    padding: 0.55rem 0.5rem 0.55rem 0.65rem;
     border: 0;
     background: transparent;
     color: inherit;
@@ -481,8 +515,56 @@
     cursor: pointer;
   }
 
-  &__remove {
-    margin-right: 0.5rem;
+  &__text {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+  }
+
+  &__name {
+    font-size: var(--fs-body);
+    font-weight: 550;
+    @include truncate;
+  }
+
+  &__meta {
+    font-size: var(--fs-caption);
+    color: var(--c-fg-3);
+
+    &.is-online {
+      color: var(--c-accent-text);
+    }
+  }
+
+  &__actions {
+    display: flex;
+    gap: 2px;
+    padding-right: 0.4rem;
+    opacity: 0;
+
+    .contact-row:hover &,
+    .contact-row:focus-within & {
+      opacity: 1;
+    }
+  }
+
+  &__action {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 1.9rem;
+    height: 1.9rem;
+    padding: 0;
+    border: 0;
+    border-radius: var(--r-btn-sm);
+    background: transparent;
+    color: var(--c-fg-2);
+    cursor: pointer;
+
+    &:hover {
+      background-color: var(--c-raised);
+      color: var(--c-fg);
+    }
   }
 }
 
@@ -565,12 +647,11 @@
     padding: 0.75rem 1rem;
   }
 
+  // Holds the read-only card (see .locked-card) for a group the viewer is
+  // no longer in.
   &__locked {
-    padding: 0.85rem 1rem;
-    text-align: center;
-    font-size: 0.82rem;
-    color: var(--c-muted);
-    background-color: var(--c-raised-2);
+    padding: 0.75rem 1rem 1rem;
     border-top: 1px solid var(--c-line);
+    background-color: var(--c-stage);
   }
 }

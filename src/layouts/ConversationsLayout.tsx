@@ -4,6 +4,7 @@ import type { ConnectionStatus } from 'laravel-echo'
 import Conversations, { type ConversationFilter } from '../components/conversations/Conversations'
 import Contacts from '../components/conversations/Contacts'
 import GroupModal from '../components/conversations/GroupModal'
+import AddContactModal from '../components/conversations/AddContactModal'
 import SearchPalette from '../components/conversations/SearchPalette'
 import SearchTrigger from '../components/conversations/SearchTrigger'
 import Button from '../components/ui/Button'
@@ -51,6 +52,7 @@ function ConversationsLayout() {
   const [activeTab, setActiveTab] = useState<Tab>('chats')
   const [filter, setFilter] = useState<ConversationFilter>('all')
   const [isGroupModalOpen, setIsGroupModalOpen] = useState(false)
+  const [isAddContactOpen, setIsAddContactOpen] = useState(false)
   const { conversations, isLoading, error } = useConversations()
   const { logout, user } = useAuth()
   const navigate = useNavigate()
@@ -197,7 +199,7 @@ function ConversationsLayout() {
       <section className='list-pane' aria-label={activeTab === 'chats' ? 'Conversations' : 'Contacts'}>
         <header className='list-pane__header'>
           <h1 className='list-pane__title'>{activeTab === 'chats' ? 'Chats' : 'Contacts'}</h1>
-          {activeTab === 'chats' && (
+          {activeTab === 'chats' ? (
             <button
               type='button'
               className='list-pane__icon-btn'
@@ -205,6 +207,15 @@ function ConversationsLayout() {
               onClick={() => setIsGroupModalOpen(true)}
             >
               <Icon name='plus' />
+            </button>
+          ) : (
+            <button
+              type='button'
+              className='list-pane__icon-btn'
+              aria-label='Add contact'
+              onClick={() => setIsAddContactOpen(true)}
+            >
+              <Icon name='userPlus' />
             </button>
           )}
         </header>
@@ -235,7 +246,7 @@ function ConversationsLayout() {
           {activeTab === 'chats' ? (
             <Conversations conversations={conversations} isLoading={isLoading} error={error} filter={filter} />
           ) : (
-            <Contacts onConversationOpened={() => setActiveTab('chats')} />
+            <Contacts onConversationOpened={() => setActiveTab('chats')} onAddContact={() => setIsAddContactOpen(true)} />
           )}
         </div>
       </section>
@@ -303,7 +314,7 @@ function ConversationsLayout() {
           {activeTab === 'chats' ? (
             <Conversations conversations={conversations} isLoading={isLoading} error={error} />
           ) : (
-            <Contacts onConversationOpened={() => setActiveTab('chats')} />
+            <Contacts onConversationOpened={() => setActiveTab('chats')} onAddContact={() => setIsAddContactOpen(true)} />
           )}
         </div>
 
@@ -325,7 +336,22 @@ function ConversationsLayout() {
         )}
       </main>
 
-      <GroupModal open={isGroupModalOpen} onClose={() => setIsGroupModalOpen(false)} />
+      <GroupModal
+        open={isGroupModalOpen}
+        onClose={() => setIsGroupModalOpen(false)}
+        onAddContact={() => {
+          setActiveTab('contacts')
+          setIsAddContactOpen(true)
+        }}
+      />
+      <AddContactModal
+        open={isAddContactOpen}
+        onClose={() => setIsAddContactOpen(false)}
+        onAdded={(conversationId) => {
+          navigate(`/conversations/${conversationId}`)
+          setActiveTab('chats')
+        }}
+      />
       <SearchPalette
         open={isSearchOpen}
         onClose={() => setIsSearchOpen(false)}

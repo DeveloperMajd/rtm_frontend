@@ -23,6 +23,24 @@
   }
 }
 
+// A search field with its magnifier inside the box.
+.input-with-icon {
+  position: relative;
+  display: flex;
+  align-items: center;
+
+  svg {
+    position: absolute;
+    left: 0.7rem;
+    color: var(--c-fg-3);
+    pointer-events: none;
+  }
+
+  .input {
+    padding-left: 2.1rem;
+  }
+}
+
 .input,
 .textarea {
   width: 100%;

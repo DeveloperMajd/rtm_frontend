@@ -13,37 +13,69 @@
   animation: modal-fade $dur $ease-out;
 }
 
+// Groups-Dialogs: an icon tile, the title and what the dialog is for, the
+// body, then a tinted footer band holding Cancel and the action.
 .modal-panel {
   width: 100%;
-  max-width: 30rem;
+  max-width: 28rem;
   max-height: min(85dvh, 44rem);
   display: flex;
   flex-direction: column;
   // Signal's dedicated dialog surface, not the generic list/sidebar one.
   background-color: var(--c-overlay);
   color: var(--c-fg);
-  border: 1px solid var(--c-line);
+  border: 1px solid var(--c-line-2);
   border-radius: var(--r-dialog);
   box-shadow: var(--shadow-e3);
+  overflow: hidden;
   animation: modal-pop $dur $ease-out;
 
   &__header {
     display: flex;
+    align-items: flex-start;
+    gap: 0.75rem;
+    padding: 1.25rem 1.25rem 1rem;
+  }
+
+  &__icon {
+    display: inline-flex;
+    flex: none;
     align-items: center;
-    justify-content: space-between;
-    gap: 1rem;
-    padding: 1rem 1.25rem;
-    border-bottom: 1px solid var(--c-line);
+    justify-content: center;
+    width: 2.25rem;
+    height: 2.25rem;
+    border-radius: var(--r-control);
+    background-color: var(--c-accent-soft);
+    color: var(--c-accent);
+
+    &.is-danger {
+      background-color: color-mix(in oklab, var(--c-danger) 14%, transparent);
+      color: var(--c-danger);
+    }
+  }
+
+  &__heading {
+    flex: 1;
+    min-width: 0;
+    padding-top: 0.1rem;
   }
 
   &__title {
+    margin: 0;
     font-size: 1rem;
     font-weight: 650;
-    margin: 0;
+    line-height: 1.35;
+  }
+
+  &__description {
+    margin: 0.3rem 0 0;
+    font-size: var(--fs-small);
+    line-height: var(--lh-small);
+    color: var(--c-fg-2);
   }
 
   &__body {
-    padding: 1.25rem;
+    padding: 0 1.25rem 1.25rem;
     overflow-y: auto;
     @include custom-scrollbar;
   }
@@ -52,22 +84,23 @@
     display: flex;
     justify-content: flex-end;
     gap: 0.5rem;
-    padding: 1rem 1.25rem;
+    padding: 0.85rem 1.25rem;
     border-top: 1px solid var(--c-line);
+    background-color: color-mix(in oklab, var(--c-fg) 3%, var(--c-overlay));
   }
 
   &__close {
     display: inline-flex;
+    flex: none;
     align-items: center;
     justify-content: center;
     width: 2rem;
     height: 2rem;
+    margin: -0.25rem -0.4rem 0 0;
     border: 0;
     border-radius: var(--r-btn-sm);
     background: transparent;
-    color: var(--c-muted);
-    font-size: 1.25rem;
-    line-height: 1;
+    color: var(--c-fg-2);
     cursor: pointer;
 
     &:hover {
@@ -77,79 +110,175 @@
   }
 }
 
-// Selectable people list used inside modals (new group, add members, add contact).
-.picker-list {
-  list-style: none;
+// A person in a dialog (New group, Add people, Add contact, Choose a new
+// admin): avatar with presence, name, a presence line, and whatever control
+// the dialog needs — a checkbox, a radio, an Add button.
+.people-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  max-height: 17rem;
   margin: 0;
   padding: 0;
-  max-height: 15rem;
   overflow-y: auto;
-  border: 1px solid var(--c-line);
+  list-style: none;
+  @include custom-scrollbar;
+}
+
+.person-row {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  min-height: 3rem;
+  padding: 0.4rem 0.6rem;
   border-radius: var(--r-control);
+  font-size: var(--fs-body);
 
-  &__row {
-    display: flex;
-    align-items: center;
-    gap: 0.6rem;
-    padding: 0.5rem 0.75rem;
+  &.is-selectable {
     cursor: pointer;
-    font-size: 0.875rem;
-
-    & + & {
-      border-top: 1px solid color-mix(in oklab, var(--c-line) 60%, transparent);
-    }
 
     &:hover {
-      background-color: var(--c-surface-2);
-    }
-
-    input[type='checkbox'] {
-      accent-color: var(--c-primary);
-      width: 1rem;
-      height: 1rem;
-    }
-
-    &__name {
-      flex: 1;
-      min-width: 0;
-      @include truncate;
+      background-color: var(--c-raised-2);
     }
   }
 
-  li + li .picker-list__row {
-    border-top: 1px solid color-mix(in oklab, var(--c-line) 60%, transparent);
+  &.is-selected {
+    background-color: var(--c-accent-soft);
+  }
+
+  input[type='checkbox'],
+  input[type='radio'] {
+    flex: none;
+    width: 1rem;
+    height: 1rem;
+    margin: 0;
+    accent-color: var(--c-accent-solid);
+  }
+
+  &__text {
+    display: flex;
+    flex: 1;
+    flex-direction: column;
+    min-width: 0;
+  }
+
+  &__name {
+    @include truncate;
+  }
+
+  &__meta {
+    font-size: var(--fs-caption);
+    color: var(--c-fg-3);
+
+    &.is-online {
+      color: var(--c-accent-text);
+    }
   }
 }
 
-.member-row {
+// "Add people · 2 selected" — the section heading inside a dialog body.
+.dialog-section {
   display: flex;
-  align-items: center;
+  align-items: baseline;
   justify-content: space-between;
-  gap: 0.75rem;
-  padding: 0.5rem 0.75rem;
+  margin: 1.1rem 0 0.4rem;
+  font-family: var(--f-mono);
+  font-size: var(--fs-meta);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--c-fg-3);
 
-  & + & {
-    border-top: 1px solid color-mix(in oklab, var(--c-line) 60%, transparent);
+  &__count {
+    text-transform: none;
+    letter-spacing: 0;
+
+    &.is-active {
+      color: var(--c-accent-text);
+    }
   }
+}
 
-  &__who {
-    display: flex;
+// Who's in so far — removable chips above the list (Groups-NewGroupDialog).
+.person-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  margin: 0 0 0.5rem;
+  padding: 0;
+  list-style: none;
+}
+
+.person-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.15rem 0.25rem 0.15rem 0.2rem;
+  border: 1px solid var(--c-line-accent);
+  border-radius: var(--r-full);
+  background-color: var(--c-accent-soft);
+  font-size: var(--fs-caption);
+
+  button {
+    display: inline-flex;
     align-items: center;
-    gap: 0.6rem;
-    min-width: 0;
-    font-size: 0.875rem;
+    justify-content: center;
+    width: 1.1rem;
+    height: 1.1rem;
+    padding: 0;
+    border: 0;
+    border-radius: var(--r-full);
+    background: transparent;
+    color: var(--c-fg-2);
+    cursor: pointer;
 
-    span {
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
+    &:hover {
+      background-color: var(--c-raised-2);
+      color: var(--c-fg);
+    }
+  }
+}
+
+// Empty / no-match / error inside a dialog body.
+.dialog-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 1.25rem 0.5rem 0.5rem;
+  text-align: center;
+
+  &__icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 2.75rem;
+    height: 2.75rem;
+    margin-bottom: 0.75rem;
+    border: 1px solid var(--c-line-2);
+    border-radius: var(--r-control);
+    background-color: var(--c-raised-2);
+    color: var(--c-fg-2);
+
+    &.is-danger {
+      border-color: color-mix(in oklab, var(--c-danger) 40%, transparent);
+      background-color: color-mix(in oklab, var(--c-danger) 12%, transparent);
+      color: var(--c-danger);
     }
   }
 
-  &__actions {
-    display: flex;
-    gap: 0.35rem;
-    flex: 0 0 auto;
+  &__title {
+    margin: 0 0 0.3rem;
+    font-weight: 600;
+  }
+
+  &__text {
+    max-width: 22rem;
+    margin: 0;
+    font-size: var(--fs-small);
+    color: var(--c-fg-2);
+  }
+
+  &__action {
+    margin-top: 0.9rem;
   }
 }
 

@@ -1,0 +1,460 @@
+@use '../abstracts/mixins' as *;
+@use '../abstracts/tokens' as *;
+
+// The room plus, optionally, its info panel. From 1280px the panel docks as
+// a third column; narrower, it slides over the room with a scrim behind.
+.room-shell {
+  position: relative;
+  display: flex;
+  flex: 1;
+  min-width: 0;
+}
+
+.info-panel {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  z-index: $z-overlay;
+  display: flex;
+  flex-direction: column;
+  width: min(21.25rem, 100%);
+  border-left: 1px solid var(--c-line);
+  background-color: var(--c-list);
+  box-shadow: var(--shadow-e3);
+  animation: info-panel-in $dur $ease-out;
+
+  @include from($bp-xl) {
+    position: static;
+    z-index: auto;
+    flex: none;
+    box-shadow: none;
+    animation: none;
+  }
+
+  &__header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    height: 3.75rem;
+    padding: 0 0.75rem 0 1.25rem;
+    border-bottom: 1px solid var(--c-line);
+    flex: none;
+  }
+
+  &__title {
+    margin: 0;
+    font-size: var(--fs-body);
+    font-weight: 650;
+
+    &:focus-visible {
+      outline-offset: 4px;
+    }
+  }
+
+  &__close {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 2rem;
+    height: 2rem;
+    border: 0;
+    border-radius: var(--r-btn-sm);
+    background: transparent;
+    color: var(--c-fg-2);
+    cursor: pointer;
+
+    &:hover {
+      background-color: var(--c-raised-2);
+      color: var(--c-fg);
+    }
+  }
+
+  &__body {
+    flex: 1;
+    min-height: 0;
+    padding: 1.25rem 0.75rem 1.5rem;
+    overflow-y: auto;
+  }
+}
+
+// Only while the panel slides over the room.
+.info-panel-scrim {
+  position: absolute;
+  inset: 0;
+  z-index: $z-overlay;
+  background-color: var(--c-scrim);
+  animation: modal-fade $dur $ease-out;
+
+  @include from($bp-xl) {
+    display: none;
+  }
+}
+
+@keyframes info-panel-in {
+  from {
+    transform: translateX(1.5rem);
+    opacity: 0;
+  }
+}
+
+// ---- Panel contents ------------------------------------------------------
+
+.group-info,
+.contact-info {
+  display: flex;
+  flex-direction: column;
+  gap: 1.1rem;
+}
+
+.info-identity {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.35rem;
+  text-align: center;
+
+  &__name {
+    margin: 0.4rem 0 0;
+    font-size: 1.1rem;
+    font-weight: 650;
+  }
+
+  &__meta {
+    margin: 0;
+    font-size: var(--fs-caption);
+    color: var(--c-fg-2);
+
+    &.is-online {
+      color: var(--c-accent-text);
+    }
+  }
+}
+
+// Search · Mute · Pin — tiles, all "Soon" for now.
+.soon-actions {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.4rem;
+
+  &__btn {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.35rem;
+    padding: 0.7rem 0.25rem 0.6rem;
+    border: 1px solid var(--c-line-2);
+    border-radius: var(--r-control);
+    background-color: var(--c-raised);
+    color: var(--c-fg-3);
+    font: inherit;
+    cursor: not-allowed;
+  }
+
+  &__label {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+    font-size: var(--fs-caption);
+  }
+}
+
+// Admin controls: rename and Add people, set apart on an accent card.
+.admin-card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  padding: 0.75rem;
+  border: 1px solid var(--c-line-accent);
+  border-radius: var(--r-control);
+  background-color: var(--c-accent-soft);
+
+  &__title {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    margin: 0;
+    font-family: var(--f-mono);
+    font-size: var(--fs-meta);
+    font-weight: 400;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--c-accent-text);
+  }
+
+  &__rename {
+    display: flex;
+    gap: 0.4rem;
+
+    .input {
+      flex: 1;
+      min-width: 0;
+    }
+  }
+}
+
+.info-note {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.45rem;
+  margin: 0;
+  padding: 0.6rem 0.7rem;
+  border-radius: var(--r-control);
+  background-color: var(--c-raised-2);
+  font-size: var(--fs-caption);
+  line-height: var(--lh-caption);
+  color: var(--c-fg-2);
+
+  svg {
+    flex: none;
+    margin-top: 1px;
+  }
+
+  &.is-warning {
+    background-color: color-mix(in oklab, var(--c-warn) 12%, transparent);
+    color: var(--c-fg);
+  }
+}
+
+.info-section-title {
+  margin: 0 0 0.35rem;
+  padding: 0 0.35rem;
+  font-family: var(--f-mono);
+  font-size: var(--fs-meta);
+  font-weight: 400;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--c-fg-3);
+}
+
+.member-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+
+  &__item {
+    border-radius: var(--r-control);
+
+    &:hover,
+    &:focus-within,
+    &.is-active {
+      background-color: var(--c-raised-2);
+    }
+
+    .badge {
+      flex: none;
+    }
+  }
+
+  // Shows on hover or focus, like the message toolbar.
+  &__menu-btn {
+    display: inline-flex;
+    flex: none;
+    align-items: center;
+    justify-content: center;
+    width: 1.75rem;
+    height: 1.75rem;
+    padding: 0;
+    border: 0;
+    border-radius: var(--r-btn-sm);
+    background: transparent;
+    color: var(--c-fg-2);
+    cursor: pointer;
+    opacity: 0;
+
+    .member-list__item:hover &,
+    .member-list__item:focus-within &,
+    .member-list__item.is-active & {
+      opacity: 1;
+    }
+
+    &:hover,
+    &[aria-expanded='true'] {
+      background-color: var(--c-accent-soft);
+      color: var(--c-accent);
+    }
+  }
+}
+
+.info-row {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.6rem 0.7rem;
+  border: 1px solid var(--c-line);
+  border-radius: var(--r-control);
+  font-size: var(--fs-small);
+
+  span:first-of-type {
+    flex: 1;
+  }
+
+  &.is-disabled {
+    color: var(--c-fg-3);
+  }
+}
+
+.info-facts {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.75rem;
+  margin: 0;
+  padding: 0.85rem 0.35rem 0;
+  border-top: 1px solid var(--c-line);
+
+  dt {
+    margin-bottom: 0.25rem;
+    font-family: var(--f-mono);
+    font-size: var(--fs-meta);
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--c-fg-3);
+  }
+
+  dd {
+    margin: 0;
+    font-size: var(--fs-small);
+  }
+}
+
+.info-links {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+
+  a {
+    color: var(--c-accent-text);
+    text-decoration: none;
+
+    &:hover {
+      text-decoration: underline;
+    }
+  }
+}
+
+.info-danger-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid var(--c-line);
+
+  .info-note {
+    margin-bottom: 0.4rem;
+  }
+}
+
+.info-danger-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  width: 100%;
+  padding: 0.55rem 0.6rem;
+  border: 0;
+  border-radius: var(--r-btn-sm);
+  background: transparent;
+  color: var(--c-danger);
+  font: inherit;
+  font-size: var(--fs-body);
+  font-weight: 550;
+  text-align: left;
+  cursor: pointer;
+
+  &:hover {
+    background-color: color-mix(in oklab, var(--c-danger) 10%, transparent);
+  }
+}
+
+// A group the viewer is no longer in (Desktop-1280-Group-Left).
+.locked-card {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  max-width: 45rem;
+  margin: 0 auto;
+  padding: 0.75rem 1rem;
+  border: 1px solid var(--c-line-2);
+  border-radius: var(--r-control);
+  background-color: var(--c-raised);
+  text-align: left;
+
+  &__icon {
+    display: inline-flex;
+    flex: none;
+    align-items: center;
+    justify-content: center;
+    width: 2.25rem;
+    height: 2.25rem;
+    border-radius: var(--r-btn-sm);
+    background-color: var(--c-raised-2);
+    color: var(--c-fg-2);
+  }
+
+  &__text {
+    flex: 1;
+    min-width: 0;
+  }
+
+  &__title {
+    margin: 0;
+    font-size: var(--fs-body);
+    font-weight: 600;
+    color: var(--c-fg);
+  }
+
+  &__body {
+    margin: 0.1rem 0 0;
+    font-size: var(--fs-caption);
+    color: var(--c-fg-2);
+  }
+}
+
+// ---- Dialog bits (New group, Add contact) --------------------------------
+
+.dialog-fieldset {
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.dialog-results {
+  margin-top: 0.75rem;
+  min-height: 6rem;
+}
+
+.dialog-placeholder {
+  margin: 1.75rem 0 1rem;
+  text-align: center;
+  font-size: var(--fs-small);
+  color: var(--c-fg-3);
+}
+
+.dialog-skeleton {
+  display: flex;
+  flex-direction: column;
+  gap: 0.9rem;
+  padding: 0.5rem 0.6rem;
+
+  &__row {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+
+    .skeleton--circle {
+      flex: none;
+      width: 2rem;
+      height: 2rem;
+    }
+  }
+
+  &__lines {
+    display: flex;
+    flex: 1;
+    flex-direction: column;
+  }
+}
