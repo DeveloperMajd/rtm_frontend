@@ -13,6 +13,7 @@ import Avatar from '../ui/Avatar'
 import Button from '../ui/Button'
 import Icon from '../ui/Icon'
 import OnlineStatus from '../ui/OnlineStatus'
+import Tooltip from '../ui/Tooltip'
 import type { MessageType } from '../../utils/baseTypes'
 
 const ConversationRoomView = () => {
@@ -162,6 +163,15 @@ const ConversationRoomView = () => {
             </span>
           )}
         </div>
+
+        {/* Searching inside one conversation (Search-InConversation) needs a
+            conversation-scoped search and jump-to-message API — Phase 2.
+            The entry point is here, honestly disabled, until then. */}
+        <Tooltip label='Search this conversation — Soon'>
+          <Button variant='ghost' icon disabled aria-label='Search this conversation (coming soon)'>
+            <Icon name='search' />
+          </Button>
+        </Tooltip>
 
         {isGroup && !hasLeft && (
           <Button variant='ghost' onClick={() => setIsGroupSettingsOpen(true)}>

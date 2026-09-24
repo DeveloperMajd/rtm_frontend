@@ -4,7 +4,8 @@ import type { ConnectionStatus } from 'laravel-echo'
 import Conversations, { type ConversationFilter } from '../components/conversations/Conversations'
 import Contacts from '../components/conversations/Contacts'
 import GroupModal from '../components/conversations/GroupModal'
-import MessageSearch from '../components/conversations/MessageSearch'
+import SearchPalette from '../components/conversations/SearchPalette'
+import SearchTrigger from '../components/conversations/SearchTrigger'
 import Button from '../components/ui/Button'
 import Avatar from '../components/ui/Avatar'
 import BrandMark from '../components/ui/BrandMark'
@@ -54,7 +55,7 @@ function ConversationsLayout() {
   const { logout, user } = useAuth()
   const navigate = useNavigate()
   const location = useLocation()
-  const railSearchInputRef = useRef<HTMLInputElement>(null)
+  const [isSearchOpen, setIsSearchOpen] = useState(false)
   usePresenceHeartbeat(true)
 
   // Echo/Pusher already retries on its own — this only surfaces the state.
@@ -68,6 +69,20 @@ function ConversationsLayout() {
     const timeout = setTimeout(() => setConnectionStatus(rawConnectionStatus), delay)
     return () => clearTimeout(timeout)
   }, [rawConnectionStatus])
+
+  // ⌘K / Ctrl+K opens message search from anywhere in the app shell,
+  // including from inside the composer. A second press while it's open is
+  // left alone (the palette's own field has focus by then).
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && !e.altKey && !e.shiftKey && e.key.toLowerCase() === 'k') {
+        e.preventDefault()
+        setIsSearchOpen(true)
+      }
+    }
+    window.addEventListener('keydown', onKeyDown)
+    return () => window.removeEventListener('keydown', onKeyDown)
+  }, [])
 
   // On mobile: show the list, or the open room — never both.
   const roomOpen = /^\/conversations\/[^/]+/.test(location.pathname)
@@ -155,11 +170,9 @@ function ConversationsLayout() {
         <button
           type='button'
           className='rail__nav-btn'
-          aria-label='Search'
-          onClick={() => {
-            setActiveTab('chats')
-            railSearchInputRef.current?.focus()
-          }}
+          aria-label='Search messages'
+          aria-haspopup='dialog'
+          onClick={() => setIsSearchOpen(true)}
         >
           <Icon name='search' />
         </button>
@@ -199,7 +212,7 @@ function ConversationsLayout() {
         {activeTab === 'chats' && (
           <>
             <div className='list-pane__search'>
-              <MessageSearch inputRef={railSearchInputRef} />
+              <SearchTrigger onOpen={() => setIsSearchOpen(true)} />
             </div>
             <div className='list-pane__filters' role='group' aria-label='Filter conversations'>
               {FILTERS.map(({ key, label }) => (
@@ -242,7 +255,9 @@ function ConversationsLayout() {
           </div>
         </header>
 
-        <MessageSearch />
+        <div className='sidebar-search'>
+          <SearchTrigger onOpen={() => setIsSearchOpen(true)} />
+        </div>
 
         <div className='tabs' role='tablist' aria-label='Conversations and contacts'>
           <button
@@ -311,6 +326,11 @@ function ConversationsLayout() {
       </main>
 
       <GroupModal open={isGroupModalOpen} onClose={() => setIsGroupModalOpen(false)} />
+      <SearchPalette
+        open={isSearchOpen}
+        onClose={() => setIsSearchOpen(false)}
+        conversations={conversations}
+      />
     </div>
   )
 }

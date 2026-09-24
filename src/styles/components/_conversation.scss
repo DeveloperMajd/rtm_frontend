@@ -277,12 +277,6 @@
   &__search {
     padding: 0 12px 10px;
     flex: none;
-
-    // The search box already carries its own left/right padding via
-    // .sidebar-search in the old sidebar — that context doesn't apply here.
-    .sidebar-search {
-      padding: 0;
-    }
   }
 
   &__filters {
