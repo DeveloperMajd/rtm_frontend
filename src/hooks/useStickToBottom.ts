@@ -81,6 +81,31 @@ export function useStickToBottom({
     return () => container.removeEventListener('scroll', handleScroll)
   }, [containerRef])
 
+  // Stay at the bottom when the list itself gets shorter — the composer
+  // growing a reply/edit banner, say. Shrinking a scroller keeps its
+  // scrollTop, which quietly pushes the newest messages out of view below
+  // the fold without any scroll event to react to. Whether the viewer was
+  // at the bottom is worked out against the height from *before* the
+  // resize, since that's the view they were actually looking at.
+  useEffect(() => {
+    const container = containerRef.current
+    if (!container || typeof ResizeObserver === 'undefined') return
+
+    let lastHeight = container.clientHeight
+    const observer = new ResizeObserver(() => {
+      const height = container.clientHeight
+      const wasNearBottom =
+        container.scrollHeight - container.scrollTop - lastHeight < NEAR_BOTTOM_PX
+      if (height < lastHeight && wasNearBottom) {
+        container.scrollTop = container.scrollHeight
+      }
+      lastHeight = height
+    })
+
+    observer.observe(container)
+    return () => observer.disconnect()
+  }, [containerRef])
+
   if (lastMessageId !== undefined && lastMessageId !== countedForId) {
     const isVeryFirst = countedForId === undefined
     setCountedForId(lastMessageId)

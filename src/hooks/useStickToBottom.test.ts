@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { act, renderHook } from '@testing-library/react'
 import { useStickToBottom } from './useStickToBottom'
 
@@ -232,5 +232,69 @@ describe('useStickToBottom', () => {
     })
 
     expect(result.current.newCount).toBe(1)
+  })
+})
+
+// Reported while building Stage 5: opening a reply banner grew the composer,
+// shrank the message list, and pushed the newest message out of view — a
+// shrinking scroller keeps its scrollTop, and no scroll event fires.
+describe('useStickToBottom — the list getting shorter', () => {
+  let resize: () => void = () => {}
+
+  beforeEach(() => {
+    vi.stubGlobal(
+      'ResizeObserver',
+      class {
+        constructor(callback: () => void) {
+          resize = callback
+        }
+        observe() {}
+        disconnect() {}
+      },
+    )
+  })
+
+  afterEach(() => {
+    vi.unstubAllGlobals()
+  })
+
+  const shrink = (container: HTMLElement, to: number) => {
+    Object.defineProperty(container, 'clientHeight', { value: to, configurable: true })
+    resize()
+  }
+
+  it('keeps the newest message in view when the viewer was at the bottom', () => {
+    const container = makeContainer({ scrollHeight: 2000, clientHeight: 600, scrollTop: 0 })
+    renderHook(() =>
+      useStickToBottom({
+        containerRef: { current: container },
+        lastMessageId: 'm1',
+        isOwnLastMessage: false,
+        unreadBoundaryId: null,
+      }),
+    )
+    expect(container.scrollTop).toBe(2000) // initial load pinned it to the bottom
+    container.scrollTop = 1400 // what the browser clamps that to at 600px tall
+
+    shrink(container, 520)
+
+    expect(container.scrollTop).toBe(2000)
+  })
+
+  it('leaves the position alone when the viewer was reading older history', () => {
+    const container = makeContainer({ scrollHeight: 2000, clientHeight: 600, scrollTop: 0 })
+    renderHook(() =>
+      useStickToBottom({
+        containerRef: { current: container },
+        lastMessageId: 'm1',
+        isOwnLastMessage: false,
+        unreadBoundaryId: null,
+      }),
+    )
+    container.scrollTop = 300
+
+    shrink(container, 520)
+
+    expect(container.scrollTop).toBe(300)
   })
 })

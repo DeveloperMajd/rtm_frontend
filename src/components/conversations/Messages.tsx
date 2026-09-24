@@ -20,6 +20,8 @@ type MessagesProps = {
   error: Error | null
   onLoadOlder: () => void
   onReply: (message: MessageType) => void
+  /** Starts editing one of the viewer's own messages in the composer. */
+  onEdit?: (message: MessageType) => void
   readOnly?: boolean
   /** The viewer's read state as of opening this conversation (see
    * useReadStateSnapshot) — undefined while it's still being determined. */
@@ -33,6 +35,8 @@ type MessagesProps = {
 }
 
 const GROUP_WINDOW_MS = 5 * 60 * 1000
+
+const noop = () => {}
 
 function dayLabel(iso: string): string {
   const d = new Date(iso)
@@ -49,6 +53,7 @@ const Messages = ({
   error,
   onLoadOlder,
   onReply,
+  onEdit = noop,
   readOnly = false,
   readState,
   isReady = true,
@@ -59,6 +64,12 @@ const Messages = ({
   const unreadDividerRef = useRef<HTMLLIElement>(null)
 
   const lastMessage = messages[messages.length - 1] as MessageType | undefined
+
+  // Delivery state is shown once, on the viewer's newest message that's
+  // still there (Study-Read-State) — not repeated down every bubble.
+  const lastOwnMessageId = messages.findLast(
+    (m) => m.type !== 'system' && !m.deleted_at && m.sender?.id === user?.id,
+  )?.id
 
   // The unread divider's position is resolved once per conversation (the
   // whole room is remounted per conversation — see ConversationRoom) and
@@ -179,6 +190,8 @@ const Messages = ({
                     key={message.id}
                     message={message}
                     onReply={onReply}
+                    onEdit={onEdit}
+                    showReadState={message.id === lastOwnMessageId}
                     grouped={
                       !showDay &&
                       !showUnread &&

@@ -101,6 +101,9 @@
   --c-raised: #ffffff;
   --c-raised-2: #eff0f6;
   --c-overlay: #ffffff;
+  /* The dimmed backdrop behind a dialog — not --c-overlay, which is the
+     dialog's own surface. */
+  --c-scrim: rgb(16 18 36 / 0.42);
 
   /* Text */
   --c-fg: #14151c;
@@ -150,6 +153,7 @@
   --c-raised: #171924;
   --c-raised-2: #1d2030;
   --c-overlay: #171926;
+  --c-scrim: rgb(4 5 9 / 0.64);
 
   --c-fg: #eceef6;
   --c-fg-2: #a9adc2;
@@ -194,6 +198,7 @@
     --c-raised: #171924;
     --c-raised-2: #1d2030;
     --c-overlay: #171926;
+    --c-scrim: rgb(4 5 9 / 0.64);
 
     --c-fg: #eceef6;
     --c-fg-2: #a9adc2;

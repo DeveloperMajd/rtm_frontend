@@ -123,6 +123,9 @@ export type MessageType = {
   reply_to?: {
     id: string
     body: string
+    /** Lets a quote of an attachment-only message say so, rather than
+     * showing an empty line. */
+    attachments_count?: number
     deleted_at?: string
     sender: {
       id: string

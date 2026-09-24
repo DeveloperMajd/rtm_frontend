@@ -63,8 +63,11 @@ const uploadAttachment = async (
   return response.data.data
 }
 
-const updateMessage = async (messageId: string, body: string): Promise<void> => {
-  await api.patch(`/messages/${messageId}`, { body })
+/** Resolves with the edited message, for the same reason as sendMessage:
+ * the edit can show the moment the server accepts it. */
+const updateMessage = async (messageId: string, body: string): Promise<MessageType> => {
+  const response = await api.patch<{ data: MessageType }>(`/messages/${messageId}`, { body })
+  return response.data.data
 }
 
 const deleteMessage = async (messageId: string): Promise<void> => {

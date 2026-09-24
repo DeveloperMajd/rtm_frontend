@@ -26,13 +26,15 @@ const ConfirmDialog = ({
     open={open}
     onClose={onCancel}
     title={title}
+    // Cancel first, the destructive action last and red-solid — the only
+    // place that treatment appears (States-Confirmations).
     footer={
       <>
-        <Button variant='danger' onClick={onConfirm} loading={loading}>
-          {confirmLabel}
-        </Button>
         <Button variant='tertiary' onClick={onCancel} disabled={loading}>
           {cancelLabel}
+        </Button>
+        <Button variant='danger' onClick={onConfirm} loading={loading}>
+          {confirmLabel}
         </Button>
       </>
     }

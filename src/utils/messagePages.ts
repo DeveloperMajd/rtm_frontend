@@ -75,3 +75,76 @@ export function appendMessageToCache(
 
   return applied
 }
+
+/**
+ * Rewrites one message wherever it's loaded, and brings along the snapshot
+ * any reply holds of it.
+ *
+ * An edit or a delete can land on a message from any loaded page, so every
+ * page is searched. A reply carries its own copy of the message it quotes;
+ * without refreshing that copy, deleting a message would leave its text
+ * readable in every reply to it.
+ */
+export function patchMessageInCache(
+  queryClient: QueryClient,
+  conversationId: string,
+  messageId: string,
+  patch: (message: MessageType) => MessageType,
+): void {
+  queryClient.setQueryData<InfiniteData<MessagesPage>>(
+    ['messages', conversationId],
+    (old) => {
+      if (!old) return old
+
+      let patched: MessageType | undefined
+      const pages = old.pages.map((page) => ({
+        ...page,
+        data: page.data.map((m) => {
+          if (m.id !== messageId) return m
+          patched = patch(m)
+          return patched
+        }),
+      }))
+      if (!patched) return old
+
+      const { body, deleted_at } = patched
+      return {
+        ...old,
+        pages: pages.map((page) => ({
+          ...page,
+          data: page.data.map((m) =>
+            m.reply_to?.id === messageId ? { ...m, reply_to: { ...m.reply_to, body, deleted_at } } : m,
+          ),
+        })),
+      }
+    },
+  )
+}
+
+/** Puts the server's current copy of a message into the cache — from the
+ * live MessageUpdated event, or straight from an edit's own response so the
+ * change shows without waiting for that event to come back round. */
+export function replaceMessageInCache(
+  queryClient: QueryClient,
+  conversationId: string,
+  message: MessageType,
+): void {
+  patchMessageInCache(queryClient, conversationId, message.id, () => message)
+}
+
+/**
+ * Shows a message as deleted once the server has confirmed it (the delete
+ * endpoint answers 204, with no body to copy). Mirrors what the server
+ * itself does to the row — body cleared, attachments withheld — and leaves
+ * a copy that's already marked deleted alone, so a MessageUpdated event
+ * that got here first keeps the server's own timestamp.
+ */
+export function markMessageDeletedInCache(
+  queryClient: QueryClient,
+  conversationId: string,
+  messageId: string,
+): void {
+  patchMessageInCache(queryClient, conversationId, messageId, (m) =>
+    m.deleted_at ? m : { ...m, body: '', attachments: [], deleted_at: new Date().toISOString() },
+  )
+}

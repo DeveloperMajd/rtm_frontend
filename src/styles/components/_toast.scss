@@ -39,6 +39,44 @@
   }
 }
 
+// Toast content with one action (components/ui/ActionToast): title and
+// detail on the left, the action as a text button on the right.
+.action-toast {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+
+  &__text {
+    display: flex;
+    flex-direction: column;
+
+    strong {
+      font-weight: 600;
+    }
+
+    span {
+      color: var(--c-fg-2);
+      font-size: var(--fs-small);
+    }
+  }
+
+  &__action {
+    flex: none;
+    padding: 0.25rem 0.5rem;
+    border: 0;
+    border-radius: var(--r-btn-sm);
+    background: transparent;
+    color: var(--c-accent);
+    font: inherit;
+    font-weight: 600;
+    cursor: pointer;
+
+    &:hover {
+      background-color: var(--c-accent-soft);
+    }
+  }
+}
+
 @keyframes toast-progress {
   from {
     transform: scaleX(1);

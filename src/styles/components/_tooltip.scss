@@ -40,4 +40,11 @@
   &:focus-within &__bubble {
     transition-delay: 0ms;
   }
+
+  // A trigger whose menu/popover is open has said what it does already;
+  // its hint would only sit behind (or on top of) the popup.
+  &:has([aria-expanded='true']) &__bubble {
+    opacity: 0;
+    visibility: hidden;
+  }
 }

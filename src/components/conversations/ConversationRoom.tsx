@@ -25,6 +25,18 @@ const ConversationRoomView = () => {
   const { user } = useAuth()
   const [isGroupSettingsOpen, setIsGroupSettingsOpen] = useState(false)
   const [replyingTo, setReplyingTo] = useState<MessageType | null>(null)
+  const [editing, setEditing] = useState<MessageType | null>(null)
+
+  // The composer does one thing at a time: starting a reply ends an edit,
+  // and starting an edit drops a pending reply.
+  const startReply = (message: MessageType) => {
+    setEditing(null)
+    setReplyingTo(message)
+  }
+  const startEdit = (message: MessageType) => {
+    setReplyingTo(null)
+    setEditing(message)
+  }
 
   const conversation = conversations.find((c) => c.id === id)
   const isGroup = conversation?.type === 'group'
@@ -119,7 +131,8 @@ const ConversationRoomView = () => {
         hasMore={hasMore}
         error={error}
         onLoadOlder={loadOlder}
-        onReply={setReplyingTo}
+        onReply={startReply}
+        onEdit={startEdit}
         readOnly={hasLeft}
         readState={readState}
         isReady={areMessagesReady}
@@ -152,6 +165,8 @@ const ConversationRoomView = () => {
             conversationId={id!}
             replyingTo={replyingTo}
             onCancelReply={() => setReplyingTo(null)}
+            editing={editing}
+            onFinishEdit={() => setEditing(null)}
           />
         </div>
       )}
