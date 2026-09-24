@@ -1,7 +1,7 @@
-import { useEffect, useId, useRef, type ReactNode } from 'react'
+import { useId, useRef, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
-import { mdiClose } from '@mdi/js'
 import Icon from './Icon'
+import { FOCUSABLE, useModalBehavior } from '../../hooks/useModalBehavior'
 
 interface ModalProps {
   open: boolean
@@ -13,78 +13,21 @@ interface ModalProps {
   hideHeader?: boolean
 }
 
-const FOCUSABLE =
-  'a[href],area[href],input:not([disabled]),select:not([disabled]),textarea:not([disabled]),button:not([disabled]),[tabindex]:not([tabindex="-1"])'
+// Prefer the first focusable inside the body (usually a real field) over
+// the header close button.
+const initialFocus = (panel: HTMLElement) =>
+  panel.querySelector('.modal-panel__body')?.querySelector<HTMLElement>(FOCUSABLE) ?? null
 
 /**
  * Accessible dialog: role="dialog" + aria-modal, focus trap, Escape to close,
  * focus restored to the trigger on close, and the rest of the app marked
- * `inert` while it is open.
+ * `inert` while it is open (see useModalBehavior).
  */
 const Modal = ({ open, onClose, title, children, footer, hideHeader }: ModalProps) => {
   const panelRef = useRef<HTMLDivElement>(null)
-  const restoreRef = useRef<HTMLElement | null>(null)
   const titleId = useId()
 
-  // Hold the latest onClose in a ref so the focus-trap effect below depends
-  // only on `open` — a parent passing a new onClose each render must not
-  // re-run setup (which would yank focus back to the first focusable).
-  const onCloseRef = useRef(onClose)
-  useEffect(() => {
-    onCloseRef.current = onClose
-  })
-
-  useEffect(() => {
-    if (!open) return
-
-    restoreRef.current = document.activeElement as HTMLElement | null
-    const root = document.getElementById('root')
-    root?.setAttribute('inert', '')
-    const prevOverflow = document.body.style.overflow
-    document.body.style.overflow = 'hidden'
-
-    const panel = panelRef.current
-    // Prefer the first focusable inside the body (usually a real field) over
-    // the header close button.
-    const body = panel?.querySelector<HTMLElement>('.modal-panel__body')
-    const first =
-      body?.querySelector<HTMLElement>(FOCUSABLE) ?? panel?.querySelector<HTMLElement>(FOCUSABLE)
-    ;(first ?? panel)?.focus()
-
-    const onKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
-        e.stopPropagation()
-        onCloseRef.current()
-        return
-      }
-      if (e.key !== 'Tab' || !panel) return
-
-      const items = Array.from(panel.querySelectorAll<HTMLElement>(FOCUSABLE)).filter(
-        (el) => el.offsetParent !== null || el === document.activeElement,
-      )
-      if (items.length === 0) {
-        e.preventDefault()
-        return
-      }
-      const firstEl = items[0]
-      const lastEl = items[items.length - 1]
-      if (e.shiftKey && document.activeElement === firstEl) {
-        e.preventDefault()
-        lastEl.focus()
-      } else if (!e.shiftKey && document.activeElement === lastEl) {
-        e.preventDefault()
-        firstEl.focus()
-      }
-    }
-
-    document.addEventListener('keydown', onKeyDown, true)
-    return () => {
-      document.removeEventListener('keydown', onKeyDown, true)
-      root?.removeAttribute('inert')
-      document.body.style.overflow = prevOverflow
-      restoreRef.current?.focus?.()
-    }
-  }, [open])
+  useModalBehavior({ open, containerRef: panelRef, onClose, getInitialFocus: initialFocus })
 
   if (!open) return null
 
@@ -118,7 +61,7 @@ const Modal = ({ open, onClose, title, children, footer, hideHeader }: ModalProp
               onClick={onClose}
               aria-label='Close dialog'
             >
-              <Icon path={mdiClose} />
+              <Icon name='x' />
             </button>
           </div>
         )}

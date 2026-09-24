@@ -1,0 +1,698 @@
+@use '../abstracts/mixins' as *;
+@use '../abstracts/tokens' as *;
+
+// ---- In the timeline (Attach-Messages) ---------------------------------
+
+// 1 image at its own aspect (sized inline by ImageGrid); 2 side by side;
+// 3 as one large and two stacked; 4+ as a 2×2, the last tile saying "+N".
+// A fixed 20rem capped at 100%, not `min(20rem, 100%)`: the bubble sizes
+// itself to its content, so a percentage here would be measured against the
+// bubble it's meant to size — which then stretched to its own maximum.
+.media-grid {
+  display: grid;
+  gap: 2px;
+  width: 20rem;
+  max-width: 100%;
+  overflow: hidden;
+  border-radius: calc(var(--r-bubble) - 4px);
+
+  &--1 {
+    max-width: 100%;
+  }
+
+  &--2 {
+    grid-template-columns: 1fr 1fr;
+    aspect-ratio: 2 / 1;
+  }
+
+  &--3 {
+    grid-template-columns: 1fr 1fr;
+    grid-template-rows: 1fr 1fr;
+    aspect-ratio: 1;
+
+    > :first-child {
+      grid-row: span 2;
+    }
+  }
+
+  &--4 {
+    grid-template-columns: 1fr 1fr;
+    grid-template-rows: 1fr 1fr;
+    aspect-ratio: 1;
+  }
+}
+
+// A tile holds its shape from the start: a shimmer until the image has
+// loaded, so the timeline doesn't jump as images arrive.
+.media-tile {
+  position: relative;
+  display: block;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  padding: 0;
+  border: 0;
+  overflow: hidden;
+  background-color: color-mix(in oklab, var(--c-line) 70%, var(--c-raised));
+  cursor: zoom-in;
+
+  &:not(.is-loaded):not(.is-failed)::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(
+      90deg,
+      transparent,
+      color-mix(in oklab, var(--c-fg) 6%, transparent),
+      transparent
+    );
+    transform: translateX(-100%);
+    animation: skeleton-shimmer 1.7s ease-in-out infinite;
+  }
+
+  img {
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    opacity: 0;
+    transition: opacity $dur $ease-out;
+  }
+
+  &.is-loaded img {
+    opacity: 1;
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--c-focus);
+    outline-offset: -2px;
+  }
+
+  &__more {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background-color: rgb(8 9 13 / 0.55);
+    color: #fff;
+    font-size: 1.25rem;
+    font-weight: 600;
+  }
+
+  // Couldn't load (most often a link that expired while the tab sat open):
+  // says so and offers a Retry that fetches fresh links.
+  &.is-failed {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 0.3rem;
+    min-height: 8rem;
+    color: var(--c-fg-3);
+    font-size: var(--fs-caption);
+    cursor: default;
+  }
+
+  &__retry {
+    padding: 0.15rem 0.5rem;
+    border: 0;
+    border-radius: var(--r-btn-sm);
+    background: transparent;
+    color: var(--c-accent);
+    font: inherit;
+    font-weight: 600;
+    cursor: pointer;
+
+    &:hover {
+      background-color: var(--c-accent-soft);
+    }
+  }
+}
+
+// A file: type icon, middle-truncated name, kind · size, download.
+.file-card {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  width: 20rem;
+  max-width: 100%;
+  padding: 0.5rem 0.5rem 0.5rem 0.55rem;
+  border: 1px solid var(--c-line-2);
+  border-radius: calc(var(--r-bubble) - 4px);
+  background-color: color-mix(in oklab, currentColor 6%, transparent);
+
+  &__icon {
+    display: inline-flex;
+    flex: none;
+    align-items: center;
+    justify-content: center;
+    width: 2.25rem;
+    height: 2.25rem;
+    border-radius: var(--r-btn-sm);
+    background-color: var(--c-accent-soft);
+    color: var(--c-accent);
+  }
+
+  &__main {
+    display: flex;
+    flex: 1;
+    flex-direction: column;
+    min-width: 0;
+    color: inherit;
+    text-decoration: none;
+
+    &:hover .file-card__name {
+      text-decoration: underline;
+    }
+  }
+
+  // Middle truncation: the base name shrinks with an ellipsis, the
+  // extension after it always stays visible.
+  &__name {
+    display: flex;
+    min-width: 0;
+    font-size: var(--fs-small);
+    font-weight: 600;
+    white-space: nowrap;
+  }
+
+  &__base {
+    @include truncate;
+  }
+
+  &__meta {
+    font-family: var(--f-mono);
+    font-size: var(--fs-meta);
+    opacity: 0.7;
+  }
+
+  &__action {
+    display: inline-flex;
+    flex: none;
+    align-items: center;
+    justify-content: center;
+    gap: 0.3rem;
+    min-width: 2rem;
+    height: 2rem;
+    padding: 0 0.35rem;
+    border: 0;
+    border-radius: var(--r-btn-sm);
+    background: transparent;
+    color: inherit;
+    font: inherit;
+    font-size: var(--fs-caption);
+    font-weight: 600;
+    cursor: pointer;
+    opacity: 0.8;
+
+    &:hover {
+      background-color: color-mix(in oklab, currentColor 10%, transparent);
+      opacity: 1;
+    }
+
+    &.is-labelled {
+      padding: 0 0.6rem;
+      border: 1px solid var(--c-line-2);
+      opacity: 1;
+    }
+  }
+
+  &.is-expired {
+    .file-card__icon {
+      background-color: color-mix(in oklab, currentColor 8%, transparent);
+      color: inherit;
+      opacity: 0.7;
+    }
+  }
+}
+
+// ---- In the composer (Attach-Composer) ---------------------------------
+
+.composer__tray {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+  padding: 0.6rem 0.75rem 0.1rem 0.6rem;
+}
+
+.composer__count {
+  flex: none;
+  margin-left: auto;
+  padding-top: 0.2rem;
+  font-family: var(--f-mono);
+  font-size: var(--fs-meta);
+  color: var(--c-fg-3);
+}
+
+.tray {
+  display: flex;
+  flex: 1;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  min-width: 0;
+  margin: 0;
+  padding: 0.25rem 0 0;
+  list-style: none;
+
+  // Remove "×", pinned to each item's top-right corner.
+  &__remove {
+    position: absolute;
+    top: -0.35rem;
+    right: -0.35rem;
+    z-index: 1;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 1.25rem;
+    height: 1.25rem;
+    padding: 0;
+    border: 1px solid var(--c-line-2);
+    border-radius: var(--r-full);
+    background-color: var(--c-overlay);
+    color: var(--c-fg);
+    box-shadow: var(--shadow-e1);
+    cursor: pointer;
+
+    &:hover {
+      background-color: var(--c-raised-2);
+    }
+  }
+
+  &__image {
+    position: relative;
+    width: 3.5rem;
+    height: 3.5rem;
+    flex: none;
+    border-radius: var(--r-btn-sm);
+
+    img {
+      width: 100%;
+      height: 100%;
+      border-radius: inherit;
+      object-fit: cover;
+    }
+
+    &.is-error {
+      box-shadow: 0 0 0 1.5px var(--c-danger);
+    }
+  }
+
+  &__overlay {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 0.1rem;
+    border-radius: inherit;
+    background-color: rgb(8 9 13 / 0.55);
+    color: #fff;
+  }
+
+  &__retry {
+    padding: 0;
+    border: 0;
+    font: inherit;
+    font-size: 0.68rem;
+    font-weight: 600;
+    background-color: color-mix(in oklab, var(--c-danger) 45%, rgb(8 9 13 / 0.6));
+    cursor: pointer;
+  }
+
+  &__ring {
+    width: 1.75rem;
+    height: 1.75rem;
+    transform: rotate(-90deg);
+
+    circle {
+      fill: none;
+      stroke-width: 3;
+    }
+  }
+
+  &__ring-track {
+    stroke: rgb(255 255 255 / 0.25);
+  }
+
+  &__ring-fill {
+    stroke: #fff;
+    stroke-linecap: round;
+    transition: stroke-dasharray $dur-fast linear;
+  }
+
+  &__file {
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    width: 13rem;
+    height: 3.5rem;
+    padding: 0 0.75rem 0 0.5rem;
+    border: 1px solid var(--c-line-2);
+    border-radius: var(--r-btn-sm);
+    background-color: var(--c-raised-2);
+
+    &.is-error,
+    &.is-rejected {
+      border-color: var(--c-danger);
+
+      .tray__file-icon {
+        background-color: color-mix(in oklab, var(--c-danger) 14%, transparent);
+        color: var(--c-danger);
+      }
+
+      .tray__file-meta {
+        color: var(--c-danger);
+      }
+    }
+  }
+
+  &__file-icon {
+    display: inline-flex;
+    flex: none;
+    align-items: center;
+    justify-content: center;
+    width: 2rem;
+    height: 2rem;
+    border-radius: var(--r-btn-sm);
+    background-color: var(--c-accent-soft);
+    color: var(--c-accent);
+  }
+
+  &__file-text {
+    display: flex;
+    flex: 1;
+    flex-direction: column;
+    min-width: 0;
+  }
+
+  &__file-name {
+    display: flex;
+    min-width: 0;
+    font-size: var(--fs-caption);
+    font-weight: 600;
+    white-space: nowrap;
+  }
+
+  &__file-base {
+    @include truncate;
+  }
+
+  &__file-meta {
+    font-family: var(--f-mono);
+    font-size: var(--fs-meta);
+    color: var(--c-fg-3);
+  }
+
+  &__file-retry {
+    flex: none;
+    padding: 0.15rem 0.4rem;
+    border: 0;
+    border-radius: var(--r-btn-sm);
+    background: transparent;
+    color: var(--c-accent);
+    font: inherit;
+    font-size: var(--fs-caption);
+    font-weight: 600;
+    cursor: pointer;
+
+    &:hover {
+      background-color: var(--c-accent-soft);
+    }
+  }
+
+  &__bar {
+    display: block;
+    height: 2px;
+    margin-top: 0.2rem;
+    border-radius: 1px;
+    background-color: var(--c-line-2);
+    overflow: hidden;
+
+    span {
+      display: block;
+      height: 100%;
+      background-color: var(--c-accent);
+      transition: width $dur-fast linear;
+    }
+  }
+}
+
+// "Drop to attach": the whole conversation pane is the target while files
+// are dragged over it. Never intercepts the drag itself.
+.drop-overlay {
+  position: absolute;
+  inset: 0.5rem;
+  z-index: $z-sticky;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.6rem;
+  border: 1.5px dashed var(--c-accent);
+  border-radius: var(--r-dialog);
+  background:
+    repeating-linear-gradient(
+      -45deg,
+      color-mix(in oklab, var(--c-accent) 10%, transparent) 0 14px,
+      transparent 14px 28px
+    ),
+    color-mix(in oklab, var(--c-stage) 82%, transparent);
+  pointer-events: none;
+  animation: modal-fade $dur-fast $ease-out;
+
+  &__icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 3rem;
+    height: 3rem;
+    border-radius: var(--r-control);
+    background-color: var(--c-accent-solid);
+    color: var(--c-on-accent);
+  }
+
+  &__title {
+    font-size: 1rem;
+    font-weight: 650;
+    color: var(--c-fg);
+  }
+
+  &__hint {
+    font-family: var(--f-mono);
+    font-size: var(--fs-meta);
+    color: var(--c-fg-2);
+  }
+}
+
+// ---- Lightbox (Attach-Lightbox) -----------------------------------------
+
+// Always dark, whatever the theme: a photo reads best against black.
+.lightbox {
+  position: fixed;
+  inset: 0;
+  z-index: $z-modal;
+  display: grid;
+  grid-template-rows: auto 1fr auto;
+  background-color: rgb(4 5 9 / 0.94);
+  color: #eceef6;
+  animation: modal-fade $dur $ease-out;
+
+  &:focus {
+    outline: none;
+  }
+
+  &__bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    padding: 0.75rem 1rem;
+  }
+
+  &__who {
+    display: flex;
+    align-items: center;
+    gap: 0.65rem;
+    min-width: 0;
+  }
+
+  &__who-text {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+  }
+
+  &__sender {
+    font-weight: 600;
+    font-size: var(--fs-body);
+  }
+
+  &__meta {
+    font-family: var(--f-mono);
+    font-size: var(--fs-meta);
+    color: #a9adc2;
+    @include truncate;
+  }
+
+  &__actions {
+    display: flex;
+    flex: none;
+    gap: 0.25rem;
+  }
+
+  &__icon-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 2.25rem;
+    height: 2.25rem;
+    border: 0;
+    border-radius: var(--r-btn-sm);
+    background: transparent;
+    color: inherit;
+    cursor: pointer;
+
+    &:hover,
+    &[aria-pressed='true'] {
+      background-color: rgb(255 255 255 / 0.1);
+    }
+  }
+
+  &__stage {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 0;
+    padding: 0 4.5rem;
+    overflow: hidden;
+
+    // Actual size: the image keeps its own pixels and the stage scrolls.
+    &.is-zoomed {
+      display: block;
+      padding: 0;
+      overflow: auto;
+      text-align: center;
+
+      .lightbox__image {
+        max-width: none;
+        max-height: none;
+        cursor: zoom-out;
+      }
+    }
+  }
+
+  &__image {
+    max-width: 100%;
+    max-height: 100%;
+    object-fit: contain;
+    border-radius: var(--r-btn-sm);
+    cursor: zoom-in;
+  }
+
+  &__nav {
+    position: absolute;
+    top: 50%;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 2.75rem;
+    height: 2.75rem;
+    border: 1px solid rgb(255 255 255 / 0.12);
+    border-radius: var(--r-full);
+    background-color: rgb(23 25 36 / 0.85);
+    color: inherit;
+    transform: translateY(-50%);
+    cursor: pointer;
+
+    &:hover {
+      background-color: rgb(40 43 60 / 0.95);
+    }
+
+    &.is-prev {
+      left: 1.25rem;
+    }
+
+    &.is-next {
+      right: 1.25rem;
+    }
+  }
+
+  &__failed {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.5rem;
+    color: #a9adc2;
+  }
+
+  &__retry {
+    padding: 0.3rem 0.75rem;
+    border: 1px solid rgb(255 255 255 / 0.2);
+    border-radius: var(--r-btn-sm);
+    background: transparent;
+    color: #fff;
+    font: inherit;
+    font-weight: 600;
+    cursor: pointer;
+  }
+
+  &__footer {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.6rem;
+    padding: 0.75rem 1rem 1rem;
+  }
+
+  &__thumbs {
+    display: flex;
+    gap: 0.5rem;
+    max-width: 100%;
+    overflow-x: auto;
+  }
+
+  &__thumb {
+    flex: none;
+    width: 3.5rem;
+    height: 3.5rem;
+    padding: 0;
+    border: 2px solid transparent;
+    border-radius: var(--r-btn-sm);
+    background: none;
+    overflow: hidden;
+    opacity: 0.6;
+    cursor: pointer;
+
+    img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+
+    &:hover {
+      opacity: 0.9;
+    }
+
+    &.is-current {
+      border-color: #a596ff;
+      opacity: 1;
+    }
+  }
+
+  &__caption {
+    margin: 0;
+    font-family: var(--f-mono);
+    font-size: var(--fs-meta);
+    color: #a9adc2;
+  }
+
+  // The app's focus colour, fixed to the dark-theme value here since this
+  // surface is dark in both themes.
+  :focus-visible {
+    outline-color: #a596ff;
+  }
+}

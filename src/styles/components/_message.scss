@@ -252,10 +252,13 @@
     white-space: nowrap;
   }
 
+  // Media sits tight to the bubble edge (Attach-Messages): pull the grid
+  // out into most of the bubble's padding, leaving a thin frame.
   &__attachments {
     display: flex;
-    flex-wrap: wrap;
-    gap: 0.4rem;
+    flex-direction: column;
+    gap: 0.35rem;
+    margin: -0.3rem -0.3rem 0.4rem;
   }
 
   &__meta {
@@ -543,28 +546,6 @@
   }
 }
 
-.attachment {
-  margin-top: 0.35rem;
-
-  &__image {
-    max-width: 15rem;
-    max-height: 15rem;
-    border-radius: var(--radius-DEFAULT);
-    border: 1px solid var(--c-line);
-  }
-
-  &__file {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.5rem;
-    padding: 0.4rem 0.6rem;
-    border: 1px solid var(--c-line);
-    border-radius: var(--radius-DEFAULT);
-    background-color: var(--c-surface);
-    font-size: 0.8rem;
-  }
-}
-
 .typing-line {
   min-height: 1.1rem;
   padding: 0.15rem 1rem;
@@ -770,45 +751,37 @@
     kbd {
       font-family: inherit;
     }
-  }
 
-  &__uploads {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.4rem;
-    margin-bottom: 0.5rem;
-  }
-}
-
-.upload-chip {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.4rem;
-  max-width: 12rem;
-  padding: 0.25rem 0.4rem 0.25rem 0.25rem;
-  border: 1px solid var(--c-line);
-  border-radius: var(--radius-DEFAULT);
-  background-color: var(--c-surface-2);
-  font-size: 0.72rem;
-
-  img {
-    width: 1.75rem;
-    height: 1.75rem;
-    border-radius: var(--radius-sm);
-    object-fit: cover;
-  }
-
-  button {
-    display: inline-flex;
-    align-items: center;
-    border: 0;
-    background: transparent;
-    color: var(--c-muted);
-    cursor: pointer;
-
-    &:hover {
-      color: var(--c-fg);
+    // With files in the tray: the accepted types on the left, "Limit
+    // reached" on the right.
+    &.is-split {
+      display: flex;
+      justify-content: space-between;
+      gap: 1rem;
+      text-align: left;
     }
+  }
+
+  // "10 / 10 · A message holds up to 10 files…" — empty (but present, so
+  // the status is announced when it fills) until the limit is reached.
+  &__limit {
+    margin: 0;
+    font-size: var(--fs-caption);
+    color: var(--c-fg-2);
+
+    &:not(:empty) {
+      margin-top: 0.4rem;
+    }
+  }
+
+  &__limit-count {
+    margin-right: 0.5rem;
+    padding: 0.05rem 0.35rem;
+    border-radius: var(--r-tag);
+    background-color: color-mix(in oklab, var(--c-warn) 14%, transparent);
+    color: var(--c-warn);
+    font-family: var(--f-mono);
+    font-size: var(--fs-meta);
   }
 }
 

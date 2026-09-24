@@ -13,7 +13,8 @@ import Avatar from '../ui/Avatar'
 import Icon from '../ui/Icon'
 import ConfirmDialog from '../ui/ConfirmDialog'
 import ActionToast from '../ui/ActionToast'
-import MessageAttachment from './MessageAttachment'
+import MessageAttachments from './MessageAttachments'
+import Lightbox from './Lightbox'
 import MessageReactions from './MessageReactions'
 import MessageToolbar from './MessageToolbar'
 import MessageMenu from './MessageMenu'
@@ -58,6 +59,16 @@ const MessageItem = ({
 
   const isOwn = message.sender?.id === user?.id
   const isDeleted = Boolean(message.deleted_at)
+
+  const attachments = message.attachments ?? []
+  const images = attachments.filter((a) => a.is_image)
+  const [viewerIndex, setViewerIndex] = useState<number | null>(null)
+
+  // Attachment links are signed for 30 minutes when the page of messages is
+  // fetched. Refetching the conversation is what re-signs them.
+  const refreshLinks = () => {
+    void queryClient.invalidateQueries({ queryKey: ['messages', message.conversation_id] })
+  }
 
   const { mutate: removeMessage, isPending: isDeleting } = useMutation({
     mutationFn: () => deleteMessage(message.id),
@@ -155,6 +166,16 @@ const MessageItem = ({
             <ReplyQuote replyTo={message.reply_to} viewerId={user?.id} />
           )}
 
+          {/* Media first, the text beneath it as its caption
+              (Attach-Messages). */}
+          {!isDeleted && attachments.length > 0 && (
+            <MessageAttachments
+              attachments={attachments}
+              onOpenImage={setViewerIndex}
+              onRefreshLinks={refreshLinks}
+            />
+          )}
+
           {isDeleted ? (
             <span className='bubble__deleted'>
               <Icon name='ban' size={14} />
@@ -167,14 +188,6 @@ const MessageItem = ({
                 {message.edited_at && <span className='bubble__edited'>edited</span>}
               </span>
             )
-          )}
-
-          {!isDeleted && message.attachments && message.attachments.length > 0 && (
-            <div className='bubble__attachments'>
-              {message.attachments.map((attachment) => (
-                <MessageAttachment key={attachment.id} attachment={attachment} />
-              ))}
-            </div>
           )}
 
           {/* Every message shows its own send time, even tightly grouped
@@ -262,6 +275,18 @@ const MessageItem = ({
             onClose={closePopover}
           />
         </>
+      )}
+
+      {viewerIndex !== null && images[viewerIndex] && (
+        <Lightbox
+          images={images}
+          index={viewerIndex}
+          onIndexChange={setViewerIndex}
+          onClose={() => setViewerIndex(null)}
+          sender={message.sender}
+          sentAt={message.created_at}
+          onRefreshLinks={refreshLinks}
+        />
       )}
 
       {isOwn && (

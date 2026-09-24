@@ -1,13 +1,25 @@
-import { useEffect, useId, useRef, useState } from 'react'
+import { useEffect, useId, useImperativeHandle, useRef, useState, type Ref } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import toast from 'react-hot-toast'
-import { mdiClose, mdiFileDocumentOutline } from '@mdi/js'
 import { sendMessage, updateMessage, uploadAttachment } from '../../services/api/messages'
 import { postTyping } from '../../services/api/conversations'
 import { appendMessageToCache, replaceMessageInCache } from '../../utils/messagePages'
+import {
+  ACCEPTED_SUMMARY,
+  ACCEPTED_TYPES,
+  MAX_ATTACHMENTS,
+  MAX_FILE_BYTES,
+} from '../../utils/attachments'
 import useAuth from '../../hooks/useAuth'
 import Icon from '../ui/Icon'
+import ComposerTray, { type PendingUpload } from './ComposerTray'
 import type { MessageType } from '../../utils/baseTypes'
+
+/** What the room can ask of the composer — files dropped on the
+ * conversation go through the same checks as ones picked with the button. */
+export type MessageFormHandle = {
+  addFiles: (files: File[]) => void
+}
 
 type MessageFormProps = {
   conversationId: string
@@ -17,22 +29,10 @@ type MessageFormProps = {
   editing: MessageType | null
   /** Leave edit mode — after saving, or on cancel. */
   onFinishEdit: () => void
-}
-
-type PendingUpload = {
-  id: string
-  name: string
-  isImage: boolean
-  previewUrl?: string
-  progress: number
-  status: 'uploading' | 'done' | 'error'
-  attachmentId?: string
+  ref?: Ref<MessageFormHandle>
 }
 
 const TYPING_THROTTLE_MS = 2000
-const MAX_ATTACHMENTS = 10
-const MAX_FILE_BYTES = 15 * 1024 * 1024
-const ACCEPTED_TYPES = ['image/jpeg', 'image/png', 'image/gif', 'image/webp', 'application/pdf']
 
 /** One line describing a message for a banner or quote: its text, or what
  * it carried when it had none. */
@@ -49,6 +49,7 @@ const MessageForm = ({
   onCancelReply,
   editing,
   onFinishEdit,
+  ref,
 }: MessageFormProps) => {
   const { user } = useAuth()
   const [body, setBody] = useState('')
@@ -151,6 +152,7 @@ const MessageForm = ({
     !isPending && !uploading && (body.trim().length > 0 || readyAttachmentIds.length > 0)
   // The API requires a body on an edit, so an edit can't empty a message.
   const canSaveEdit = !isSavingEdit && body.trim().length > 0
+  const atLimit = uploads.length >= MAX_ATTACHMENTS
 
   const submit = () => {
     if (editing) {
@@ -168,67 +170,91 @@ const MessageForm = ({
     mutate({ text: body, attachmentIds: readyAttachmentIds })
   }
 
-  const startUpload = (file: File) => {
-    const id = crypto.randomUUID()
-    const isImage = file.type.startsWith('image/')
+  const updateUpload = (id: string, patch: Partial<PendingUpload>) => {
+    setUploads((current) =>
+      current.map((upload) => (upload.id === id ? { ...upload, ...patch } : upload)),
+    )
+  }
 
-    setUploads((current) => [
-      ...current,
-      {
-        id,
-        name: file.name,
-        isImage,
-        previewUrl: isImage ? URL.createObjectURL(file) : undefined,
-        progress: 0,
-        status: 'uploading',
-      },
-    ])
-
-    uploadAttachment(file, (percent) => {
-      setUploads((current) =>
-        current.map((upload) => (upload.id === id ? { ...upload, progress: percent } : upload)),
-      )
-    })
+  const runUpload = (id: string, file: File) => {
+    uploadAttachment(file, (percent) => updateUpload(id, { progress: percent }))
       .then((attachment) => {
-        setUploads((current) =>
-          current.map((upload) =>
-            upload.id === id
-              ? { ...upload, status: 'done', progress: 100, attachmentId: attachment.id }
-              : upload,
-          ),
-        )
+        updateUpload(id, { status: 'done', progress: 100, attachmentId: attachment.id })
       })
       .catch(() => {
-        setUploads((current) =>
-          current.map((upload) => (upload.id === id ? { ...upload, status: 'error' } : upload)),
-        )
+        updateUpload(id, { status: 'error' })
         toast.error(`Couldn't upload ${file.name}.`)
       })
   }
 
-  const handleFilesSelected = (fileList: FileList | null) => {
-    if (!fileList) return
-    const files = Array.from(fileList)
+  const retryUpload = (id: string) => {
+    const upload = uploads.find((u) => u.id === id)
+    if (!upload) return
+    updateUpload(id, { status: 'uploading', progress: 0 })
+    runUpload(id, upload.file)
+  }
 
+  /**
+   * The one way files enter the tray — the attach button, a paste, or a
+   * drop on the conversation. The checks are the same ones the upload has
+   * always had; only how a failure is shown differs. A file that's too big
+   * stays in the tray marked "Over 15 MB" (the design's "the good file
+   * stays" — sending goes ahead without it); a type the API won't take never
+   * enters it, and a toast says so.
+   */
+  const addFiles = (files: File[]) => {
+    const added: PendingUpload[] = []
     let slots = MAX_ATTACHMENTS - uploads.length
+
     for (const file of files) {
       if (slots <= 0) {
         toast.error(`You can attach up to ${MAX_ATTACHMENTS} files per message.`)
         break
       }
       if (!ACCEPTED_TYPES.includes(file.type)) {
-        toast.error(`${file.name} isn't a supported file type.`)
+        toast.error(`${file.name} isn’t supported. Use JPG, PNG, GIF, WebP or PDF.`)
         continue
       }
-      if (file.size > MAX_FILE_BYTES) {
-        toast.error(`${file.name} is larger than 15 MB.`)
-        continue
-      }
-      startUpload(file)
+
+      const isImage = file.type.startsWith('image/')
+      const tooBig = file.size > MAX_FILE_BYTES
+      added.push({
+        id: crypto.randomUUID(),
+        file,
+        name: file.name,
+        size: file.size,
+        isImage,
+        previewUrl: isImage && !tooBig ? URL.createObjectURL(file) : undefined,
+        progress: 0,
+        status: tooBig ? 'rejected' : 'uploading',
+        rejection: tooBig ? 'Over 15 MB' : undefined,
+      })
       slots -= 1
     }
 
+    if (added.length === 0) return
+    setUploads((current) => [...current, ...added])
+    for (const upload of added) {
+      if (upload.status === 'uploading') runUpload(upload.id, upload.file)
+    }
+  }
+
+  useImperativeHandle(ref, () => ({ addFiles }))
+
+  const handleFilesSelected = (fileList: FileList | null) => {
+    if (fileList) addFiles(Array.from(fileList))
     if (fileInputRef.current) fileInputRef.current.value = ''
+  }
+
+  // A screenshot pasted into the composer joins the tray. Only when the
+  // clipboard holds files and no text — pasting from a document can carry
+  // both, and then the text is what's meant.
+  const handlePaste = (e: React.ClipboardEvent<HTMLTextAreaElement>) => {
+    if (editing) return
+    const files = Array.from(e.clipboardData.files)
+    if (files.length === 0 || e.clipboardData.getData('text/plain')) return
+    e.preventDefault()
+    addFiles(files)
   }
 
   const removeUpload = (id: string) => {
@@ -280,6 +306,7 @@ const MessageForm = ({
   else if (isPending) submitLabel = 'Sending'
   else if (uploading) submitLabel = 'Uploading'
   const isBusy = editing ? isSavingEdit : isPending || uploading
+  const showTrayHint = !editing && uploads.length > 0
 
   return (
     <form
@@ -289,34 +316,6 @@ const MessageForm = ({
         submit()
       }}
     >
-      {/* Attachments can't be added to an edit (it only changes the text),
-          so any in progress stay put, out of the way, until it's done. */}
-      {!editing && uploads.length > 0 && (
-        <div className='composer__uploads'>
-          {uploads.map((upload) => (
-            <div key={upload.id} className='upload-chip'>
-              {upload.previewUrl ? (
-                <img src={upload.previewUrl} alt={upload.name} />
-              ) : (
-                <Icon path={mdiFileDocumentOutline} />
-              )}
-              <span className='truncate'>{upload.name}</span>
-              {upload.status === 'uploading' && <span className='muted'>{upload.progress}%</span>}
-              {upload.status === 'error' && (
-                <span style={{ color: 'var(--c-danger)' }}>failed</span>
-              )}
-              <button
-                type='button'
-                onClick={() => removeUpload(upload.id)}
-                aria-label={`Remove ${upload.name}`}
-              >
-                <Icon path={mdiClose} size={14} />
-              </button>
-            </div>
-          ))}
-        </div>
-      )}
-
       <div className={`composer${editing ? ' is-editing' : ''}`}>
         {editing ? (
           <div id={bannerId} className='composer__banner is-edit'>
@@ -362,6 +361,13 @@ const MessageForm = ({
           )
         )}
 
+        {/* Attachments can't be added to an edit (it only changes the
+            text), so any in progress stay put, out of sight, until it's
+            done. */}
+        {!editing && uploads.length > 0 && (
+          <ComposerTray uploads={uploads} onRemove={removeUpload} onRetry={retryUpload} />
+        )}
+
         <div className='composer__row'>
           <input
             ref={fileInputRef}
@@ -375,7 +381,7 @@ const MessageForm = ({
             type='button'
             className='composer__icon-btn'
             onClick={() => fileInputRef.current?.click()}
-            disabled={Boolean(editing)}
+            disabled={Boolean(editing) || atLimit}
             aria-label='Attach files'
           >
             <Icon name='clip' />
@@ -392,6 +398,7 @@ const MessageForm = ({
             value={body}
             onChange={handleChange}
             onKeyDown={handleKeyDown}
+            onPaste={handlePaste}
             aria-describedby={editing || replyingTo ? bannerId : undefined}
           />
           <button
@@ -408,20 +415,39 @@ const MessageForm = ({
           </button>
         </div>
       </div>
-      <p className='composer__hint' aria-hidden='true'>
-        {editing ? (
+      {showTrayHint ? (
+        <p className='composer__hint is-split' aria-hidden='true'>
+          <span>{ACCEPTED_SUMMARY}</span>
+          {atLimit && <span>Limit reached</span>}
+        </p>
+      ) : (
+        <p className='composer__hint' aria-hidden='true'>
+          {editing ? (
+            <>
+              <kbd>↵</kbd> save · <kbd>⇧↵</kbd> new line · <kbd>esc</kbd> cancel
+            </>
+          ) : (
+            <>
+              <kbd>↵</kbd> send · <kbd>⇧↵</kbd> new line
+              {replyingTo && (
+                <>
+                  {' '}
+                  · <kbd>esc</kbd> cancel reply
+                </>
+              )}
+            </>
+          )}
+        </p>
+      )}
+      {/* Said out loud as well as shown: the attach button has just been
+          disabled, and this is why. */}
+      <p className='composer__limit' role='status'>
+        {showTrayHint && atLimit && (
           <>
-            <kbd>↵</kbd> save · <kbd>⇧↵</kbd> new line · <kbd>esc</kbd> cancel
-          </>
-        ) : (
-          <>
-            <kbd>↵</kbd> send · <kbd>⇧↵</kbd> new line
-            {replyingTo && (
-              <>
-                {' '}
-                · <kbd>esc</kbd> cancel reply
-              </>
-            )}
+            <span className='composer__limit-count'>
+              {MAX_ATTACHMENTS} / {MAX_ATTACHMENTS}
+            </span>
+            A message holds up to {MAX_ATTACHMENTS} files. Remove one to add another.
           </>
         )}
       </p>

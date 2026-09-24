@@ -1,6 +1,7 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState, type DragEvent } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import MessageForm from './MessageForm'
+import MessageForm, { type MessageFormHandle } from './MessageForm'
+import { ACCEPTED_SUMMARY } from '../../utils/attachments'
 import Messages from './Messages'
 import GroupSettingsPanel from './GroupSettingsPanel'
 import useMessages from '../../hooks/useMessages'
@@ -26,6 +27,11 @@ const ConversationRoomView = () => {
   const [isGroupSettingsOpen, setIsGroupSettingsOpen] = useState(false)
   const [replyingTo, setReplyingTo] = useState<MessageType | null>(null)
   const [editing, setEditing] = useState<MessageType | null>(null)
+  const composerRef = useRef<MessageFormHandle>(null)
+  const [isDraggingFiles, setIsDraggingFiles] = useState(false)
+  // dragenter/dragleave fire for every child the pointer crosses, so count
+  // them rather than trusting the last one.
+  const dragDepth = useRef(0)
 
   // The composer does one thing at a time: starting a reply ends an edit,
   // and starting an edit drops a pending reply.
@@ -41,6 +47,39 @@ const ConversationRoomView = () => {
   const conversation = conversations.find((c) => c.id === id)
   const isGroup = conversation?.type === 'group'
   const hasLeft = Boolean(conversation?.viewer_left_at)
+
+  // Dragging files over the conversation turns the whole pane into a drop
+  // target (Attach-Composer); dropped files go through the composer's own
+  // checks. Only while there's a composer to take them — not in a group the
+  // viewer has left, and not mid-edit (an edit can't carry attachments).
+  const canDropFiles = !hasLeft && !editing
+  const carriesFiles = (e: DragEvent) => Array.from(e.dataTransfer.types).includes('Files')
+
+  const dropHandlers = {
+    onDragEnter: (e: DragEvent) => {
+      if (!canDropFiles || !carriesFiles(e)) return
+      e.preventDefault()
+      dragDepth.current += 1
+      setIsDraggingFiles(true)
+    },
+    onDragOver: (e: DragEvent) => {
+      if (!canDropFiles || !carriesFiles(e)) return
+      // Required for the drop to be allowed at all.
+      e.preventDefault()
+      e.dataTransfer.dropEffect = 'copy'
+    },
+    onDragLeave: () => {
+      dragDepth.current = Math.max(0, dragDepth.current - 1)
+      if (dragDepth.current === 0) setIsDraggingFiles(false)
+    },
+    onDrop: (e: DragEvent) => {
+      dragDepth.current = 0
+      setIsDraggingFiles(false)
+      if (!canDropFiles || !carriesFiles(e)) return
+      e.preventDefault()
+      composerRef.current?.addFiles(Array.from(e.dataTransfer.files))
+    },
+  }
 
   // Covers a bad/nonexistent id and a group that just got deleted out from
   // under us (left/kicked-from groups stay in the list, frozen, so this
@@ -74,7 +113,18 @@ const ConversationRoomView = () => {
     : conversation?.other_participant?.name || 'Direct conversation'
 
   return (
-    <section className='room' aria-label={headerTitle}>
+    <section className='room' aria-label={headerTitle} {...dropHandlers}>
+      {isDraggingFiles && (
+        // Pointer-only affordance: the attach button is the keyboard path.
+        <div className='drop-overlay' aria-hidden='true'>
+          <span className='drop-overlay__icon'>
+            <Icon name='upload' size={22} />
+          </span>
+          <span className='drop-overlay__title'>Drop to attach</span>
+          <span className='drop-overlay__hint'>{ACCEPTED_SUMMARY}</span>
+        </div>
+      )}
+
       <header className='room__header'>
         <Button
           variant='ghost'
@@ -162,6 +212,7 @@ const ConversationRoomView = () => {
       ) : (
         <div className='room__composer'>
           <MessageForm
+            ref={composerRef}
             conversationId={id!}
             replyingTo={replyingTo}
             onCancelReply={() => setReplyingTo(null)}

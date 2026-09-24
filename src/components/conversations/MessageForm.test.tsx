@@ -1,11 +1,11 @@
-import { useState, type ReactNode } from 'react'
+import { createRef, useState, type ReactNode } from 'react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { render, screen, waitFor } from '@testing-library/react'
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import MessageForm from './MessageForm'
+import MessageForm, { type MessageFormHandle } from './MessageForm'
 import { AuthContext, type AuthContextType } from '../../hooks/useAuth'
-import { sendMessage, updateMessage } from '../../services/api/messages'
+import { sendMessage, updateMessage, uploadAttachment } from '../../services/api/messages'
 import type { MessageType } from '../../utils/baseTypes'
 
 vi.mock('../../services/api/messages', () => ({
@@ -206,5 +206,128 @@ describe('MessageForm — edit', () => {
     await waitFor(() => expect(updateMessage).toHaveBeenCalled())
     expect(onFinishEdit).not.toHaveBeenCalled()
     expect(textbox()).toHaveValue('Deploying the fix now, ETA five minutes. Update:')
+  })
+})
+
+describe('MessageForm — attachments', () => {
+  const file = (name: string, type: string, size = 1000) => {
+    const f = new File(['x'], name, { type })
+    Object.defineProperty(f, 'size', { value: size })
+    return f
+  }
+  const fileInput = (container: HTMLElement) => container.querySelector('input[type=file]') as HTMLInputElement
+  const attachment = (id: string) => ({
+    id,
+    message_id: null,
+    original_name: `${id}.png`,
+    mime_type: 'image/png',
+    size_bytes: 1000,
+    is_image: true,
+    url: `https://cdn.test/${id}`,
+    created_at: '2026-01-01T10:00:00Z',
+  })
+
+  beforeEach(() => {
+    vi.mocked(uploadAttachment).mockReset()
+    URL.createObjectURL = vi.fn(() => 'blob:preview')
+    URL.revokeObjectURL = vi.fn()
+  })
+
+  it('refuses a type the API will not take, before uploading anything', () => {
+    const { container } = renderForm()
+
+    fireEvent.change(fileInput(container), { target: { files: [file('recording.mov', 'video/quicktime')] } })
+
+    expect(uploadAttachment).not.toHaveBeenCalled()
+    expect(screen.queryByRole('list', { name: 'Attachments' })).not.toBeInTheDocument()
+  })
+
+  it('keeps an oversized file in the tray, marked, without uploading it — and sends the rest without it', async () => {
+    const user = userEvent.setup()
+    vi.mocked(uploadAttachment).mockResolvedValue(attachment('good'))
+    vi.mocked(sendMessage).mockResolvedValue({} as MessageType)
+    const { container } = renderForm()
+
+    fireEvent.change(fileInput(container), {
+      target: { files: [file('big-export.pdf', 'application/pdf', 16 * 1024 * 1024), file('photo.png', 'image/png')] },
+    })
+
+    expect(screen.getByText('Over 15 MB')).toBeInTheDocument()
+    expect(uploadAttachment).toHaveBeenCalledTimes(1)
+    expect(vi.mocked(uploadAttachment).mock.calls[0][0].name).toBe('photo.png')
+
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Send message' })).toBeEnabled())
+    await user.click(screen.getByRole('button', { name: 'Send message' }))
+
+    expect(sendMessage).toHaveBeenCalledWith('c1', '', undefined, ['good'])
+  })
+
+  it('offers a retry on a failed upload, which re-sends the same file', async () => {
+    const user = userEvent.setup()
+    vi.mocked(uploadAttachment).mockRejectedValueOnce(new Error('500')).mockResolvedValueOnce(attachment('ok'))
+    const { container } = renderForm()
+    const photo = file('photo.png', 'image/png')
+
+    fireEvent.change(fileInput(container), { target: { files: [photo] } })
+    await user.click(await screen.findByRole('button', { name: 'Upload of photo.png failed. Retry' }))
+
+    await waitFor(() => expect(uploadAttachment).toHaveBeenCalledTimes(2))
+    expect(vi.mocked(uploadAttachment).mock.calls[1][0]).toBe(photo)
+  })
+
+  it('stops at 10 files: the attach button turns off and says why', () => {
+    vi.mocked(uploadAttachment).mockReturnValue(new Promise(() => {}))
+    const { container } = renderForm()
+
+    fireEvent.change(fileInput(container), {
+      target: { files: Array.from({ length: 12 }, (_, i) => file(`p${i}.png`, 'image/png')) },
+    })
+
+    expect(uploadAttachment).toHaveBeenCalledTimes(10)
+    expect(screen.getByRole('button', { name: 'Attach files' })).toBeDisabled()
+    expect(screen.getByRole('status')).toHaveTextContent('A message holds up to 10 files.')
+  })
+
+  it('takes a pasted screenshot into the tray', () => {
+    vi.mocked(uploadAttachment).mockReturnValue(new Promise(() => {}))
+    renderForm()
+
+    fireEvent.paste(textbox(), {
+      clipboardData: { files: [file('pasted.png', 'image/png')], getData: () => '' },
+    })
+
+    expect(uploadAttachment).toHaveBeenCalledTimes(1)
+    expect(screen.getByRole('list', { name: 'Attachments' })).toBeInTheDocument()
+  })
+
+  it('leaves a paste that carries text to the textarea', () => {
+    renderForm()
+
+    fireEvent.paste(textbox(), {
+      clipboardData: { files: [file('rendering.png', 'image/png')], getData: () => 'some copied text' },
+    })
+
+    expect(uploadAttachment).not.toHaveBeenCalled()
+  })
+
+  it('accepts files handed over by the room (a drop on the conversation)', () => {
+    vi.mocked(uploadAttachment).mockReturnValue(new Promise(() => {}))
+    const handle = createRef<MessageFormHandle>()
+    render(
+      <Providers>
+        <MessageForm
+          ref={handle}
+          conversationId='c1'
+          replyingTo={null}
+          onCancelReply={vi.fn()}
+          editing={null}
+          onFinishEdit={vi.fn()}
+        />
+      </Providers>,
+    )
+
+    act(() => handle.current?.addFiles([file('dropped.png', 'image/png')]))
+
+    expect(uploadAttachment).toHaveBeenCalledTimes(1)
   })
 })
