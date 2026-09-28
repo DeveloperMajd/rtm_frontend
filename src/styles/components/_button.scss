@@ -30,12 +30,16 @@
     transform: translateY(1px);
   }
 
+  // Filled with the accent's solid shade, not --c-accent: in dark theme
+  // that's the light violet meant for text and icons, and white on it is
+  // 3.4:1 — under AA. accent-solid is 5.1:1; hover darkens, so it stays
+  // above that rather than lightening below it.
   &.primary {
-    --btn-bg: var(--c-primary);
+    --btn-bg: var(--c-accent-solid);
     --btn-fg: var(--c-on-primary);
 
     &:hover:not(:disabled) {
-      --btn-bg: var(--c-primary-hover);
+      --btn-bg: color-mix(in oklab, var(--c-accent-solid) 88%, black);
     }
   }
 
@@ -110,5 +114,15 @@
 
   &[aria-busy='true'] {
     cursor: progress;
+  }
+
+  &__spinner {
+    width: 14px;
+    height: 14px;
+    flex: none;
+    border-radius: 999px;
+    border: 2px solid color-mix(in oklab, currentColor 30%, transparent);
+    border-top-color: currentColor;
+    animation: spinner-rotate 0.7s linear infinite;
   }
 }

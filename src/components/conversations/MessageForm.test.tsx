@@ -25,6 +25,9 @@ const authValue: AuthContextType = {
   logout: vi.fn(),
   register: vi.fn(),
   refreshUser: vi.fn(),
+  sessionExpired: false,
+  signedOutByChoice: false,
+  endExpiredSession: vi.fn(),
 }
 
 const Providers = ({ children }: { children: ReactNode }) => {
@@ -329,5 +332,38 @@ describe('MessageForm — attachments', () => {
     act(() => handle.current?.addFiles([file('dropped.png', 'image/png')]))
 
     expect(uploadAttachment).toHaveBeenCalledTimes(1)
+  })
+})
+
+describe('MessageForm — drafts', () => {
+  it('picks up what was left unsent in this conversation', () => {
+    localStorage.setItem('rtm.draft.me.c1', 'where was I')
+    renderForm()
+
+    expect(textbox()).toHaveValue('where was I')
+  })
+
+  it('keeps what’s typed on this device, and forgets it once sent', async () => {
+    const user = userEvent.setup()
+    vi.mocked(sendMessage).mockResolvedValue(message({ id: 'm2', body: 'hello' }))
+    renderForm()
+
+    await user.type(textbox(), 'hello')
+    expect(localStorage.getItem('rtm.draft.me.c1')).toBe('hello')
+
+    await user.keyboard('{Enter}')
+    await waitFor(() => expect(textbox()).toHaveValue(''))
+    expect(localStorage.getItem('rtm.draft.me.c1')).toBeNull()
+  })
+
+  it('never saves an edit as the draft — the text set aside stays the draft', async () => {
+    const user = userEvent.setup()
+    const { rerenderWith } = renderForm()
+
+    await user.type(textbox(), 'half-written thought')
+    rerenderWith({ editing: message() })
+    await user.type(textbox(), ' (edited)')
+
+    expect(localStorage.getItem('rtm.draft.me.c1')).toBe('half-written thought')
   })
 })

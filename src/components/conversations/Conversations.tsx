@@ -7,13 +7,9 @@ import Tooltip from '../ui/Tooltip'
 import { ConversationListSkeleton } from '../ui/Skeleton'
 import { systemMessageText } from '../../utils/systemMessageText'
 import useAuth from '../../hooks/useAuth'
+import { conversationTitle } from '../../utils/conversations'
 
 export type ConversationFilter = 'all' | 'unread' | 'groups' | 'direct'
-
-const titleFor = (c: ConversationType) =>
-  c.type === 'group'
-    ? c.title || 'Untitled group'
-    : c.other_participant?.name || 'Direct conversation'
 
 const previewFor = (c: ConversationType, viewerId?: string): string => {
   if (!c.latest_message) return 'No messages yet'
@@ -102,7 +98,7 @@ const Conversations = ({
   return (
     <ul>
       {filtered.map((c) => {
-        const title = titleFor(c)
+        const title = conversationTitle(c)
         const when = c.last_message_at || c.updated_at
         const left = Boolean(c.viewer_left_at)
         const unread = !left && !!c.unread_count

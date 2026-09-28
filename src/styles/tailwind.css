@@ -101,9 +101,12 @@
   --c-raised: #ffffff;
   --c-raised-2: #eff0f6;
   --c-overlay: #ffffff;
+  --c-input: #ffffff;
   /* The dimmed backdrop behind a dialog — not --c-overlay, which is the
      dialog's own surface. */
   --c-scrim: rgb(16 18 36 / 0.42);
+  /* The faint 32px grid behind the sign-in screens. */
+  --c-grid: rgb(20 22 45 / 0.05);
 
   /* Text */
   --c-fg: #14151c;
@@ -122,6 +125,7 @@
   --c-accent-solid: #5b3df5;
   --c-accent-hover: #4e2ee6;
   --c-accent-soft: rgb(91 61 245 / 0.09);
+  --c-accent-soft-2: rgb(91 61 245 / 0.16);
   --c-accent-text: #3d22c9;
   --c-focus: #5b3df5;
   --c-on-accent: #ffffff;
@@ -137,10 +141,17 @@
   --c-warn: #8a5300;
   --c-danger: #c72a44;
   --c-info: #1f5fd6;
+  --c-success-soft: rgb(13 122 73 / 0.1);
+  --c-warn-soft: rgb(178 107 0 / 0.1);
+  --c-warn-line: rgb(178 107 0 / 0.32);
+  --c-danger-soft: rgb(214 48 74 / 0.08);
+  --c-danger-line: rgb(214 48 74 / 0.3);
 
   --shadow-e1: 0 1px 2px rgb(16 24 40 / 0.06);
   --shadow-e2: 0 4px 14px rgb(16 24 40 / 0.1);
   --shadow-e3: 0 18px 40px rgb(16 24 40 / 0.18);
+  /* Floating cards (sign-in card, popovers). */
+  --sh-pop: 0 14px 36px rgb(24 28 70 / 0.16), 0 2px 8px rgb(24 28 70 / 0.08);
 }
 
 /* ---- Dark theme (Obsidian): explicit opt-in wins in both directions ---- */
@@ -153,7 +164,9 @@
   --c-raised: #171924;
   --c-raised-2: #1d2030;
   --c-overlay: #171926;
+  --c-input: #0d0e14;
   --c-scrim: rgb(4 5 9 / 0.64);
+  --c-grid: rgb(255 255 255 / 0.035);
 
   --c-fg: #eceef6;
   --c-fg-2: #a9adc2;
@@ -168,6 +181,7 @@
   --c-accent-solid: #6c4dff;
   --c-accent-hover: #7b5fff;
   --c-accent-soft: rgb(139 120 255 / 0.14);
+  --c-accent-soft-2: rgb(139 120 255 / 0.24);
   --c-accent-text: #c9c0ff;
   --c-focus: #a596ff;
   --c-on-accent: #ffffff;
@@ -181,10 +195,16 @@
   --c-warn: #f2b04c;
   --c-danger: #ff7a8d;
   --c-info: #79aeff;
+  --c-success-soft: rgb(63 214 143 / 0.14);
+  --c-warn-soft: rgb(242 176 76 / 0.14);
+  --c-warn-line: rgb(242 176 76 / 0.32);
+  --c-danger-soft: rgb(255 107 129 / 0.12);
+  --c-danger-line: rgb(255 107 129 / 0.3);
 
   --shadow-e1: 0 1px 2px rgb(0 0 0 / 0.4);
   --shadow-e2: 0 4px 14px rgb(0 0 0 / 0.5);
   --shadow-e3: 0 18px 40px rgb(0 0 0 / 0.6);
+  --sh-pop: 0 14px 36px rgb(0 0 0 / 0.55), 0 2px 8px rgb(0 0 0 / 0.4);
 }
 
 /* ---- Dark theme: follow the OS when the user has not chosen ---- */
@@ -198,7 +218,9 @@
     --c-raised: #171924;
     --c-raised-2: #1d2030;
     --c-overlay: #171926;
+    --c-input: #0d0e14;
     --c-scrim: rgb(4 5 9 / 0.64);
+    --c-grid: rgb(255 255 255 / 0.035);
 
     --c-fg: #eceef6;
     --c-fg-2: #a9adc2;
@@ -213,6 +235,7 @@
     --c-accent-solid: #6c4dff;
     --c-accent-hover: #7b5fff;
     --c-accent-soft: rgb(139 120 255 / 0.14);
+    --c-accent-soft-2: rgb(139 120 255 / 0.24);
     --c-accent-text: #c9c0ff;
     --c-focus: #a596ff;
     --c-on-accent: #ffffff;
@@ -226,10 +249,16 @@
     --c-warn: #f2b04c;
     --c-danger: #ff7a8d;
     --c-info: #79aeff;
+    --c-success-soft: rgb(63 214 143 / 0.14);
+    --c-warn-soft: rgb(242 176 76 / 0.14);
+    --c-warn-line: rgb(242 176 76 / 0.32);
+    --c-danger-soft: rgb(255 107 129 / 0.12);
+    --c-danger-line: rgb(255 107 129 / 0.3);
 
     --shadow-e1: 0 1px 2px rgb(0 0 0 / 0.4);
     --shadow-e2: 0 4px 14px rgb(0 0 0 / 0.5);
     --shadow-e3: 0 18px 40px rgb(0 0 0 / 0.6);
+    --sh-pop: 0 14px 36px rgb(0 0 0 / 0.55), 0 2px 8px rgb(0 0 0 / 0.4);
   }
 }
 

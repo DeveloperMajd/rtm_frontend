@@ -1,59 +1,30 @@
-import { useState } from 'react'
-import { mdiMonitor, mdiWeatherNight, mdiWeatherSunny } from '@mdi/js'
-import { getStoredTheme, setTheme, type ThemePref } from '../../utils/theme'
+import { setTheme, useThemePref, type ThemePref } from '../../utils/theme'
 import Icon from './Icon'
+import type { IconName } from './icons'
 
 const ORDER: ThemePref[] = ['light', 'dark', 'system']
-const META: Record<ThemePref, { icon: string; label: string }> = {
-  light: { icon: mdiWeatherSunny, label: 'Light' },
-  dark: { icon: mdiWeatherNight, label: 'Dark' },
-  system: { icon: mdiMonitor, label: 'System' },
+const META: Record<ThemePref, { icon: IconName; label: string }> = {
+  light: { icon: 'sun', label: 'Light' },
+  dark: { icon: 'moon', label: 'Dark' },
+  system: { icon: 'monitor', label: 'System' },
 }
 
-interface ThemeToggleProps {
-  /** single cycling icon button instead of the segmented control */
-  compact?: boolean
-}
-
-/** Light / dark / system theme control. Persists to localStorage. */
-const ThemeToggle = ({ compact = false }: ThemeToggleProps) => {
-  const [pref, setPref] = useState<ThemePref>(getStoredTheme)
-
-  const choose = (value: ThemePref) => {
-    setPref(value)
-    setTheme(value)
-  }
-
-  if (compact) {
-    const next = ORDER[(ORDER.indexOf(pref) + 1) % ORDER.length]
-    return (
-      <button
-        type='button'
-        className='btn ghost icon'
-        onClick={() => choose(next)}
-        aria-label={`Theme: ${META[pref].label}. Switch to ${META[next].label}`}
-        title={`Theme: ${META[pref].label}`}
-      >
-        <Icon path={META[pref].icon} />
-      </button>
-    )
-  }
+/** The rail's one-button theme switch: cycles Light → Dark → System. The
+ * full choice lives in Settings → Appearance. Persists to localStorage. */
+const ThemeToggle = () => {
+  const pref = useThemePref()
+  const next = ORDER[(ORDER.indexOf(pref) + 1) % ORDER.length]
 
   return (
-    <div className='theme-toggle' role='group' aria-label='Colour theme'>
-      {ORDER.map((value) => (
-        <button
-          key={value}
-          type='button'
-          className='theme-toggle__opt'
-          aria-pressed={pref === value}
-          onClick={() => choose(value)}
-        >
-          <Icon path={META[value].icon} />
-          {META[value].label}
-        </button>
-      ))}
-    </div>
+    <button
+      type='button'
+      className='btn ghost icon'
+      onClick={() => setTheme(next)}
+      aria-label={`Theme: ${META[pref].label}. Switch to ${META[next].label}`}
+      title={`Theme: ${META[pref].label}`}
+    >
+      <Icon name={META[pref].icon} />
+    </button>
   )
 }
 

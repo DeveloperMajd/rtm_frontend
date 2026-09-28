@@ -8,7 +8,9 @@ import './styles/tailwind.css'
 import './styles/index.scss'
 import { AuthProvider } from './context/AuthContext.tsx'
 import RequireAuth from './layouts/RequireAuth.tsx'
+import AppShell from './layouts/AppShell.tsx'
 import ConversationsLayout from './layouts/ConversationsLayout.tsx'
+import SettingsLayout from './layouts/SettingsLayout.tsx'
 import ConversationRoom from './components/conversations/ConversationRoom.tsx'
 import ErrorBoundary from './components/ui/ErrorBoundary.tsx'
 import Spinner from './components/ui/Spinner.tsx'
@@ -18,6 +20,7 @@ const RegisterPage = lazy(() => import('./pages/RegisterPage.tsx'))
 const ForgotPasswordPage = lazy(() => import('./pages/ForgotPasswordPage.tsx'))
 const ResetPasswordPage = lazy(() => import('./pages/ResetPasswordPage.tsx'))
 const ProfilePage = lazy(() => import('./pages/ProfilePage.tsx'))
+const SettingsPage = lazy(() => import('./pages/SettingsPage.tsx'))
 const NotFoundPage = lazy(() => import('./pages/NotFoundPage.tsx'))
 
 const queryClient = new QueryClient({
@@ -44,11 +47,24 @@ const router = createBrowserRouter([
   {
     element: <RequireAuth />,
     children: [
-      { path: '/profile', element: withSuspense(<ProfilePage />) },
       {
-        path: '/conversations',
-        element: <ConversationsLayout />,
-        children: [{ path: ':id', element: <ConversationRoom /> }],
+        // The rail, search and presence stay mounted moving between Chats
+        // and Settings.
+        element: <AppShell />,
+        children: [
+          {
+            path: '/conversations',
+            element: <ConversationsLayout />,
+            children: [{ path: ':id', element: <ConversationRoom /> }],
+          },
+          {
+            element: <SettingsLayout />,
+            children: [
+              { path: '/profile', element: withSuspense(<ProfilePage />) },
+              { path: '/settings', element: withSuspense(<SettingsPage />) },
+            ],
+          },
+        ],
       },
     ],
   },

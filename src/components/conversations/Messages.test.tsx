@@ -14,6 +14,9 @@ const authValue: AuthContextType = {
   logout: vi.fn(),
   register: vi.fn(),
   refreshUser: vi.fn(),
+  sessionExpired: false,
+  signedOutByChoice: false,
+  endExpiredSession: vi.fn(),
 }
 
 const renderWithProviders = (ui: ReactNode) => {

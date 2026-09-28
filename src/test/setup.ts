@@ -11,4 +11,8 @@ import { cleanup } from '@testing-library/react'
 // rendered DOM would leak into the next one in the same file.
 afterEach(() => {
   cleanup()
+  // Composer drafts, recent searches and the theme live in localStorage,
+  // which jsdom keeps for the whole file — one test's leftovers would turn
+  // up in the next.
+  localStorage.clear()
 })

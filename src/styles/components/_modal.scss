@@ -11,6 +11,12 @@
   padding: 1rem;
   background-color: var(--c-scrim);
   animation: modal-fade $dur $ease-out;
+
+  // Auth-Session-Expired: the app stays visible behind, but blurred, since
+  // nothing on it can be used until the viewer signs in again.
+  &.is-alert {
+    backdrop-filter: blur(6px);
+  }
 }
 
 // Groups-Dialogs: an icon tile, the title and what the dialog is for, the
@@ -51,6 +57,11 @@
     &.is-danger {
       background-color: color-mix(in oklab, var(--c-danger) 14%, transparent);
       color: var(--c-danger);
+    }
+
+    &.is-warn {
+      background-color: var(--c-warn-soft);
+      color: var(--c-warn);
     }
   }
 

@@ -6,6 +6,7 @@ import { searchMessages } from '../../services/api/messages'
 import { useModalBehavior } from '../../hooks/useModalBehavior'
 import { loadRecentSearches, rememberSearch } from '../../utils/recentSearches'
 import { highlightSegments, queryTerms, resultTime, snippetAround } from '../../utils/searchText'
+import { conversationTitle } from '../../utils/conversations'
 import Avatar from '../ui/Avatar'
 import Badge from '../ui/Badge'
 import Icon from '../ui/Icon'
@@ -365,10 +366,6 @@ const PaletteDialog = ({ onClose, conversations }: SearchPaletteProps) => {
     </div>,
     document.body,
   )
-}
-
-function conversationTitle(c: ConversationType): string {
-  return c.type === 'group' ? c.title || 'Untitled group' : c.other_participant?.name || 'Direct conversation'
 }
 
 function conversationMeta(c: ConversationType): string {

@@ -13,12 +13,18 @@ interface ModalProps {
   description?: ReactNode
   /** The glyph in the tile beside the title (Groups-Dialogs). */
   icon?: IconName
-  /** `danger` tints that tile for a destructive dialog. */
-  tone?: 'accent' | 'danger'
+  /** `danger` tints that tile for a destructive dialog, `warn` for one
+   * that reports something that went wrong on its own. */
+  tone?: 'accent' | 'danger' | 'warn'
   children?: ReactNode
   footer?: ReactNode
   /** Hide the visible header (title still labels the dialog for AT). */
   hideHeader?: boolean
+  /** False for a dialog that has to be answered: no close button, and
+   * neither Escape nor a click outside dismisses it. */
+  dismissible?: boolean
+  /** An interruption the viewer didn't ask for (role="alertdialog"). */
+  alert?: boolean
 }
 
 // Prefer the first focusable inside the body (usually a real field) over
@@ -41,26 +47,29 @@ const Modal = ({
   children,
   footer,
   hideHeader,
+  dismissible = true,
+  alert = false,
 }: ModalProps) => {
   const panelRef = useRef<HTMLDivElement>(null)
   const titleId = useId()
   const descriptionId = useId()
+  const close = dismissible ? onClose : () => {}
 
-  useModalBehavior({ open, containerRef: panelRef, onClose, getInitialFocus: initialFocus })
+  useModalBehavior({ open, containerRef: panelRef, onClose: close, getInitialFocus: initialFocus })
 
   if (!open) return null
 
   return createPortal(
     <div
-      className='modal-overlay'
+      className={`modal-overlay${alert ? ' is-alert' : ''}`}
       onMouseDown={(e) => {
-        if (e.target === e.currentTarget) onClose()
+        if (e.target === e.currentTarget) close()
       }}
     >
       <div
         ref={panelRef}
         className='modal-panel'
-        role='dialog'
+        role={alert ? 'alertdialog' : 'dialog'}
         aria-modal='true'
         aria-labelledby={titleId}
         aria-describedby={description ? descriptionId : undefined}
@@ -87,14 +96,16 @@ const Modal = ({
                 </p>
               )}
             </div>
-            <button
-              type='button'
-              className='modal-panel__close'
-              onClick={onClose}
-              aria-label='Close dialog'
-            >
-              <Icon name='x' />
-            </button>
+            {dismissible && (
+              <button
+                type='button'
+                className='modal-panel__close'
+                onClick={onClose}
+                aria-label='Close dialog'
+              >
+                <Icon name='x' />
+              </button>
+            )}
           </div>
         )}
         {children && <div className='modal-panel__body'>{children}</div>}

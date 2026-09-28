@@ -1,5 +1,13 @@
 import type { ConversationType } from './baseTypes'
 
+/** What a conversation is called in the UI: a group's title, or the other
+ * person's name in a direct chat. */
+export function conversationTitle(c: ConversationType): string {
+  return c.type === 'group'
+    ? c.title || 'Untitled group'
+    : c.other_participant?.name || 'Direct conversation'
+}
+
 /**
  * The backend returns conversations in no particular order (no `ORDER BY`
  * on the endpoint) — sort by most recent activity so the list is at least

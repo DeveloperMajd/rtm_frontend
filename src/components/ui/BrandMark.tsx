@@ -20,14 +20,14 @@ const BrandMark = ({ size = 40, withWordmark = true, className = '' }: BrandMark
       aria-label='RTM'
       style={{ display: 'block', flex: '0 0 auto' }}
     >
-      <rect width='40' height='40' rx='11' fill='var(--c-primary)' />
+      <rect width='40' height='40' rx='11' fill='var(--c-accent-solid)' />
       <path
         d='M11 14.5A3.5 3.5 0 0 1 14.5 11h11a3.5 3.5 0 0 1 3.5 3.5v7a3.5 3.5 0 0 1-3.5 3.5H18l-5 4.2V25h-1.5A.5.5 0 0 1 11 24.5v-10Z'
         fill='var(--c-on-primary)'
       />
-      <circle cx='16.5' cy='18' r='1.6' fill='var(--c-primary)' />
-      <circle cx='20' cy='18' r='1.6' fill='var(--c-primary)' />
-      <circle cx='23.5' cy='18' r='1.6' fill='var(--c-primary)' />
+      <circle cx='16.5' cy='18' r='1.6' fill='var(--c-accent-solid)' />
+      <circle cx='20' cy='18' r='1.6' fill='var(--c-accent-solid)' />
+      <circle cx='23.5' cy='18' r='1.6' fill='var(--c-accent-solid)' />
     </svg>
     {withWordmark && (
       <span

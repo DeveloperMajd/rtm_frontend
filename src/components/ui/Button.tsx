@@ -54,7 +54,10 @@ const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button(
       aria-busy={loading || undefined}
       {...rest}
     >
-      {children ?? label}
+      {/* Busy: a small ring beside the label (Auth-Login-States "Signing
+          in…"), or in place of an icon-only button's glyph. */}
+      {loading && <span className='btn__spinner' aria-hidden='true' />}
+      {loading && icon ? null : (children ?? label)}
     </button>
   )
 })

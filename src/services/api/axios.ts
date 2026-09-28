@@ -1,4 +1,5 @@
 import axios, { AxiosError, type InternalAxiosRequestConfig } from 'axios'
+import { notifySessionExpired } from './sessionEvents'
 
 const api = axios.create({
   baseURL: import.meta.env.VITE_API_BASE_URL,
@@ -29,13 +30,12 @@ api.interceptors.response.use(
       return api(config)
     }
 
-    // 401 anywhere except the auth bootstrap calls means the session is gone —
-    // send the user to login (unless they're already on an auth screen).
+    // 401 anywhere except the auth bootstrap calls means the session is gone.
+    // This used to reload straight onto /login, throwing away whatever was
+    // on screen; now the app says so over the page instead (see
+    // SessionExpiredDialog) and the viewer signs back in from there.
     if (status === 401 && !AUTH_BOOTSTRAP.some((p) => url.includes(p))) {
-      const path = window.location.pathname
-      if (path !== '/login' && path !== '/register') {
-        window.location.assign('/login')
-      }
+      notifySessionExpired()
     }
 
     return Promise.reject(error)

@@ -1,26 +1,34 @@
 import { useState } from 'react'
-import { Link, Navigate, useSearchParams } from 'react-router-dom'
+import { Link, Navigate, useLocation, useSearchParams } from 'react-router-dom'
 import { useMutation } from '@tanstack/react-query'
-import type { AxiosError } from 'axios'
 import useAuth from '../hooks/useAuth'
 import Button from '../components/ui/Button'
+import Input from '../components/ui/Input'
+import PasswordField from '../components/ui/PasswordField'
 import Spinner from '../components/ui/Spinner'
-import BrandMark from '../components/ui/BrandMark'
+import AuthLayout, { AuthBanner, AuthDivider, AuthHeader, GoogleButton } from '../components/auth/AuthLayout'
 import { oauthRedirectUrl } from '../services/api/auth'
+import { fieldErrors, statusOf } from '../utils/authErrors'
 
 type LoginVars = { email: string; password: string }
+
+/** Where to go once signed in: back to the page that sent the viewer here
+ * (RequireAuth passes it along), or the chat list. Only ever an in-app
+ * path. */
+function returnPath(state: unknown): string {
+  const from = (state as { from?: unknown } | null)?.from
+  if (typeof from === 'string' && from.startsWith('/') && !from.startsWith('//')) return from
+  return '/conversations'
+}
 
 const LoginPage = () => {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const { login, isAuthenticated, isLoading } = useAuth()
   const [searchParams] = useSearchParams()
+  const location = useLocation()
 
-  const { mutate, isPending, error } = useMutation<
-    void,
-    AxiosError<{ message: string }>,
-    LoginVars
-  >({
+  const { mutate, isPending, error, isIdle } = useMutation<void, unknown, LoginVars>({
     mutationFn: ({ email, password }) => login(email, password),
   })
 
@@ -29,89 +37,83 @@ const LoginPage = () => {
   }
 
   if (isAuthenticated) {
-    return <Navigate to='/conversations' replace />
+    return <Navigate to={returnPath(location.state)} replace />
   }
 
-  const apiError = error?.response?.data?.message
-  const oauthError =
-    searchParams.get('error') === 'oauth_failed'
-      ? 'Sign-in with that provider failed. Please try again.'
-      : null
-  const displayedError = apiError ?? oauthError
+  const status = statusOf(error)
+  const fields = fieldErrors(error)
+  const oauthFailed = isIdle && searchParams.get('error') === 'oauth_failed'
+
+  let banner = null
+  if (status === 401) {
+    banner = <AuthBanner title='Email or password is incorrect'>Check them and try again.</AuthBanner>
+  } else if (status === 429) {
+    banner = (
+      <AuthBanner tone='warn' title='Too many attempts'>
+        Wait a minute before trying again.
+      </AuthBanner>
+    )
+  } else if (error && status !== 422) {
+    banner = <AuthBanner title='Couldn’t sign you in'>Check your connection and try again.</AuthBanner>
+  } else if (oauthFailed) {
+    banner = <AuthBanner title='Sign-in with that provider failed'>Please try again.</AuthBanner>
+  }
 
   return (
-    <main className='auth'>
-      <div className='auth__card'>
-        <BrandMark />
-        <h1 className='auth__title'>Welcome back</h1>
-        <p className='auth__subtitle'>Sign in to continue to RTM</p>
+    <AuthLayout>
+      <AuthHeader title='Welcome back' subtitle='Sign in to pick up your conversations.' />
 
-        <form
-          className='auth__form'
-          onSubmit={(e) => {
-            e.preventDefault()
-            mutate({ email, password })
-          }}
-        >
-          {displayedError && (
-            <p className='auth__error' role='alert'>
-              {displayedError}
-            </p>
-          )}
+      <form
+        className='auth__form'
+        onSubmit={(e) => {
+          e.preventDefault()
+          mutate({ email, password })
+        }}
+      >
+        {banner}
 
-          <div className='field'>
-            <label className='field__label' htmlFor='email'>
-              Email
-            </label>
-            <input
-              id='email'
-              className='input'
-              type='email'
-              autoComplete='email'
-              required
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-            />
-          </div>
+        <fieldset className='auth__fields' disabled={isPending}>
+          <legend className='sr-only'>Your email and password</legend>
+          <Input
+            id='email'
+            label='Email'
+            type='email'
+            autoComplete='email'
+            placeholder='you@example.com'
+            required
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            error={fields.email}
+          />
 
-          <div className='field'>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
-              <label className='field__label' htmlFor='password'>
-                Password
-              </label>
-              <Link to='/forgot-password' style={{ fontSize: '0.78rem' }}>
+          <PasswordField
+            id='password'
+            label='Password'
+            value={password}
+            onChange={setPassword}
+            autoComplete='current-password'
+            showRules={false}
+            error={fields.password}
+            labelAside={
+              <Link to='/forgot-password' className='auth__link-small'>
                 Forgot password?
               </Link>
-            </div>
-            <input
-              id='password'
-              className='input'
-              type='password'
-              autoComplete='current-password'
-              required
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-            />
-          </div>
+            }
+          />
 
-          <Button type='submit' block loading={isPending}>
+          <Button type='submit' block loading={isPending} className='auth__submit'>
             {isPending ? 'Signing in…' : 'Sign in'}
           </Button>
-        </form>
+        </fieldset>
+      </form>
 
-        <div className='auth__divider'>or</div>
+      <AuthDivider />
+      <GoogleButton href={oauthRedirectUrl('google')} />
 
-        <div className='auth__oauth'>
-          <a href={oauthRedirectUrl('google')} className='btn secondary block'>
-            Continue with Google
-          </a>
-        </div>
-
-        <p className='auth__alt'>
-          No account? <Link to='/register'>Create one</Link>
-        </p>
-      </div>
-    </main>
+      <p className='auth__alt'>
+        New to RTM? <Link to='/register'>Create an account</Link>
+      </p>
+    </AuthLayout>
   )
 }
 

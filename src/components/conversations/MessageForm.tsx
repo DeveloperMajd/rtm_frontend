@@ -4,6 +4,7 @@ import toast from 'react-hot-toast'
 import { sendMessage, updateMessage, uploadAttachment } from '../../services/api/messages'
 import { postTyping } from '../../services/api/conversations'
 import { appendMessageToCache, replaceMessageInCache } from '../../utils/messagePages'
+import { loadDraft, saveDraft } from '../../utils/drafts'
 import {
   ACCEPTED_SUMMARY,
   ACCEPTED_TYPES,
@@ -52,7 +53,8 @@ const MessageForm = ({
   ref,
 }: MessageFormProps) => {
   const { user } = useAuth()
-  const [body, setBody] = useState('')
+  // Picks up whatever was left unsent here last time (see utils/drafts).
+  const [body, setBody] = useState(() => (user ? loadDraft(user.id, conversationId) : ''))
   const [uploads, setUploads] = useState<PendingUpload[]>([])
   const queryClient = useQueryClient()
   const typingThrottle = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -74,6 +76,15 @@ const MessageForm = ({
     if (!editing) setSetAsideDraft('')
     setEditingId(nextEditingId)
   }
+
+  // The draft is what the viewer is composing — during an edit, the text set
+  // aside for it, never the edited message. Sending empties it, which
+  // forgets it.
+  const userId = user?.id
+  const draft = editingId === null ? body : setAsideDraft
+  useEffect(() => {
+    if (userId) saveDraft(userId, conversationId, draft)
+  }, [userId, conversationId, draft])
 
   // Starting a reply or an edit puts the caret at the end of the text, ready
   // to type — from the toolbar, the More menu, or its R shortcut alike.

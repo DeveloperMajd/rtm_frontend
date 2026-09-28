@@ -183,6 +183,13 @@
     display: inline-flex;
     margin-top: 6px;
     border-radius: 999px;
+
+    // In Settings: the avatar is where you are (Profile-1440).
+    &[aria-current='page'] {
+      box-shadow:
+        0 0 0 2px var(--c-rail),
+        0 0 0 4px var(--c-accent);
+    }
   }
 }
 

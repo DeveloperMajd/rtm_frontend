@@ -1,14 +1,15 @@
 import { useState } from 'react'
 import { Link, Navigate } from 'react-router-dom'
 import { useMutation } from '@tanstack/react-query'
-import type { AxiosError } from 'axios'
 import useAuth from '../hooks/useAuth'
 import Button from '../components/ui/Button'
+import Input from '../components/ui/Input'
 import Spinner from '../components/ui/Spinner'
-import BrandMark from '../components/ui/BrandMark'
 import PasswordField from '../components/ui/PasswordField'
+import AuthLayout, { AuthBanner, AuthDivider, AuthHeader, GoogleButton } from '../components/auth/AuthLayout'
 import { isPasswordStrong } from '../utils/passwordRules'
 import { oauthRedirectUrl } from '../services/api/auth'
+import { apiMessage, fieldErrors, statusOf } from '../utils/authErrors'
 
 type RegisterVars = {
   name: string
@@ -24,11 +25,7 @@ const RegisterPage = () => {
   const [passwordConfirmation, setPasswordConfirmation] = useState('')
   const { register, isAuthenticated, isLoading } = useAuth()
 
-  const { mutate, isPending, error } = useMutation<
-    void,
-    AxiosError<{ message: string }>,
-    RegisterVars
-  >({
+  const { mutate, isPending, error } = useMutation<void, unknown, RegisterVars>({
     mutationFn: ({ name, email, password, password_confirmation }) =>
       register(name, email, password, password_confirmation),
   })
@@ -41,98 +38,87 @@ const RegisterPage = () => {
     return <Navigate to='/conversations' replace />
   }
 
-  const apiError = error?.response?.data?.message
+  // A rejected field is shown on that field (Auth-Register-States: "That
+  // email is already registered"); anything else above the form.
+  const fields = fieldErrors(error)
+  const status = statusOf(error)
   const mismatch = passwordConfirmation.length > 0 && password !== passwordConfirmation
   const canSubmit = isPasswordStrong(password) && password === passwordConfirmation
 
+  let banner = null
+  if (status === 429) {
+    banner = (
+      <AuthBanner tone='warn' title='Too many attempts'>
+        Wait a minute before trying again.
+      </AuthBanner>
+    )
+  } else if (error && Object.keys(fields).length === 0) {
+    banner = <AuthBanner title='Couldn’t create your account'>{apiMessage(error) ?? 'Check your connection and try again.'}</AuthBanner>
+  }
+
   return (
-    <main className='auth'>
-      <div className='auth__card'>
-        <BrandMark />
-        <h1 className='auth__title'>Create your account</h1>
-        <p className='auth__subtitle'>Start chatting on RTM in seconds</p>
+    <AuthLayout>
+      <AuthHeader title='Create your account' subtitle='It takes a minute. You can add a photo and bio later.' />
 
-        <form
-          className='auth__form'
-          onSubmit={(e) => {
-            e.preventDefault()
-            if (!canSubmit) return
-            mutate({ name, email, password, password_confirmation: passwordConfirmation })
-          }}
-        >
-          {apiError && (
-            <p className='auth__error' role='alert'>
-              {apiError}
-            </p>
-          )}
+      <form
+        className='auth__form'
+        onSubmit={(e) => {
+          e.preventDefault()
+          if (!canSubmit) return
+          mutate({ name, email, password, password_confirmation: passwordConfirmation })
+        }}
+      >
+        {banner}
 
-          <div className='field'>
-            <label className='field__label' htmlFor='name'>
-              Name
-            </label>
-            <input
-              id='name'
-              className='input'
-              type='text'
-              autoComplete='name'
-              required
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-            />
-          </div>
+        <fieldset className='auth__fields' disabled={isPending}>
+          <legend className='sr-only'>Your details</legend>
+          <Input
+            id='name'
+            label='Name'
+            autoComplete='name'
+            placeholder='Your name'
+            required
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            error={fields.name}
+          />
 
-          <div className='field'>
-            <label className='field__label' htmlFor='email'>
-              Email
-            </label>
-            <input
-              id='email'
-              className='input'
-              type='email'
-              autoComplete='email'
-              required
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-            />
-          </div>
+          <Input
+            id='email'
+            label='Email'
+            type='email'
+            autoComplete='email'
+            placeholder='you@example.com'
+            required
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            error={fields.email}
+          />
 
-          <PasswordField id='password' label='Password' value={password} onChange={setPassword} />
+          <PasswordField id='password' label='Password' value={password} onChange={setPassword} error={fields.password} />
 
-          <div className='field'>
-            <label className='field__label' htmlFor='password_confirmation'>
-              Confirm password
-            </label>
-            <input
-              id='password_confirmation'
-              className='input'
-              type='password'
-              autoComplete='new-password'
-              required
-              aria-invalid={mismatch || undefined}
-              value={passwordConfirmation}
-              onChange={(e) => setPasswordConfirmation(e.target.value)}
-            />
-            {mismatch && <span className='field__error'>Passwords don&rsquo;t match.</span>}
-          </div>
+          <PasswordField
+            id='password_confirmation'
+            label='Confirm password'
+            value={passwordConfirmation}
+            onChange={setPasswordConfirmation}
+            showRules={false}
+            error={mismatch ? 'Passwords don’t match.' : undefined}
+          />
 
-          <Button type='submit' block loading={isPending} disabled={!canSubmit}>
+          <Button type='submit' block loading={isPending} disabled={!canSubmit} className='auth__submit'>
             {isPending ? 'Creating account…' : 'Create account'}
           </Button>
-        </form>
+        </fieldset>
+      </form>
 
-        <div className='auth__divider'>or</div>
+      <AuthDivider />
+      <GoogleButton href={oauthRedirectUrl('google')} />
 
-        <div className='auth__oauth'>
-          <a href={oauthRedirectUrl('google')} className='btn secondary block'>
-            Continue with Google
-          </a>
-        </div>
-
-        <p className='auth__alt'>
-          Already have an account? <Link to='/login'>Sign in</Link>
-        </p>
-      </div>
-    </main>
+      <p className='auth__alt'>
+        Already have an account? <Link to='/login'>Sign in</Link>
+      </p>
+    </AuthLayout>
   )
 }
 

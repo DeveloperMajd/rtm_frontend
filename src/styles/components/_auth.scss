@@ -1,149 +1,502 @@
 @use '../abstracts/mixins' as *;
+@use '../abstracts/tokens' as *;
+
+// Auth-Login-1440 / -768-Light / -Mobile-430: the sign-in screens.
+// ≥1024px a brand panel beside the form; tablet the brand above a floating
+// card on the grid; phone the form alone, no card chrome.
+
+@mixin grid-bg {
+  background-image:
+    linear-gradient(var(--c-grid) 1px, transparent 1px),
+    linear-gradient(90deg, var(--c-grid) 1px, transparent 1px);
+  background-size: 32px 32px;
+}
 
 .auth {
+  display: flex;
   min-height: 100dvh;
-  display: grid;
-  place-items: center;
-  padding: 1.5rem;
-  background-color: var(--c-bg);
+  background-color: var(--c-stage);
+
+  // ---- Brand panel (≥1024px) ----
+  &__brand {
+    display: none;
+
+    @include from($bp-lg) {
+      position: relative;
+      flex: 1;
+      min-width: 0;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      gap: 2rem;
+      padding: 48px 56px 60px;
+      overflow: hidden;
+      background-color: var(--c-rail);
+      @include grid-bg;
+
+      // The violet glow low on the left, fading into the rail colour.
+      &::before {
+        content: '';
+        position: absolute;
+        inset: 0;
+        background:
+          radial-gradient(60% 55% at 28% 72%, var(--c-accent-soft-2), transparent 70%),
+          linear-gradient(180deg, transparent 45%, var(--c-rail) 100%);
+        pointer-events: none;
+      }
+
+      > * {
+        position: relative;
+      }
+    }
+  }
+
+  &__pitch {
+    display: flex;
+    flex-direction: column;
+    gap: 34px;
+  }
+
+  &__preview {
+    width: 372px;
+    max-width: 100%;
+    margin: 0;
+    padding: 4px 0;
+    list-style: none;
+    border-radius: var(--r-dialog);
+    background-color: var(--c-list);
+    box-shadow:
+      inset 0 0 0 1px var(--c-line-2),
+      var(--sh-pop);
+  }
+
+  &__preview-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 14px;
+  }
+
+  &__preview-text {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+
+  &__preview-top {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+
+    time {
+      flex: none;
+      font-family: var(--f-mono);
+      font-size: var(--fs-meta);
+      color: var(--c-fg-3);
+    }
+  }
+
+  &__preview-name {
+    flex: 1;
+    min-width: 0;
+    @include truncate;
+    font-size: var(--fs-body);
+    line-height: var(--lh-body);
+    font-weight: 500;
+    color: var(--c-fg);
+  }
+
+  &__preview-line {
+    @include truncate;
+    font-size: var(--fs-small);
+    line-height: var(--lh-small);
+    color: var(--c-fg-3);
+
+    &.is-typing {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      color: var(--c-accent);
+    }
+  }
+
+  &__headline {
+    max-width: 460px;
+    margin: 0;
+    font-size: 40px;
+    line-height: 46px;
+    font-weight: 650;
+    letter-spacing: -0.03em;
+    color: var(--c-fg);
+  }
+
+  &__tagline {
+    max-width: 420px;
+    margin: 12px 0 0;
+    font-size: 15px;
+    line-height: 24px;
+    color: var(--c-fg-2);
+  }
+
+  &__features {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 22px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    font-family: var(--f-mono);
+    font-size: 11.5px;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--c-fg-3);
+
+    li {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+    }
+  }
+
+  // ---- The form side ----
+  &__main {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 2rem 1.5rem;
+    background-color: var(--c-stage);
+
+    // Tablet: the grid and glow move behind the card.
+    @include from($bp-md) {
+      @include grid-bg;
+      background-color: var(--c-stage);
+    }
+
+    @include from($bp-lg) {
+      flex: none;
+      width: clamp(480px, 44vw, 640px);
+      background-image: none;
+      border-left: 1px solid var(--c-line);
+    }
+
+    // Phone: the form fills the screen from the top, no floating card.
+    @include until($bp-md) {
+      align-items: stretch;
+      justify-content: flex-start;
+      padding: 1.5rem 1.25rem 2rem;
+    }
+  }
+
+  &__compact-logo {
+    margin-bottom: 1.5rem;
+
+    @include from($bp-lg) {
+      display: none !important;
+    }
+  }
 
   &__card {
     width: 100%;
-    max-width: 23rem;
-    padding: 2rem 2rem 1.75rem;
-    background-color: var(--c-surface);
-    border: 1px solid var(--c-line);
-    border-radius: var(--radius-lg);
-    box-shadow: var(--shadow-e2);
+    max-width: 420px;
+
+    @include from($bp-md) {
+      padding: 34px 32px 28px;
+      border-radius: 20px;
+      background-color: var(--c-raised);
+      box-shadow:
+        inset 0 0 0 1px var(--c-line-2),
+        var(--sh-pop);
+    }
+
+    // The auth screens' larger buttons (DS-Controls "lg").
+    .btn.block {
+      min-height: 44px;
+      border-radius: 11px;
+      font-size: 14.5px;
+    }
   }
 
-  .brand {
+  &__header {
+    margin-bottom: 24px;
+  }
+
+  &__icon {
+    display: inline-flex;
+    align-items: center;
     justify-content: center;
-    margin-bottom: 1.25rem;
+    width: 36px;
+    height: 36px;
+    margin-bottom: 16px;
+    border-radius: var(--r-control);
+    background-color: var(--c-accent-soft);
+    color: var(--c-accent);
+
+    &.is-warn {
+      background-color: var(--c-warn-soft);
+      color: var(--c-warn);
+    }
+    &.is-success {
+      background-color: var(--c-success-soft);
+      color: var(--c-success);
+    }
   }
 
   &__title {
-    margin: 0 0 0.25rem;
-    text-align: center;
-    font-size: 1.2rem;
+    margin: 0;
+    font-size: 26px;
+    line-height: 32px;
+    font-weight: 650;
+    letter-spacing: -0.025em;
   }
 
   &__subtitle {
-    margin: 0 0 1.5rem;
-    text-align: center;
-    color: var(--c-muted);
-    font-size: 0.85rem;
+    margin: 6px 0 0;
+    font-size: var(--fs-body);
+    line-height: 21px;
+    color: var(--c-fg-2);
+    text-wrap: pretty;
+
+    strong {
+      color: var(--c-fg);
+      font-weight: 600;
+    }
   }
 
-  &__form {
+  &__form,
+  &__fields {
     display: flex;
     flex-direction: column;
-    gap: 0.85rem;
+    gap: 16px;
+  }
+
+  &__fields {
+    min-width: 0;
+    margin: 0;
+    padding: 0;
+    border: 0;
+  }
+
+  &__submit {
+    margin-top: 4px;
+  }
+
+  &__banner {
+    display: flex;
+    gap: 10px;
+    padding: 12px 14px;
+    border-radius: 12px;
+    background-color: var(--c-danger-soft);
+    box-shadow: inset 0 0 0 1px var(--c-danger-line);
+
+    > svg {
+      flex: none;
+      margin-top: 1px;
+      color: var(--c-danger);
+    }
+
+    &.is-warn {
+      background-color: var(--c-warn-soft);
+      box-shadow: inset 0 0 0 1px var(--c-warn-line);
+
+      > svg {
+        color: var(--c-warn);
+      }
+    }
+  }
+
+  &__banner-title {
+    margin: 0;
+    font-size: 13.5px;
+    line-height: 18px;
+    font-weight: 600;
+    color: var(--c-fg);
+  }
+
+  &__banner-body {
+    margin: 2px 0 0;
+    font-size: var(--fs-caption);
+    line-height: var(--lh-caption);
+    color: var(--c-fg-2);
   }
 
   &__divider {
     display: flex;
     align-items: center;
-    gap: 0.75rem;
-    margin: 1.25rem 0;
-    color: var(--c-muted);
-    font-size: 0.75rem;
+    gap: 12px;
+    margin: 18px 0;
+    font-family: var(--f-mono);
+    font-size: var(--fs-meta);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--c-fg-3);
 
     &::before,
     &::after {
       content: '';
       flex: 1;
       height: 1px;
-      background-color: var(--c-line);
+      background-color: var(--c-line-2);
     }
   }
 
   &__oauth {
-    display: flex;
-    flex-direction: column;
-    gap: 0.5rem;
+    gap: 10px;
+  }
+
+  &__oauth-mark {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 20px;
+    height: 20px;
+    border-radius: 999px;
+    box-shadow: inset 0 0 0 1.5px currentColor;
+    font-size: 11px;
+    font-weight: 700;
+    line-height: 1;
   }
 
   &__alt {
-    margin-top: 1.25rem;
+    margin: 22px 0 0;
     text-align: center;
-    font-size: 0.83rem;
-    color: var(--c-muted);
+    font-size: 13.5px;
+    line-height: 20px;
+    color: var(--c-fg-2);
 
     a {
-      color: var(--c-primary);
+      color: var(--c-accent);
       font-weight: 550;
     }
   }
 
-  &__error {
-    padding: 0.6rem 0.75rem;
-    border-radius: var(--radius-sm);
-    background-color: color-mix(in oklab, var(--c-danger) 12%, transparent);
-    color: var(--c-danger);
-    font-size: 0.8rem;
+  &__link-small {
+    font-size: var(--fs-caption);
+    font-weight: 550;
+    color: var(--c-accent);
+  }
+
+  // "← Back to sign in": a way out, not a call to action.
+  & &__back {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    color: var(--c-fg-2);
+
+    &:hover {
+      color: var(--c-fg);
+    }
+  }
+
+  &__stack {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  &__countdown {
+    margin: 4px 0 0;
+    text-align: center;
+    font-family: var(--f-mono);
+    font-size: var(--fs-meta);
+    color: var(--c-fg-3);
   }
 }
 
-// Password strength meter (PasswordField).
+// Password strength + rules (PasswordField) — Auth-Register-States.
 .pw-meter {
-  display: flex;
-  flex-direction: column;
-  gap: 0.4rem;
-  margin-top: 0.4rem;
+  margin-top: 6px;
 
-  &__bar {
-    height: 4px;
-    border-radius: 999px;
-    background-color: var(--c-surface-2);
-    overflow: hidden;
+  &__strength {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    margin: 0 0 9px;
+    font-family: var(--f-mono);
+    font-size: 11.5px;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    color: var(--c-fg-3);
+
+    &.is-weak {
+      color: var(--c-danger);
+    }
+    &.is-good {
+      color: var(--c-warn);
+    }
+    &.is-strong {
+      color: var(--c-success);
+    }
   }
 
-  &__fill {
-    height: 100%;
-    width: 0;
-    border-radius: 999px;
-    background-color: var(--c-danger);
-    transition:
-      width 200ms ease,
-      background-color 200ms ease;
+  &__bars {
+    display: inline-flex;
+    align-items: flex-end;
+    gap: 2px;
+    height: 13px;
 
-    &.is-1 {
-      width: 25%;
-      background-color: var(--c-danger);
-    }
-    &.is-2 {
-      width: 50%;
-      background-color: #f59e0b;
-    }
-    &.is-3 {
-      width: 75%;
-      background-color: #eab308;
-    }
-    &.is-4 {
-      width: 100%;
-      background-color: var(--c-success);
+    i {
+      display: block;
+      width: 2px;
+      border-radius: 1px;
+      background-color: var(--c-line-3);
+
+      &:nth-child(1) {
+        height: 42%;
+      }
+      &:nth-child(2) {
+        height: 70%;
+      }
+      &:nth-child(3) {
+        height: 100%;
+      }
+
+      &.is-lit {
+        background-color: currentColor;
+      }
     }
   }
 
   &__rules {
-    list-style: none;
-    margin: 0;
-    padding: 0;
     display: grid;
     grid-template-columns: 1fr 1fr;
-    gap: 0.15rem 0.75rem;
-    font-size: 0.72rem;
-    color: var(--c-muted);
+    gap: 6px 12px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
   }
 
   &__rule {
     display: flex;
     align-items: center;
-    gap: 0.3rem;
+    gap: 8px;
+    font-size: var(--fs-caption);
+    line-height: var(--lh-caption);
+    color: var(--c-fg-3);
 
     &.is-met {
-      color: var(--c-success);
+      color: var(--c-fg);
+    }
+  }
+
+  &__mark {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 16px;
+    height: 16px;
+    flex: none;
+    border-radius: 999px;
+    box-shadow: inset 0 0 0 1.5px var(--c-line-3);
+
+    .is-met & {
+      background-color: var(--c-success);
+      box-shadow: none;
+      color: #fff;
     }
   }
 }
