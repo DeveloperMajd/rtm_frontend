@@ -6,11 +6,13 @@ import GroupModal from '../components/conversations/GroupModal'
 import AddContactModal from '../components/conversations/AddContactModal'
 import SearchTrigger from '../components/conversations/SearchTrigger'
 import BottomSheet, { SheetAction } from '../components/ui/BottomSheet'
-import BrandMark from '../components/ui/BrandMark'
+import StartScreen from '../components/conversations/StartScreen'
+import useAuth from '../hooks/useAuth'
 import Icon from '../components/ui/Icon'
-import SignalBars, { type SignalState } from '../components/ui/SignalBars'
+import SignalBars from '../components/ui/SignalBars'
 import useConversations from '../hooks/useConversations'
 import { unreadTotal } from '../utils/conversations'
+import { LIVE_LABEL } from '../utils/connection'
 import { useAppShell } from './appShellContext'
 
 const FILTERS: { key: ConversationFilter; label: string }[] = [
@@ -20,23 +22,18 @@ const FILTERS: { key: ConversationFilter; label: string }[] = [
   { key: 'direct', label: 'Direct' },
 ]
 
-const SIGNAL_LABEL: Record<SignalState, string> = {
-  connected: 'Live',
-  connecting: 'Connecting',
-  reconnecting: 'Reconnecting',
-  offline: 'Offline',
-}
-
 /** The Chats screen: the conversation (or contact) list beside the open
  * room — or, on a phone, one or the other. The navigation, search and
  * connection state around it are AppShell's. */
 function ConversationsLayout() {
-  const { activeTab, setActiveTab, openSearch, signal } = useAppShell()
+  const shell = useAppShell()
+  const { activeTab, setActiveTab, openSearch, signal, connection } = shell
   const [filter, setFilter] = useState<ConversationFilter>('all')
   const [isNewOpen, setIsNewOpen] = useState(false)
   const [isGroupModalOpen, setIsGroupModalOpen] = useState(false)
   const [isAddContactOpen, setIsAddContactOpen] = useState(false)
-  const { conversations, isLoading, error } = useConversations()
+  const { conversations, isLoading, error, retry, isReady } = useConversations()
+  const { user } = useAuth()
   const navigate = useNavigate()
   const location = useLocation()
 
@@ -45,7 +42,12 @@ function ConversationsLayout() {
 
   return (
     <>
-      <section className='list-pane' aria-label={activeTab === 'chats' ? 'Conversations' : 'Contacts'}>
+      <section
+        id='chat-list'
+        tabIndex={-1}
+        className='list-pane'
+        aria-label={activeTab === 'chats' ? 'Conversations' : 'Contacts'}
+      >
         <header className='list-pane__header'>
           <div className='list-pane__heading'>
             <h1 className='list-pane__title'>{activeTab === 'chats' ? 'Chats' : 'Contacts'}</h1>
@@ -53,7 +55,7 @@ function ConversationsLayout() {
               // Phone only: the rail shows the connection from 768px.
               <span className={`list-pane__live is-${signal}`}>
                 <SignalBars state={signal} />
-                {SIGNAL_LABEL[signal]}
+                {LIVE_LABEL[connection]}
               </span>
             )}
           </div>
@@ -115,7 +117,16 @@ function ConversationsLayout() {
 
         <div className='list-pane__list scroll-y'>
           {activeTab === 'chats' ? (
-            <Conversations conversations={conversations} isLoading={isLoading} error={error} filter={filter} />
+            <Conversations
+              conversations={conversations}
+              isLoading={isLoading}
+              error={error}
+              filter={filter}
+              onShowAll={() => setFilter('all')}
+              onAddContact={() => setIsAddContactOpen(true)}
+              onNewGroup={() => setIsGroupModalOpen(true)}
+              onRetry={retry}
+            />
           ) : (
             <Contacts onConversationOpened={() => setActiveTab('chats')} onAddContact={() => setIsAddContactOpen(true)} />
           )}
@@ -123,13 +134,18 @@ function ConversationsLayout() {
       </section>
 
       <main id='main-content' className='main-content' tabIndex={-1}>
-        <Outlet />
+        {/* The room reads the connection state from here, too. */}
+        <Outlet context={shell} />
 
         {!roomOpen && (
-          <div className='room room--empty'>
-            <BrandMark size={44} withWordmark={false} />
-            <p>Select a conversation to start chatting</p>
-          </div>
+          <StartScreen
+            isNewAccount={isReady && !error && conversations.length === 0}
+            firstName={user?.name.split(' ')[0] ?? ''}
+            onNewConversation={() => setIsNewOpen(true)}
+            onAddContact={() => setIsAddContactOpen(true)}
+            onNewGroup={() => setIsGroupModalOpen(true)}
+            onSearch={openSearch}
+          />
         )}
       </main>
 

@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react'
 import { describe, expect, it, vi } from 'vitest'
 import { render, screen, within } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
 import Conversations from './Conversations'
 import { AuthContext, type AuthContextType } from '../../hooks/useAuth'
@@ -76,7 +77,7 @@ describe('Conversations', () => {
       }),
     ]
     renderWithProviders(<Conversations conversations={list} isLoading={false} error={null} filter='unread' />)
-    expect(screen.getByText('No unread conversations.')).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'You’re all caught up' })).toBeInTheDocument()
   })
 
   it('filters by type for groups and direct', () => {
@@ -105,9 +106,60 @@ describe('Conversations', () => {
     expect(screen.queryByText('Group chat')).not.toBeInTheDocument()
   })
 
-  it('shows a filter-specific empty message rather than the generic one', () => {
-    renderWithProviders(<Conversations conversations={[]} isLoading={false} error={null} filter='groups' />)
-    expect(screen.getByText('No group conversations.')).toBeInTheDocument()
+  it('shows a filter-specific empty state rather than the generic one, with its way forward', async () => {
+    const user = userEvent.setup()
+    const onNewGroup = vi.fn()
+    renderWithProviders(
+      <Conversations conversations={[]} isLoading={false} error={null} filter='groups' onNewGroup={onNewGroup} />,
+    )
+
+    expect(screen.getByRole('heading', { name: 'No groups yet' })).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'New group' }))
+    expect(onNewGroup).toHaveBeenCalled()
+  })
+
+  it('offers a new account both ways to start', () => {
+    renderWithProviders(
+      <Conversations conversations={[]} isLoading={false} error={null} onAddContact={vi.fn()} onNewGroup={vi.fn()} />,
+    )
+
+    const state = screen.getByRole('status')
+    expect(state).toHaveTextContent('No conversations yet')
+    expect(screen.getByRole('button', { name: 'Add contact' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'New group' })).toBeInTheDocument()
+  })
+
+  it('goes back to all conversations from an empty Unread filter', async () => {
+    const user = userEvent.setup()
+    const onShowAll = vi.fn()
+    renderWithProviders(
+      <Conversations conversations={[]} isLoading={false} error={null} filter='unread' onShowAll={onShowAll} />,
+    )
+
+    await user.click(screen.getByRole('button', { name: 'Show all' }))
+    expect(onShowAll).toHaveBeenCalled()
+  })
+
+  it('says the list couldn’t load, with a retry, only when there’s no list to show', async () => {
+    const user = userEvent.setup()
+    const onRetry = vi.fn()
+    const { rerender } = renderWithProviders(
+      <Conversations conversations={[]} isLoading={false} error={new Error('Network Error')} onRetry={onRetry} />,
+    )
+
+    expect(screen.getByRole('heading', { name: 'Couldn’t load your chats' })).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Try again' }))
+    expect(onRetry).toHaveBeenCalled()
+
+    // A failed background refresh keeps what's already there.
+    rerender(
+      <MemoryRouter>
+        <AuthContext.Provider value={authValue}>
+          <Conversations conversations={[conversation({ id: 'c1', title: 'Still here', type: 'group' })]} isLoading={false} error={new Error('Network Error')} />
+        </AuthContext.Provider>
+      </MemoryRouter>,
+    )
+    expect(screen.getByText('Still here')).toBeInTheDocument()
   })
 
   it('renders disabled, labelled Pin/Mute/Archive actions as siblings of the link, not nested inside it', () => {

@@ -12,13 +12,6 @@
  *   --r-*, --fs-*, --lh-*  the Signal radius and type scales, theme-independent.
  *   --f-sans, --f-mono    Geist / Geist Mono, self-hosted (./public/fonts).
  *
- *   Compatibility aliases (marked below): the *old* token names every
- *   existing SCSS partial already references (`--c-bg`, `--c-primary`, …),
- *   mapped onto the Signal tokens above. This re-skins the whole app in
- *   this foundation stage without touching component markup yet — later
- *   stages migrate each partial onto the Signal names directly and drop
- *   its alias here; Stage 11 removes this block once nothing reads it.
- *
  *   `@theme inline` maps a few of these onto Tailwind's `--color-*`/
  *   `--font-*` theme keys so utilities (`font-sans`, …) pick up the same
  *   live custom properties, for any future component that reaches for a
@@ -140,6 +133,8 @@
   --c-success: #0d7a49;
   --c-warn: #8a5300;
   --c-danger: #c72a44;
+  /* A filled destructive button's ground — white on it is 4.8:1. */
+  --c-danger-solid: #d6304a;
   --c-info: #1f5fd6;
   --c-success-soft: rgb(13 122 73 / 0.1);
   --c-warn-soft: rgb(178 107 0 / 0.1);
@@ -195,6 +190,8 @@
   --c-success: #3fd68f;
   --c-warn: #f2b04c;
   --c-danger: #ff7a8d;
+  /* The design's #d93a55 puts white at 4.48:1, just under AA; this is 4.9:1. */
+  --c-danger-solid: #cf3450;
   --c-info: #79aeff;
   --c-success-soft: rgb(63 214 143 / 0.14);
   --c-warn-soft: rgb(242 176 76 / 0.14);
@@ -250,6 +247,7 @@
     --c-success: #3fd68f;
     --c-warn: #f2b04c;
     --c-danger: #ff7a8d;
+    --c-danger-solid: #cf3450;
     --c-info: #79aeff;
     --c-success-soft: rgb(63 214 143 / 0.14);
     --c-warn-soft: rgb(242 176 76 / 0.14);
@@ -265,53 +263,16 @@
   }
 }
 
-/* ---- Compatibility aliases (temporary — see the header comment) ---- */
-:root {
-  --c-bg: var(--c-stage);
-  --c-surface: var(--c-list);
-  --c-surface-2: var(--c-raised-2);
-  --c-muted: var(--c-fg-2);
-  --c-primary: var(--c-accent);
-  --c-primary-hover: var(--c-accent-hover);
-  --c-on-primary: var(--c-on-accent);
-  --c-danger-hover: color-mix(in oklab, var(--c-danger) 85%, black);
-  --c-online: var(--c-accent);
-  --c-bubble-own: var(--c-out);
-  --c-bubble-own-fg: var(--c-out-fg);
-  --c-bubble-other: var(--c-in);
-  /* The old radius scale: still referenced by every partial this stage
-     hasn't touched (message, auth, card, profile, tabs, search, skeleton,
-     the global focus-ring mixin). Fix each to a --r-* value as its own
-     stage rebuilds it; this line drops out once none do. */
-  --radius-sm: 6px;
-  --radius-DEFAULT: 10px;
-  --radius-lg: 14px;
-  --radius-xl: 20px;
-  --c-bubble-other-fg: var(--c-fg);
-}
-:root[data-theme='dark'] {
-  --c-danger-hover: color-mix(in oklab, var(--c-danger) 85%, white);
-}
-@media (prefers-color-scheme: dark) {
-  :root:not([data-theme='light']) {
-    --c-danger-hover: color-mix(in oklab, var(--c-danger) 85%, white);
-  }
-}
-
 @theme inline {
-  --color-bg: var(--c-bg);
-  --color-surface: var(--c-surface);
-  --color-surface-2: var(--c-surface-2);
+  --color-stage: var(--c-stage);
+  --color-list: var(--c-list);
+  --color-raised: var(--c-raised);
   --color-line: var(--c-line);
   --color-fg: var(--c-fg);
-  --color-muted: var(--c-muted);
-  --color-primary: var(--c-primary);
-  --color-primary-hover: var(--c-primary-hover);
-  --color-on-primary: var(--c-on-primary);
+  --color-fg-2: var(--c-fg-2);
+  --color-accent: var(--c-accent);
   --color-danger: var(--c-danger);
-  --color-danger-hover: var(--c-danger-hover);
   --color-success: var(--c-success);
-  --color-online: var(--c-online);
 
   --font-sans: var(--f-sans);
   --font-mono: var(--f-mono);

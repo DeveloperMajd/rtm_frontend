@@ -9,7 +9,6 @@ import Avatar from '../components/ui/Avatar'
 import Button from '../components/ui/Button'
 import Icon from '../components/ui/Icon'
 import Input, { Textarea } from '../components/ui/Input'
-import Spinner from '../components/ui/Spinner'
 import ActionToast from '../components/ui/ActionToast'
 import PasswordField from '../components/ui/PasswordField'
 import { isPasswordStrong } from '../utils/passwordRules'
@@ -332,9 +331,9 @@ const ChangePasswordForm = ({ email }: { email: string }) => {
 const ProfilePage = () => {
   const { user, isLoading, refreshUser } = useAuth()
 
-  if (isLoading || !user) {
-    return <Spinner block />
-  }
+  // Inside the signed-in app there's always a user; this only satisfies
+  // the type.
+  if (isLoading || !user) return null
 
   return (
     <div className='settings-page'>

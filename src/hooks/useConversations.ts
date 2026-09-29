@@ -13,7 +13,7 @@ const useConversations = () => {
   const queryClient = useQueryClient()
   const location = useLocation()
 
-  const { data, isLoading, isFetchedAfterMount, error } = useQuery({
+  const { data, isLoading, isFetchedAfterMount, error, refetch } = useQuery({
     queryKey: ['conversations'],
     queryFn: getAllConversations,
     select: (response): ConversationType[] => sortByRecency(response.data),
@@ -73,6 +73,7 @@ const useConversations = () => {
     conversations: data ?? [],
     isLoading,
     error: error as Error | null,
+    retry: () => void refetch(),
     /** True once this mount has fetched its own copy of the list — see the
      * refetchOnMount note above, and useUnreadSnapshot. */
     isReady: isFetchedAfterMount,

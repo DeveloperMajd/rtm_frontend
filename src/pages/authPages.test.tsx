@@ -64,6 +64,14 @@ beforeEach(() => {
 })
 
 describe('LoginPage', () => {
+  it('shows the brand, not a spinner, while it checks for a session', () => {
+    const { container } = renderAt('/login', <LoginPage />, auth({ isLoading: true }))
+
+    expect(screen.getByRole('status')).toHaveTextContent('Loading…')
+    expect(screen.getByRole('img', { name: 'RTM' })).toBeInTheDocument()
+    expect(container.querySelector('.spinner')).toBeNull()
+  })
+
   const signIn = async () => {
     const user = userEvent.setup()
     await user.type(screen.getByLabelText('Email'), 'majd@example.com')

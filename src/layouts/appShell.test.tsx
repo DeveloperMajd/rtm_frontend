@@ -11,19 +11,21 @@ import ConversationsLayout from './ConversationsLayout'
 import SettingsLayout from './SettingsLayout'
 import SettingsHome from '../components/settings/SettingsHome'
 import SettingsPage from '../pages/SettingsPage'
+import ConnectionStrip from '../components/conversations/ConnectionStrip'
 import type { ConversationType } from '../utils/baseTypes'
 
-const conversations = [
+let conversations = [
   { id: 'c1', type: 'direct', unread_count: 2, other_participant: { id: 'u2', name: 'Sam Okafor' } },
   { id: 'c2', type: 'group', title: 'Weekend hike', unread_count: 3 },
   // Left: whatever it says, nothing there is waiting for the viewer.
   { id: 'c3', type: 'group', title: 'Old team', unread_count: 4, viewer_left_at: '2026-09-01T10:00:00Z' },
 ] as ConversationType[]
+const someConversations = conversations
 
 let connection: ConnectionStatus = 'connected'
 
 vi.mock('../hooks/useConversations', () => ({
-  default: () => ({ conversations, isLoading: false, error: null, isReady: true }),
+  default: () => ({ conversations, isLoading: false, error: null, isReady: true, retry: vi.fn() }),
 }))
 vi.mock('../hooks/usePresenceHeartbeat', () => ({ default: () => {} }))
 vi.mock('../hooks/useConnectionStatus', () => ({ default: () => connection }))
@@ -82,6 +84,7 @@ const shell = () => document.querySelector('.app-shell') as HTMLElement
 
 beforeEach(() => {
   connection = 'connected'
+  conversations = someConversations
 })
 
 describe('AppShell on every screen size', () => {
@@ -153,7 +156,7 @@ describe('the Chats screen', () => {
     const user = userEvent.setup()
     renderAt('/conversations')
 
-    await user.click(screen.getByRole('button', { name: 'New conversation' }))
+    await user.click(within(screen.getByRole('region', { name: 'Conversations' })).getByRole('button', { name: 'New conversation' }))
     const sheet = screen.getByRole('dialog', { name: 'New conversation' })
     await user.click(within(sheet).getByRole('button', { name: /Add contact/ }))
 
@@ -165,7 +168,8 @@ describe('the Chats screen', () => {
     const user = userEvent.setup()
     renderAt('/conversations')
 
-    await user.click(screen.getByRole('button', { name: 'New conversation' }))
+    // The start screen beside the list offers the same sheet.
+    await user.click(within(screen.getByRole('main')).getByRole('button', { name: 'New conversation' }))
     await user.click(within(screen.getByRole('dialog')).getByRole('button', { name: /New group/ }))
 
     expect(screen.getByRole('dialog', { name: 'New group' })).toBeInTheDocument()
@@ -190,5 +194,111 @@ describe('the settings list (/me)', () => {
     renderAt('/settings')
 
     expect(screen.getByRole('link', { name: 'Back to settings' })).toHaveAttribute('href', '/me')
+  })
+})
+
+describe('the connection', () => {
+  const setOnline = (online: boolean) => {
+    Object.defineProperty(navigator, 'onLine', { value: online, configurable: true })
+    act(() => {
+      window.dispatchEvent(new Event(online ? 'online' : 'offline'))
+    })
+  }
+
+  const RoomWithStrip = () => <ConnectionStrip />
+
+  const renderRoomAt = () =>
+    render(
+      <Providers at='/conversations/c1'>
+        <Routes>
+          <Route element={<AppShell />}>
+            <Route path='/conversations' element={<ConversationsLayout />}>
+              <Route path=':id' element={<RoomWithStrip />} />
+            </Route>
+          </Route>
+        </Routes>
+      </Providers>,
+    )
+
+  it('says the browser is offline, in the conversation and out loud', () => {
+    renderRoomAt()
+
+    setOnline(false)
+    try {
+      expect(document.querySelector('.conn-strip')).toHaveTextContent('You’re offline. Your draft is kept here.')
+      expect(document.querySelector('.app-shell > [role=status]')).toHaveTextContent('You’re offline')
+      expect(document.querySelector('.list-pane__live')).toHaveTextContent('Offline')
+    } finally {
+      setOnline(true)
+    }
+  })
+
+  it('says “Back online” for a moment once a lost link returns', () => {
+    vi.useFakeTimers()
+    try {
+      connection = 'reconnecting'
+      const { rerender } = renderRoomAt()
+      act(() => {
+        vi.advanceTimersByTime(500)
+      })
+      expect(document.querySelector('.conn-strip')).toHaveTextContent('Reconnecting… messages will appear')
+
+      connection = 'connected'
+      rerender(
+        <Providers at='/conversations/c1'>
+          <Routes>
+            <Route element={<AppShell />}>
+              <Route path='/conversations' element={<ConversationsLayout />}>
+                <Route path=':id' element={<RoomWithStrip />} />
+              </Route>
+            </Route>
+          </Routes>
+        </Providers>,
+      )
+      // The debounced status settles, then "Back online" is scheduled.
+      act(() => {
+        vi.advanceTimersByTime(10)
+      })
+      act(() => {
+        vi.advanceTimersByTime(10)
+      })
+      expect(document.querySelector('.conn-strip')).toHaveTextContent('Back online')
+      expect(document.querySelector('.app-shell > [role=status]')).toHaveTextContent('Back online.')
+
+      act(() => {
+        vi.advanceTimersByTime(3000)
+      })
+      expect(document.querySelector('.conn-strip')).not.toBeInTheDocument()
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+})
+
+describe('the start screen beside the list', () => {
+  it('points a returning viewer at their chats, search and ⌘K', () => {
+    renderAt('/conversations')
+
+    const main = screen.getByRole('main')
+    expect(within(main).getByRole('heading', { name: 'Pick up where you left off' })).toBeInTheDocument()
+    expect(within(main).getByRole('button', { name: 'Search' })).toBeInTheDocument()
+  })
+
+  it('welcomes a new account with three first steps', async () => {
+    const user = userEvent.setup()
+    conversations = []
+    renderAt('/conversations')
+
+    const main = screen.getByRole('main')
+    expect(within(main).getByRole('heading', { name: 'Welcome to RTM, Majd' })).toBeInTheDocument()
+    expect(within(main).getAllByRole('heading', { level: 3 }).map((h) => h.textContent)).toEqual([
+      'Add a contact',
+      'Create a group',
+      'Finish your profile',
+    ])
+    expect(within(main).getByRole('link', { name: 'Edit profile' })).toHaveAttribute('href', '/profile')
+
+    await user.click(within(main).getByRole('button', { name: 'Add contact' }))
+    expect(screen.getByRole('dialog', { name: 'Add contact' })).toBeInTheDocument()
   })
 })

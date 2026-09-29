@@ -1,14 +1,15 @@
 import { Navigate, Outlet, useLocation } from 'react-router-dom'
 import useAuth from '../hooks/useAuth'
-import Spinner from '../components/ui/Spinner'
+import BootScreen from '../components/ui/BootScreen'
 import SessionExpiredDialog from '../components/auth/SessionExpiredDialog'
 
 const RequireAuth = () => {
   const { isAuthenticated, isLoading, signedOutByChoice } = useAuth()
   const location = useLocation()
 
+  // States-Loading "App boot": the session is being checked.
   if (isLoading) {
-    return <Spinner block />
+    return <BootScreen label='Connecting' />
   }
 
   // Signing in picks up from here again (LoginPage reads `from`) — after a

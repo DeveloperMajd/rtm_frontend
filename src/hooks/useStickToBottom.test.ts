@@ -57,6 +57,49 @@ describe('useStickToBottom', () => {
     expect(container.scrollTop).toBe(2000)
   })
 
+  it('marks the list positioned only once it has scrolled there — the stylesheet keeps it hidden until then', () => {
+    const container = makeContainer({ scrollHeight: 2000, clientHeight: 600, scrollTop: 0 })
+
+    const { rerender } = renderHook(
+      ({ unreadBoundaryId }: { unreadBoundaryId: string | null | undefined }) =>
+        useStickToBottom({
+          containerRef: { current: container },
+          lastMessageId: 'm1',
+          isOwnLastMessage: false,
+          unreadBoundaryId,
+        }),
+      { initialProps: { unreadBoundaryId: undefined as string | null | undefined } },
+    )
+    expect(container.dataset.positioned).toBeUndefined()
+
+    rerender({ unreadBoundaryId: null })
+    expect(container.dataset.positioned).toBe('')
+  })
+
+  it('shows the list at the bottom anyway if placing it takes too long', () => {
+    vi.useFakeTimers()
+    try {
+      const container = makeContainer({ scrollHeight: 2000, clientHeight: 600, scrollTop: 0 })
+      renderHook(() =>
+        useStickToBottom({
+          containerRef: { current: container },
+          lastMessageId: 'm1',
+          isOwnLastMessage: false,
+          unreadBoundaryId: undefined,
+        }),
+      )
+
+      act(() => {
+        vi.advanceTimersByTime(2600)
+      })
+
+      expect(container.dataset.positioned).toBe('')
+      expect(container.scrollTop).toBe(2000)
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
   it('scrolls to the unread divider instead of the bottom when one is resolved', () => {
     const container = makeContainer({ scrollHeight: 2000, clientHeight: 600, scrollTop: 0 })
     const divider = document.createElement('li')

@@ -92,3 +92,18 @@ describe('ConversationRoom’s back button (phones)', () => {
     expect(screen.getByRole('button', { name: 'Back to conversations' })).toHaveTextContent('')
   })
 })
+
+describe('ConversationRoom for a conversation that isn’t there', () => {
+  it('says so in place, with a way back, rather than silently leaving', async () => {
+    const user = userEvent.setup()
+    conversations = [direct('c2', 0)]
+    renderRoom()
+
+    expect(screen.getByRole('heading', { name: 'This conversation isn’t available' })).toBeInTheDocument()
+    expect(screen.getByText('It may have been deleted, or the link is out of date.')).toBeInTheDocument()
+    expect(screen.queryByRole('textbox', { name: 'Message' })).not.toBeInTheDocument()
+
+    await user.click(screen.getByRole('link', { name: 'Back to chats' }))
+    expect(screen.getByText('The list')).toBeInTheDocument()
+  })
+})

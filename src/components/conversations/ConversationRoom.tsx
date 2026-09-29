@@ -1,11 +1,12 @@
-import { useEffect, useRef, useState, type DragEvent } from 'react'
-import { useNavigate, useParams } from 'react-router-dom'
+import { useRef, useState, type DragEvent } from 'react'
+import { Link, useNavigate, useParams } from 'react-router-dom'
 import MessageForm, { type MessageFormHandle } from './MessageForm'
 import { ACCEPTED_SUMMARY } from '../../utils/attachments'
 import Messages from './Messages'
 import GroupInfoPanel from './GroupInfoPanel'
 import ContactInfoPanel from './ContactInfoPanel'
 import InfoPanel from './InfoPanel'
+import ConnectionStrip from './ConnectionStrip'
 import useMessages from '../../hooks/useMessages'
 import useTypingIndicator from '../../hooks/useTypingIndicator'
 import useConversations from '../../hooks/useConversations'
@@ -17,6 +18,7 @@ import Icon from '../ui/Icon'
 import OnlineStatus from '../ui/OnlineStatus'
 import Tooltip from '../ui/Tooltip'
 import Badge from '../ui/Badge'
+import EmptyState from '../ui/EmptyState'
 import { format } from 'date-fns'
 import { unreadTotal } from '../../utils/conversations'
 import type { MessageType } from '../../utils/baseTypes'
@@ -90,19 +92,16 @@ const ConversationRoomView = () => {
     },
   }
 
-  // Covers a bad/nonexistent id and a group that just got deleted out from
-  // under us (left/kicked-from groups stay in the list, frozen, so this
-  // never fires for those).
+  // A bad or out-of-date link, or a group deleted out from under us (groups
+  // the viewer left or was removed from stay in the list, frozen, so this
+  // is never them). Said so in place (States-Errors "Not found") rather than
+  // bouncing back to the list without a word.
   //
   // Only decided once this mount has fetched the list itself. Going by the
-  // cached copy bounced every brand-new conversation straight back out:
-  // creating a group or adding a contact navigates here at once, before the
-  // refetch that brings the new conversation in has landed.
-  useEffect(() => {
-    if (areConversationsReady && !conversation) {
-      navigate('/conversations', { replace: true })
-    }
-  }, [areConversationsReady, conversation, navigate])
+  // cached copy flagged every brand-new conversation: creating a group or
+  // adding a contact navigates here at once, before the refetch that brings
+  // the new conversation in has landed.
+  const isUnavailable = areConversationsReady && !conversation
 
   const {
     messages,
@@ -110,11 +109,13 @@ const ConversationRoomView = () => {
     isLoadingMore,
     hasMore,
     error,
+    isOlderError,
+    retry,
     loadOlder,
     isReady: areMessagesReady,
     isRefreshing: areMessagesRefreshing,
-  } = useMessages(id!, hasLeft, { deferUntilReady: !areConversationsReady })
-  const typingText = useTypingIndicator(id!, !hasLeft)
+  } = useMessages(id!, hasLeft, { deferUntilReady: !areConversationsReady, enabled: !isUnavailable })
+  const typingText = useTypingIndicator(id!, !hasLeft && !isUnavailable)
   const readState = useReadStateSnapshot(
     id,
     areConversationsReady,
@@ -125,6 +126,25 @@ const ConversationRoomView = () => {
   const headerTitle = isGroup
     ? conversation?.title || 'Untitled group'
     : conversation?.other_participant?.name || 'Direct conversation'
+
+  if (isUnavailable) {
+    return (
+      <section className='room room--unavailable' aria-label='Conversation not found'>
+        <EmptyState
+          icon='chatDots'
+          title='This conversation isn’t available'
+          actions={
+            <Link to='/conversations' className='btn secondary sm'>
+              <Icon name='arrowLeft' size={14} />
+              Back to chats
+            </Link>
+          }
+        >
+          It may have been deleted, or the link is out of date.
+        </EmptyState>
+      </section>
+    )
+  }
 
   return (
     <div className={`room-shell${isInfoOpen ? ' has-panel' : ''}`}>
@@ -216,6 +236,8 @@ const ConversationRoomView = () => {
           )}
         </header>
 
+        <ConnectionStrip />
+
         {/* No key needed here: the whole room is keyed by conversation id
             (see the wrapper at the bottom of this file), so this remounts and
             resets its scroll position, unread divider and new-message count
@@ -233,6 +255,10 @@ const ConversationRoomView = () => {
           readState={readState}
           isReady={areMessagesReady}
           isRefreshing={areMessagesRefreshing}
+          isOlderError={isOlderError}
+          onRetry={retry}
+          greet={isGroup ? 'the group' : conversation?.other_participant?.name}
+          onStartWriting={() => composerRef.current?.focus()}
         />
 
         {!hasLeft && (

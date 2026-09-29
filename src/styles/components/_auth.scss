@@ -5,13 +5,6 @@
 // ≥1024px a brand panel beside the form; tablet the brand above a floating
 // card on the grid; phone the form alone, no card chrome.
 
-@mixin grid-bg {
-  background-image:
-    linear-gradient(var(--c-grid) 1px, transparent 1px),
-    linear-gradient(90deg, var(--c-grid) 1px, transparent 1px);
-  background-size: 32px 32px;
-}
-
 .auth {
   display: flex;
   min-height: 100dvh;

@@ -1,6 +1,9 @@
 import { useEffect, useLayoutEffect, useRef, useState, type RefObject } from 'react'
 
 const NEAR_BOTTOM_PX = 120
+/** How long the list may stay hidden waiting to learn where to open, before
+ * it's shown at the bottom anyway (see the positioning note below). */
+const POSITION_TIMEOUT_MS = 2500
 
 interface Options {
   containerRef: RefObject<HTMLElement | null>
@@ -114,6 +117,14 @@ export function useStickToBottom({
 
   // --- The actual scroll mutation — a real side effect, kept free of any
   // setState calls (a ref tracks what it's already handled instead). ---
+  //
+  // Until the first position is set, the messages are rendered but kept out
+  // of sight (`data-positioned` is missing; the stylesheet hides the list and
+  // shows the loading skeleton over it). The first position waits for the
+  // unread divider to be placed, and a list shown before then sat at the top
+  // — the oldest loaded messages — and then jumped. It's an attribute set
+  // here rather than state: this runs before paint, so the list appears
+  // already in place.
   const scrolledForIdRef = useRef<string | undefined>(undefined)
   const isFirstScrollRef = useRef(true)
   useLayoutEffect(() => {
@@ -130,6 +141,7 @@ export function useStickToBottom({
       const target = unreadBoundaryId ? unreadDividerRef?.current : null
       if (container) {
         container.scrollTop = target ? Math.max(target.offsetTop - 12, 0) : container.scrollHeight
+        container.dataset.positioned = ''
       }
       return
     }
@@ -138,6 +150,21 @@ export function useStickToBottom({
       container.scrollTop = container.scrollHeight
     }
   }, [lastMessageId, isNearBottom, isOwnLastMessage, unreadBoundaryId, unreadDividerRef, containerRef])
+
+  // A safety net: if deciding where to open takes too long (a slow network
+  // holding up the read state), show the list at the bottom rather than
+  // keep it hidden. The divider still takes over once it's placed.
+  const hasMessages = lastMessageId !== undefined
+  useEffect(() => {
+    const container = containerRef.current
+    if (!hasMessages || !container) return
+    const timeout = setTimeout(() => {
+      if (container.dataset.positioned !== undefined) return
+      container.scrollTop = container.scrollHeight
+      container.dataset.positioned = ''
+    }, POSITION_TIMEOUT_MS)
+    return () => clearTimeout(timeout)
+  }, [hasMessages, containerRef])
 
   const scrollToBottom = () => {
     const container = containerRef.current

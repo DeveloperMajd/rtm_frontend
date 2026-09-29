@@ -12,6 +12,7 @@ import ConfirmDialog from '../ui/ConfirmDialog'
 import Icon from '../ui/Icon'
 import Tooltip from '../ui/Tooltip'
 import { ConversationListSkeleton } from '../ui/Skeleton'
+import EmptyState from '../ui/EmptyState'
 import type { ContactType } from '../../utils/baseTypes'
 
 type ContactsProps = {
@@ -27,7 +28,7 @@ type ContactsProps = {
  * the row's actions offer the same, plus removing them (after asking).
  */
 const Contacts = ({ onConversationOpened, onAddContact }: ContactsProps) => {
-  const { data: contacts = [], isLoading, error } = useContacts()
+  const { data: contacts = [], isLoading, error, refetch } = useContacts()
   const { conversations } = useConversations()
   const navigate = useNavigate()
   const queryClient = useQueryClient()
@@ -57,34 +58,61 @@ const Contacts = ({ onConversationOpened, onAddContact }: ContactsProps) => {
   const shown = needle ? contacts.filter((c) => c.name.toLowerCase().includes(needle)) : contacts
   const onlineCount = contacts.filter((c) => c.is_online).length
 
+  // Contacts-Mobile "Empty · no contacts yet": nothing to filter, so the
+  // state stands alone with its one way forward.
+  const hasNone = !isLoading && !error && contacts.length === 0
+
   return (
     <div className='contacts'>
-      <div className='contacts__tools'>
-        <div className='input-with-icon'>
-          <Icon name='search' size={16} />
-          <input
-            className='input'
-            type='search'
-            value={filter}
-            onChange={(e) => setFilter(e.target.value)}
-            placeholder='Search contacts'
-            aria-label='Search contacts'
-          />
+      {!hasNone && (
+        <div className='contacts__tools'>
+          <div className='input-with-icon'>
+            <Icon name='search' size={16} />
+            <input
+              className='input'
+              type='search'
+              value={filter}
+              onChange={(e) => setFilter(e.target.value)}
+              placeholder='Search contacts'
+              aria-label='Search contacts'
+            />
+          </div>
+          <Button variant='secondary' block onClick={onAddContact}>
+            <Icon name='plus' size={16} />
+            Add contact
+          </Button>
         </div>
-        <Button variant='secondary' block onClick={onAddContact}>
-          <Icon name='plus' size={16} />
-          Add contact
-        </Button>
-      </div>
+      )}
 
       {isLoading ? (
         <ConversationListSkeleton />
-      ) : error ? (
-        <p className='empty-state'>Error: {(error as Error).message}</p>
-      ) : contacts.length === 0 ? (
-        <p className='empty-state'>
-          No contacts yet. Use &ldquo;Add contact&rdquo; to find someone by name or email.
-        </p>
+      ) : error && contacts.length === 0 ? (
+        <EmptyState
+          icon='wifiOff'
+          tone='danger'
+          title='Couldn’t load your contacts'
+          actions={
+            <Button variant='secondary' className='sm' onClick={() => void refetch()}>
+              <Icon name='refresh' size={14} />
+              Try again
+            </Button>
+          }
+        >
+          Check your connection and try again.
+        </EmptyState>
+      ) : hasNone ? (
+        <EmptyState
+          icon='users'
+          title='No contacts yet'
+          actions={
+            <Button className='sm' onClick={onAddContact}>
+              <Icon name='userPlus' size={14} />
+              Add contact
+            </Button>
+          }
+        >
+          Find people by name or email. Adding someone opens your chat right away.
+        </EmptyState>
       ) : shown.length === 0 ? (
         <p className='empty-state'>No contacts match &ldquo;{filter.trim()}&rdquo;.</p>
       ) : (

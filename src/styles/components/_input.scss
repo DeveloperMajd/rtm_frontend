@@ -9,12 +9,12 @@
   &__label {
     font-size: 0.8rem;
     font-weight: 550;
-    color: var(--c-muted);
+    color: var(--c-fg-2);
   }
 
   &__hint {
     font-size: 0.75rem;
-    color: var(--c-muted);
+    color: var(--c-fg-2);
   }
 
   &__error {
@@ -145,7 +145,7 @@
     box-shadow $dur-fast $ease-out;
 
   &::placeholder {
-    color: color-mix(in oklab, var(--c-muted) 80%, transparent);
+    color: color-mix(in oklab, var(--c-fg-2) 80%, transparent);
   }
 
   // The same 2px ring + 2px offset as every other focusable control

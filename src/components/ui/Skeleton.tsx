@@ -33,4 +33,25 @@ export const ConversationListSkeleton = ({ rows = 6 }: { rows?: number }) => (
   </div>
 )
 
+// A conversation opening (States-Loading): bubbles in the shape of a chat,
+// theirs on the left and yours on the right.
+const BUBBLES: { own: boolean; width: string }[] = [
+  { own: false, width: '44%' },
+  { own: false, width: '60%' },
+  { own: true, width: '36%' },
+  { own: false, width: '52%' },
+  { own: true, width: '64%' },
+  { own: true, width: '28%' },
+]
+
+export const MessagesSkeleton = () => (
+  <ul className='message-list msg-skeleton' aria-hidden='true'>
+    {BUBBLES.map((bubble, i) => (
+      <li key={i} className={`msg-skeleton__row${bubble.own ? ' is-own' : ''}`}>
+        <span className='skeleton msg-skeleton__bubble' style={{ width: bubble.width }} />
+      </li>
+    ))}
+  </ul>
+)
+
 export default Skeleton

@@ -1,6 +1,7 @@
 import { useEffect, useId, useImperativeHandle, useRef, useState, type Ref } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import toast from 'react-hot-toast'
+import { isAxiosError } from 'axios'
 import { sendMessage, updateMessage, uploadAttachment } from '../../services/api/messages'
 import { postTyping } from '../../services/api/conversations'
 import { appendMessageToCache, replaceMessageInCache } from '../../utils/messagePages'
@@ -14,6 +15,7 @@ import {
 } from '../../utils/attachments'
 import { isTouchScreen } from '../../utils/pointer'
 import useAuth from '../../hooks/useAuth'
+import useOnlineStatus from '../../hooks/useOnlineStatus'
 import BottomSheet, { SheetAction } from '../ui/BottomSheet'
 import Icon from '../ui/Icon'
 import ComposerTray, { type PendingUpload } from './ComposerTray'
@@ -23,6 +25,8 @@ import type { MessageType } from '../../utils/baseTypes'
  * conversation go through the same checks as ones picked with the button. */
 export type MessageFormHandle = {
   addFiles: (files: File[]) => void
+  /** Puts the caret in the message field. */
+  focus: () => void
 }
 
 type MessageFormProps = {
@@ -126,9 +130,16 @@ const MessageForm = ({
     })
   }
 
+  // Why the last send didn't go (Study-Failed-Offline). The text stays in
+  // the composer either way; this says so and offers to try again.
+  const [sendProblem, setSendProblem] = useState<'failed' | 'throttled' | null>(null)
+  // No network: sending waits, the draft stays (States-Connection "Offline").
+  const online = useOnlineStatus()
+
   const { mutate, isPending } = useMutation({
     mutationFn: ({ text, attachmentIds }: { text: string; attachmentIds: string[] }) =>
       sendMessage(conversationId, text, replyingTo?.id, attachmentIds),
+    onMutate: () => setSendProblem(null),
     onSuccess: (created) => {
       setBody('')
       clearUploads()
@@ -147,7 +158,9 @@ const MessageForm = ({
         void queryClient.invalidateQueries({ queryKey: ['messages', conversationId] })
       }
     },
-    onError: () => toast.error('Failed to send message. Please try again.'),
+    // 429: the per-route throttle. Its Retry-After can't be read from here
+    // (CORS doesn't expose it), so no countdown — just the reason.
+    onError: (err) => setSendProblem(isAxiosError(err) && err.response?.status === 429 ? 'throttled' : 'failed'),
   })
 
   // Same PATCH the in-bubble editor used. The response is the edited
@@ -168,9 +181,9 @@ const MessageForm = ({
     .filter((upload) => upload.status === 'done' && upload.attachmentId)
     .map((upload) => upload.attachmentId as string)
   const canSend =
-    !isPending && !uploading && (body.trim().length > 0 || readyAttachmentIds.length > 0)
+    online && !isPending && !uploading && (body.trim().length > 0 || readyAttachmentIds.length > 0)
   // The API requires a body on an edit, so an edit can't empty a message.
-  const canSaveEdit = !isSavingEdit && body.trim().length > 0
+  const canSaveEdit = online && !isSavingEdit && body.trim().length > 0
   const atLimit = uploads.length >= MAX_ATTACHMENTS
 
   const submit = () => {
@@ -258,7 +271,7 @@ const MessageForm = ({
     }
   }
 
-  useImperativeHandle(ref, () => ({ addFiles }))
+  useImperativeHandle(ref, () => ({ addFiles, focus: () => textareaRef.current?.focus() }))
 
   const handleFilesSelected = (input: HTMLInputElement) => {
     if (input.files) addFiles(Array.from(input.files))
@@ -319,6 +332,8 @@ const MessageForm = ({
 
   const handleChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     setBody(e.target.value)
+    // Nothing left to have failed to send.
+    if (!e.target.value.trim()) setSendProblem(null)
 
     // Rewording an existing message isn't "typing" a new one.
     if (!editing && !typingThrottle.current) {
@@ -440,7 +455,7 @@ const MessageForm = ({
             type='button'
             className='composer__icon-btn'
             onClick={openAttach}
-            disabled={Boolean(editing) || atLimit}
+            disabled={Boolean(editing) || atLimit || !online}
             aria-label='Attach files'
           >
             <Icon name='clip' />
@@ -475,7 +490,27 @@ const MessageForm = ({
           </button>
         </div>
       </div>
-      {showTrayHint ? (
+      {sendProblem && !editing && (
+        <p className='composer__note is-error' role='alert'>
+          <Icon name='alertCircle' size={14} />
+          <span>
+            {sendProblem === 'throttled'
+              ? 'Slow down a little — you’re sending faster than we allow. Your message is kept.'
+              : 'Not sent. Your message is kept.'}
+          </span>
+          <button type='button' className='composer__note-action' onClick={submit} disabled={!canSend}>
+            Retry
+          </button>
+        </p>
+      )}
+      {/* Not a live region: AppShell already says the app went offline. */}
+      {!online && (
+        <p className='composer__note'>
+          <Icon name='wifiOff' size={14} />
+          <span>Draft saved on this device · sending resumes when you’re back</span>
+        </p>
+      )}
+      {sendProblem || !online ? null : showTrayHint ? (
         <p className='composer__hint is-split' aria-hidden='true'>
           <span>{ACCEPTED_SUMMARY}</span>
           {atLimit && <span>Limit reached</span>}

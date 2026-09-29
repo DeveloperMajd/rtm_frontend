@@ -6,6 +6,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import MessageForm, { type MessageFormHandle } from './MessageForm'
 import { AuthContext, type AuthContextType } from '../../hooks/useAuth'
 import { sendMessage, updateMessage, uploadAttachment } from '../../services/api/messages'
+import { AxiosError, AxiosHeaders } from 'axios'
 import type { MessageType } from '../../utils/baseTypes'
 
 vi.mock('../../services/api/messages', () => ({
@@ -464,5 +465,76 @@ describe('MessageForm — attaching on a touch screen', () => {
     renderForm()
 
     expect(textbox()).toHaveAttribute('enterkeyhint', 'send')
+  })
+})
+
+describe('MessageForm — when sending can’t happen', () => {
+  const httpError = (status: number) => {
+    const config = { headers: new AxiosHeaders() }
+    return new AxiosError('failed', String(status), config, null, { status, statusText: '', headers: {}, config, data: {} })
+  }
+
+  const setOnline = (online: boolean) => {
+    Object.defineProperty(navigator, 'onLine', { value: online, configurable: true })
+    act(() => {
+      window.dispatchEvent(new Event(online ? 'online' : 'offline'))
+    })
+  }
+
+  afterEach(() => {
+    setOnline(true)
+  })
+
+  it('keeps an unsent message in place, says so, and sends it on Retry', async () => {
+    const user = userEvent.setup()
+    vi.mocked(sendMessage).mockReset().mockRejectedValueOnce(httpError(500)).mockResolvedValueOnce(message({ id: 'sent' }))
+    renderForm()
+
+    await user.type(textbox(), 'Standup moved to 10:30.')
+    await user.keyboard('{Enter}')
+
+    const note = await screen.findByRole('alert')
+    expect(note).toHaveTextContent('Not sent. Your message is kept.')
+    expect(textbox()).toHaveValue('Standup moved to 10:30.')
+
+    await user.click(within(note).getByRole('button', { name: 'Retry' }))
+
+    await waitFor(() => expect(textbox()).toHaveValue(''))
+    expect(sendMessage).toHaveBeenCalledTimes(2)
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+  })
+
+  it('says to slow down when sending is throttled (429)', async () => {
+    const user = userEvent.setup()
+    vi.mocked(sendMessage).mockReset().mockRejectedValueOnce(httpError(429))
+    renderForm()
+
+    await user.type(textbox(), 'again')
+    await user.keyboard('{Enter}')
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      'Slow down a little — you’re sending faster than we allow. Your message is kept.',
+    )
+    expect(textbox()).toHaveValue('again')
+  })
+
+  it('pauses sending while offline, keeping the draft, and picks up when back', async () => {
+    const user = userEvent.setup()
+    vi.mocked(sendMessage).mockReset().mockResolvedValue(message({ id: 'sent' }))
+    renderForm()
+    await user.type(textbox(), 'written on the train')
+
+    setOnline(false)
+
+    expect(screen.getByText('Draft saved on this device · sending resumes when you’re back')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Send message' })).toBeDisabled()
+    expect(screen.getByRole('button', { name: 'Attach files' })).toBeDisabled()
+    await user.keyboard('{Enter}')
+    expect(sendMessage).not.toHaveBeenCalled()
+    expect(textbox()).toHaveValue('written on the train')
+
+    setOnline(true)
+
+    expect(screen.getByRole('button', { name: 'Send message' })).toBeEnabled()
   })
 })

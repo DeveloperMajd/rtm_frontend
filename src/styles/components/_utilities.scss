@@ -1,0 +1,99 @@
+// Small shared text treatments.
+
+.muted {
+  color: var(--c-fg-2);
+}
+
+// A one-line note in place of a list (a filter with no matches, a panel
+// still loading). Anything with a heading or an action is an EmptyState.
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 2.5rem 1.5rem;
+  text-align: center;
+  color: var(--c-fg-2);
+  font-size: 0.9rem;
+}
+
+// EmptyState (States-Empty, States-Errors).
+.empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  max-width: 300px;
+  margin: 0 auto;
+  padding: 2.5rem 1rem;
+  text-align: center;
+
+  &__icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 48px;
+    height: 48px;
+    margin-bottom: 14px;
+    border-radius: 14px;
+    background-color: var(--c-raised-2);
+    box-shadow: inset 0 0 0 1px var(--c-line);
+    color: var(--c-fg-2);
+
+    &.is-danger {
+      background-color: var(--c-danger-soft);
+      box-shadow: inset 0 0 0 1px var(--c-danger-line);
+      color: var(--c-danger);
+    }
+  }
+
+  &__title {
+    margin: 0;
+    font-size: 16px;
+    line-height: 22px;
+    font-weight: 600;
+    letter-spacing: -0.005em;
+    color: var(--c-fg);
+  }
+
+  &__text {
+    margin: 4px 0 0;
+    font-size: 13.5px;
+    line-height: 20px;
+    color: var(--c-fg-2);
+    text-wrap: pretty;
+  }
+
+  &__actions {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 8px;
+    margin-top: 16px;
+  }
+}
+
+// RequireAuth while the session is checked (States-Loading "App boot").
+.boot {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  min-height: 100dvh;
+  background-color: var(--c-stage);
+
+  &__label {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    font-family: var(--f-mono);
+    font-size: var(--fs-meta);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--c-accent-text);
+
+    .signal-bars {
+      height: 12px;
+    }
+  }
+}

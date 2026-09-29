@@ -2,7 +2,7 @@
 @use '../abstracts/mixins' as *;
 
 .btn {
-  --btn-bg: var(--c-surface-2);
+  --btn-bg: var(--c-raised-2);
   --btn-fg: var(--c-fg);
   --btn-bd: transparent;
 
@@ -36,7 +36,7 @@
   // above that rather than lightening below it.
   &.primary {
     --btn-bg: var(--c-accent-solid);
-    --btn-fg: var(--c-on-primary);
+    --btn-fg: var(--c-on-accent);
 
     &:hover:not(:disabled) {
       --btn-bg: color-mix(in oklab, var(--c-accent-solid) 88%, black);
@@ -44,7 +44,7 @@
   }
 
   &.secondary {
-    --btn-bg: var(--c-surface-2);
+    --btn-bg: var(--c-raised-2);
     --btn-fg: var(--c-fg);
 
     &:hover:not(:disabled) {
@@ -54,22 +54,22 @@
 
   &.tertiary {
     --btn-bg: transparent;
-    --btn-fg: var(--c-primary);
+    --btn-fg: var(--c-accent);
     --btn-bd: var(--c-line);
 
     &:hover:not(:disabled) {
-      --btn-bg: var(--c-surface-2);
+      --btn-bg: var(--c-raised-2);
     }
   }
 
   // Solid, final destructive actions only (Leave group, Delete group, a
   // destructive confirm dialog) — Signal's "Danger solid".
   &.danger {
-    --btn-bg: var(--c-danger);
-    --btn-fg: var(--c-on-accent);
+    --btn-bg: var(--c-danger-solid);
+    --btn-fg: #fff;
 
     &:hover:not(:disabled) {
-      --btn-bg: var(--c-danger-hover);
+      --btn-bg: color-mix(in oklab, var(--c-danger-solid) 88%, black);
     }
   }
 
@@ -88,16 +88,24 @@
 
   &.ghost {
     --btn-bg: transparent;
-    --btn-fg: var(--c-muted);
+    --btn-fg: var(--c-fg-2);
 
     &:hover:not(:disabled) {
       --btn-fg: var(--c-fg);
-      --btn-bg: var(--c-surface-2);
+      --btn-bg: var(--c-raised-2);
     }
   }
 
   &.block {
     width: 100%;
+  }
+
+  // The small size (DS-Controls "sm"): actions inside a state or a card.
+  &.sm {
+    min-height: 30px;
+    padding: 0.3rem 0.7rem;
+    border-radius: var(--r-btn-sm);
+    font-size: 13px;
   }
 
   &.icon {

@@ -23,8 +23,10 @@
     height: 100%;
     border-radius: 999px;
     overflow: hidden;
-    background: linear-gradient(135deg, var(--c-primary), var(--c-primary-hover));
-    color: var(--c-on-primary);
+    // The accent's solid shade, as on a primary button: white initials on the
+    // lighter dark-theme accent would fall under AA.
+    background: linear-gradient(135deg, var(--c-accent-solid), color-mix(in oklab, var(--c-accent-solid) 85%, black));
+    color: var(--c-on-accent);
   }
 
   &__img {
@@ -34,8 +36,8 @@
   }
 
   &--group &__clip {
-    background: var(--c-surface-2);
-    color: var(--c-muted);
+    background: var(--c-raised-2);
+    color: var(--c-fg-2);
   }
 
   &--xs {
@@ -68,7 +70,7 @@
     border-radius: 999px;
     // The surface-coloured shadow (not `border`, which the status ring
     // itself needs) cuts the dot out from whatever's behind it.
-    box-shadow: 0 0 0 2px var(--c-surface);
+    box-shadow: 0 0 0 2px var(--c-list);
     background-color: transparent;
     border: 1.5px solid var(--c-fg-3);
 

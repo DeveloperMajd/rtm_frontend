@@ -67,7 +67,7 @@ function SettingsLayout() {
 
   return (
     <>
-      <section className='settings-nav' aria-labelledby='settings-nav-title'>
+      <section id='settings-list' tabIndex={-1} className='settings-nav' aria-labelledby='settings-nav-title'>
         <header className='settings-nav__header'>
           <h2 id='settings-nav-title' className='settings-nav__title'>
             Settings

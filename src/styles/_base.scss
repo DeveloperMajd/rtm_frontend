@@ -15,7 +15,7 @@ html {
 body {
   margin: 0;
   min-height: 100dvh;
-  background-color: var(--c-bg);
+  background-color: var(--c-stage);
   color: var(--c-fg);
   font-family: var(--f-sans);
   font-size: 15px;
@@ -65,6 +65,16 @@ img {
   @include visually-hidden;
 }
 
+// Where the skip link lands — whole panes, which the shell clips at its
+// edges, so their ring is drawn just inside.
+#main-content,
+#chat-list,
+#settings-list {
+  &:focus-visible {
+    outline-offset: -2px;
+  }
+}
+
 // Skip link — visible only when focused.
 .skip-link {
   position: fixed;
@@ -72,10 +82,10 @@ img {
   left: 0.5rem;
   z-index: 200;
   padding: 0.5rem 0.875rem;
-  background: var(--c-surface);
+  background: var(--c-list);
   color: var(--c-fg);
   border: 1px solid var(--c-line);
-  border-radius: var(--radius-sm);
+  border-radius: var(--r-btn-sm);
   box-shadow: var(--shadow-e2);
   // Far enough up that its shadow doesn't show along the top edge either.
   transform: translateY(-200%);

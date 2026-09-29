@@ -28,10 +28,13 @@ interface UseMessagesOptions {
    * effect) always wins the race deterministically, not by timing luck.
    */
   deferUntilReady?: boolean
+  /** False for a conversation that isn't there (deleted, or a bad link):
+   * nothing to fetch, mark read or subscribe to. */
+  enabled?: boolean
 }
 
 const useMessages = (conversationId: string, readOnly = false, options: UseMessagesOptions = {}) => {
-  const { deferUntilReady = false } = options
+  const { deferUntilReady = false, enabled = true } = options
   const queryClient = useQueryClient()
   const echo = useEcho()
 
@@ -43,6 +46,8 @@ const useMessages = (conversationId: string, readOnly = false, options: UseMessa
     isFetchedAfterMount,
     hasNextPage,
     fetchNextPage,
+    isFetchNextPageError,
+    refetch,
     error,
   } = useInfiniteQuery({
     queryKey: ['messages', conversationId],
@@ -63,8 +68,8 @@ const useMessages = (conversationId: string, readOnly = false, options: UseMessa
     // back in the cache is wrong however recently it was written — which the
     // app's global `staleTime: 30_000` would otherwise take as a reason NOT
     // to refetch, leaving those messages invisible until something else
-    // happened to invalidate the query. Re-validate on every mount instead;
-    // the cached pages still render immediately, so there's no flash.
+    // happened to invalidate the query. Re-validate on every mount instead
+    // (and see gcTime below: the cache no longer outlives the room anyway).
     refetchOnMount: 'always',
     // And opt out of the app-wide staleTime for this query specifically.
     // refetchOnMount only governs an observer that *mounts*; switching
@@ -76,6 +81,13 @@ const useMessages = (conversationId: string, readOnly = false, options: UseMessa
     // that had arrived since. Cached pages still render instantly; this only
     // decides whether to re-check the server, and here the answer is always.
     staleTime: 0,
+    // Nor is a closed conversation's cache worth keeping at all: showing it
+    // again meant a stale list (from the top, since it wasn't positioned
+    // yet) until every page it held had been fetched again, one request
+    // each, and then a jump to the bottom. Dropped as the room closes, the
+    // next visit starts from the newest page behind the loading skeleton.
+    gcTime: 0,
+    enabled,
   })
 
   useEffect(() => {
@@ -95,7 +107,7 @@ const useMessages = (conversationId: string, readOnly = false, options: UseMessa
     // them, so skip marking-as-read and the (doomed) Echo subscription.
     // deferUntilReady holds off the same two for a different reason — see
     // its own doc comment above.
-    if (readOnly || deferUntilReady) return
+    if (readOnly || deferUntilReady || !enabled) return
 
     const markRead = () => {
       markConversationAsRead(conversationId)
@@ -184,7 +196,7 @@ const useMessages = (conversationId: string, readOnly = false, options: UseMessa
       channel.stopListening('MessageUpdated')
       echo.leave(`conversation.${conversationId}`)
     }
-  }, [conversationId, echo, queryClient, readOnly, deferUntilReady])
+  }, [conversationId, echo, queryClient, readOnly, deferUntilReady, enabled])
 
   // De-duplicated and re-sorted rather than a plain flatMap — see
   // flattenMessagePages for why offset pagination hands back overlapping
@@ -204,6 +216,9 @@ const useMessages = (conversationId: string, readOnly = false, options: UseMessa
     isLoadingMore: isFetchingNextPage,
     hasMore: hasNextPage,
     error: error as Error | null,
+    /** Paging in older history failed — what's loaded is still good. */
+    isOlderError: isFetchNextPageError,
+    retry: () => void refetch(),
     loadOlder,
     /**
      * A whole-query refetch is in flight (as opposed to paging in one more

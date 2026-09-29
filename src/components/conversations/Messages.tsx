@@ -7,8 +7,12 @@ import type { ReadStateSnapshot } from '../../hooks/useReadStateSnapshot'
 import useAuth from '../../hooks/useAuth'
 import { useAutoLoadOlder } from '../../hooks/useAutoLoadOlder'
 import { useStickToBottom } from '../../hooks/useStickToBottom'
+import { Link } from 'react-router-dom'
+import Button from '../ui/Button'
+import EmptyState from '../ui/EmptyState'
 import Spinner from '../ui/Spinner'
 import Icon from '../ui/Icon'
+import { MessagesSkeleton } from '../ui/Skeleton'
 import MessageItem from './MessageItem'
 import SystemMessage from './SystemMessage'
 
@@ -32,6 +36,14 @@ type MessagesProps = {
   /** A whole-query refetch is in flight — paging older must hold off (see
    * useMessages's isRefreshing). */
   isRefreshing?: boolean
+  /** Paging in older history failed (the rest is still good). */
+  isOlderError?: boolean
+  /** Fetches the conversation again after it failed to open. */
+  onRetry?: () => void
+  /** Who a first message would greet — "Kal", or "the group". */
+  greet?: string
+  /** Puts the caret in the composer, from the empty conversation. */
+  onStartWriting?: () => void
 }
 
 const GROUP_WINDOW_MS = 5 * 60 * 1000
@@ -58,6 +70,10 @@ const Messages = ({
   readState,
   isReady = true,
   isRefreshing = false,
+  isOlderError = false,
+  onRetry,
+  greet,
+  onStartWriting,
 }: MessagesProps) => {
   const { user } = useAuth()
   const containerRef = useRef<HTMLDivElement>(null)
@@ -105,7 +121,13 @@ const Messages = ({
 
   useAutoLoadOlder({
     containerRef,
-    hasMore,
+    // After a failed page it waits for Retry, rather than trying again on
+    // every scroll. And not before the conversation has been scrolled to
+    // where it opens: until then the list sits at the top, which looked
+    // like the viewer reaching for older history — the page that loaded
+    // then put the view back up there, undoing the scroll to the bottom.
+    // Paging to find the unread divider (forceLoad) is the exception.
+    hasMore: hasMore && !isOlderError && (unreadBoundaryId !== undefined || needsMoreForBoundary),
     isLoadingMore,
     isRefreshing,
     onLoadOlder,
@@ -154,26 +176,80 @@ const Messages = ({
   return (
     <div className='room__stage'>
       <div ref={containerRef} className='room__scroll scroll-y'>
+      {/* Always here, so the first message into an empty conversation is
+          announced too — a region that appears already holding text isn't. */}
+      <div aria-live='polite' className='sr-only'>
+        {announcement}
+      </div>
+
       {isLoading && messages.length === 0 ? (
-        <Spinner block />
+        <>
+          <p className='sr-only' role='status'>
+            Loading messages…
+          </p>
+          <MessagesSkeleton />
+        </>
+      ) : error && messages.length === 0 ? (
+        // States-Errors "Conversation failed".
+        <EmptyState
+          icon='alert'
+          tone='danger'
+          title='Couldn’t open this conversation'
+          className='room__state'
+          actions={
+            <>
+              {onRetry && (
+                <Button variant='secondary' className='sm' onClick={onRetry}>
+                  <Icon name='refresh' size={14} />
+                  Try again
+                </Button>
+              )}
+              <Link to='/conversations' className='btn tertiary sm'>
+                Back to chats
+              </Link>
+            </>
+          }
+        >
+          Something went wrong on our side. Try again in a moment.
+        </EmptyState>
+      ) : messages.length === 0 ? (
+        // States-Empty "Empty conversation".
+        <EmptyState
+          icon='chat'
+          title='No messages yet'
+          className='room__state'
+          actions={
+            !readOnly &&
+            onStartWriting && (
+              <Button variant='secondary' className='sm' onClick={onStartWriting}>
+                <Icon name='pencil' size={14} />
+                Write a message
+              </Button>
+            )
+          }
+        >
+          {readOnly ? 'Nothing was said here.' : `Say hello to ${greet ?? 'them'}. Your first message starts the conversation.`}
+        </EmptyState>
       ) : (
         <>
-          <div aria-live='polite' className='sr-only'>
-            {announcement}
-          </div>
-
           {isLoadingMore && (
             <div className='message-list__loading-older'>
               <Spinner size={22} />
             </div>
           )}
 
-          {error && <p className='empty-state'>Error: {error.message}</p>}
+          {/* States-Errors "Older history failed": what's loaded stays. */}
+          {isOlderError && !isLoadingMore && (
+            <div className='message-list__older-failed' role='alert'>
+              <Icon name='alertCircle' size={14} />
+              Couldn’t load earlier messages.
+              <button type='button' onClick={onLoadOlder}>
+                Retry
+              </button>
+            </div>
+          )}
 
           <ul className='message-list'>
-            {!error && messages.length === 0 && (
-              <li className='empty-state'>No messages yet — say hello 👋</li>
-            )}
 
             {messages.map((message, i) => {
               const prev = messages[i - 1]
@@ -225,6 +301,15 @@ const Messages = ({
         </>
       )}
       </div>
+
+      {/* The loading skeleton, over the messages until they've been scrolled
+          to where the conversation opens (see useStickToBottom) — so they
+          appear in place, not at the top and then jumping. */}
+      {messages.length > 0 && (
+        <div className='msg-cover' aria-hidden='true'>
+          <MessagesSkeleton />
+        </div>
+      )}
 
       {/* Outside the scroll container on purpose. An absolutely positioned
           child of a scrolling element is anchored to that element's

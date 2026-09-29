@@ -23,7 +23,7 @@
     padding: 0.15rem 0.7rem;
     border-radius: 999px;
     background-color: var(--c-raised-2);
-    color: var(--c-muted);
+    color: var(--c-fg-2);
     font-size: 0.72rem;
     font-weight: 600;
   }
@@ -75,6 +75,36 @@
   display: flex;
   justify-content: center;
   padding: 0.5rem 0 0.75rem;
+}
+
+// States-Errors "Older history failed": one row where the history stops.
+.message-list__older-failed {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  margin: 0 auto 0.75rem;
+  font-size: var(--fs-caption);
+  color: var(--c-fg-2);
+
+  svg {
+    color: var(--c-danger);
+  }
+
+  button {
+    padding: 2px 4px;
+    border: 0;
+    border-radius: var(--r-tag);
+    background: transparent;
+    color: var(--c-accent-text);
+    font: inherit;
+    font-weight: 600;
+    cursor: pointer;
+
+    &:hover {
+      text-decoration: underline;
+    }
+  }
 }
 
 // "N new messages" — offers to jump back down after a message arrives
@@ -197,18 +227,20 @@
   padding: 0.55rem;
   // DS-Type-Space radius scale: "Bubble, menu: 12".
   border-radius: var(--r-bubble);
-  background-color: var(--c-bubble-other);
-  color: var(--c-bubble-other-fg);
+  background-color: var(--c-in);
+  color: var(--c-fg);
   font-size: 0.88rem;
   line-height: 1.4;
   white-space: pre-wrap;
   overflow-wrap: anywhere;
   box-shadow: var(--shadow-e1);
+  --meta-fg: var(--c-fg-2);
 
   // DS-Message-Anatomy "Corner logic": only the joined side tightens, to 4px.
   .is-own & {
-    background-color: var(--c-bubble-own);
-    color: var(--c-bubble-own-fg);
+    --meta-fg: var(--c-out-fg-2);
+    background-color: var(--c-out);
+    color: var(--c-out-fg);
     border-bottom-right-radius: 4px;
   }
 
@@ -231,7 +263,7 @@
     font-size: 0.72rem;
     font-weight: 700;
     margin-bottom: 0.1rem;
-    color: var(--c-primary);
+    color: var(--c-accent);
   }
 
   // DS-Message-Anatomy "Reply quote": a tonal block inside the bubble that
@@ -279,7 +311,7 @@
     margin-left: 0.4rem;
     font-family: var(--f-mono);
     font-size: var(--fs-meta);
-    opacity: 0.65;
+    color: var(--meta-fg);
     white-space: nowrap;
   }
 
@@ -292,12 +324,15 @@
     margin: -0.3rem -0.3rem 0.4rem;
   }
 
+  // The time (and "edited") in each bubble's own quieter text colour —
+  // not by fading the text, which on a deleted message's clear bubble fell
+  // below AA contrast.
   &__meta {
     display: block;
     margin-top: 0.15rem;
     font-family: var(--f-mono);
     font-size: 0.66rem;
-    opacity: 0.65;
+    color: var(--meta-fg);
     text-align: right;
     white-space: nowrap;
   }
@@ -305,6 +340,7 @@
   // Deleted placeholder: no fill, a dashed outline, and the toolbar and
   // reactions gone — it's a marker that something was here, not a message.
   &.is-deleted {
+    --meta-fg: var(--c-fg-3);
     background-color: transparent;
     color: var(--c-fg-3);
     border: 1px dashed var(--c-line-3);
@@ -614,7 +650,7 @@
   padding: 0.15rem 1rem;
   font-size: 0.76rem;
   font-style: italic;
-  color: var(--c-muted);
+  color: var(--c-fg-2);
 }
 
 .composer-form {
@@ -851,6 +887,45 @@
     }
   }
 
+  // Under the composer when sending can't happen or didn't: offline, or a
+  // failed / throttled send (Study-Failed-Offline). Shown on touch screens
+  // too, unlike the keyboard hint it stands in for.
+  &__note {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin: 0.4rem 0 0;
+    font-size: var(--fs-caption);
+    line-height: var(--lh-caption);
+    color: var(--c-fg-2);
+
+    svg {
+      flex: none;
+    }
+
+    &.is-error {
+      color: var(--c-danger);
+    }
+  }
+
+  &__note-action {
+    flex: none;
+    margin-left: auto;
+    padding: 2px 8px;
+    border: 1px solid currentColor;
+    border-radius: var(--r-btn-sm);
+    background: transparent;
+    color: inherit;
+    font: inherit;
+    font-weight: 600;
+    cursor: pointer;
+
+    &:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+  }
+
   // "10 / 10 · A message holds up to 10 files…" — empty (but present, so
   // the status is announced when it fills) until the limit is reached.
   &__limit {
@@ -923,12 +998,12 @@
     margin: 0 0 10px;
     padding: 10px 12px;
     border-radius: var(--r-bubble);
-    background-color: var(--c-bubble-other);
-    color: var(--c-bubble-other-fg);
+    background-color: var(--c-in);
+    color: var(--c-fg);
 
     &.is-own {
-      background-color: var(--c-bubble-own);
-      color: var(--c-bubble-own-fg);
+      background-color: var(--c-out);
+      color: var(--c-out-fg);
     }
 
     blockquote {

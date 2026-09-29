@@ -5,7 +5,7 @@ import useAuth from '../hooks/useAuth'
 import Button from '../components/ui/Button'
 import Input from '../components/ui/Input'
 import PasswordField from '../components/ui/PasswordField'
-import Spinner from '../components/ui/Spinner'
+import BootScreen from '../components/ui/BootScreen'
 import AuthLayout, { AuthBanner, AuthDivider, AuthHeader, GoogleButton } from '../components/auth/AuthLayout'
 import { oauthRedirectUrl } from '../services/api/auth'
 import { fieldErrors, statusOf } from '../utils/authErrors'
@@ -32,8 +32,9 @@ const LoginPage = () => {
     mutationFn: ({ email, password }) => login(email, password),
   })
 
+  // Still finding out whether there's a session to skip this page for.
   if (isLoading) {
-    return <Spinner block />
+    return <BootScreen />
   }
 
   if (isAuthenticated) {

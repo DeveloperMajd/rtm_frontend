@@ -8,7 +8,7 @@
 @use 'components/button';
 @use 'components/spinner';
 @use 'components/input';
-@use 'components/card';
+@use 'components/utilities';
 @use 'components/modal';
 @use 'components/sheet';
 @use 'components/badge';
@@ -25,3 +25,4 @@
 @use 'components/info-panel';
 @use 'components/system-message';
 @use 'components/settings';
+@use 'components/page-error';

@@ -1,36 +1,13 @@
 @use '../abstracts/mixins' as *;
 @use '../abstracts/tokens' as *;
 
-// Echo/Reverb connection state — auto-reconnect already happens on its own,
-// this just tells the user it's happening instead of failing silently.
-.connection-banner {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  z-index: $z-toast;
-  padding: 0.4rem;
-  text-align: center;
-  font-size: 0.78rem;
-  font-weight: 600;
-  background-color: var(--c-surface-2);
-  color: var(--c-muted);
-  border-bottom: 1px solid var(--c-line);
-
-  &.is-failed {
-    background-color: var(--c-danger);
-    color: var(--c-on-primary);
-    border-bottom-color: transparent;
-  }
-}
-
 // The signed-in app, sized to what's visible — the whole screen, or the
 // part above a phone's on-screen keyboard (see useVisibleViewport).
 .app-shell {
   @include visible-viewport;
   display: flex;
   overflow: hidden;
-  background-color: var(--c-bg);
+  background-color: var(--c-stage);
   max-width: 1600px;
   margin-inline: auto;
 
@@ -596,8 +573,18 @@
     box-shadow: inset 3px 0 0 var(--c-accent);
   }
 
+  // A group the viewer has left reads as set aside — the avatar faded, the
+  // name quieter. Not by fading the whole row: its text would drop below
+  // AA contrast.
   &.is-left {
-    opacity: 0.62;
+    .avatar {
+      opacity: 0.55;
+    }
+
+    .conversation-item__title {
+      color: var(--c-fg-2);
+      font-weight: 500;
+    }
   }
 
   // A phone's roomier rows (Mobile-430-Chats).
@@ -640,13 +627,13 @@
   &__time {
     flex: 0 0 auto;
     font-size: 0.7rem;
-    color: var(--c-muted);
+    color: var(--c-fg-2);
   }
 
   &__preview {
     @include truncate;
     font-size: 0.8rem;
-    color: var(--c-muted);
+    color: var(--c-fg-2);
 
     @include until($bp-md) {
       font-size: 14.5px;
@@ -826,18 +813,29 @@
   display: flex;
   flex-direction: column;
   min-width: 0;
-  background-color: var(--c-bg);
+  background-color: var(--c-stage);
 
-  &--empty {
+  // Nothing open yet (StartScreen) — beside the list from 768px only.
+  &--start {
     align-items: center;
     justify-content: center;
-    gap: 0.85rem;
-    color: var(--c-muted);
-    font-size: 0.9rem;
+    padding: 2rem;
+    overflow-y: auto;
 
     @include until($bp-md) {
       display: none;
     }
+  }
+
+  // A conversation that isn't there any more.
+  &--unavailable {
+    justify-content: center;
+  }
+
+  // A state filling the message area (empty, failed to open).
+  &__state {
+    justify-content: center;
+    min-height: 100%;
   }
 
   &__header {
@@ -849,7 +847,7 @@
     flex: none;
     border-bottom: 1px solid var(--c-line);
     // The conversation stage's own tone, matching the list-pane header —
-    // not --c-surface (aliased to the list/sidebar tone, wrong here).
+    // not --c-list (aliased to the list/sidebar tone, wrong here).
     background-color: var(--c-stage);
 
     @include until($bp-md) {
@@ -934,5 +932,153 @@
     padding: 0.75rem 1rem 1rem;
     border-top: 1px solid var(--c-line);
     background-color: var(--c-stage);
+  }
+}
+
+// StartScreen's "Jump anywhere with ⌘K".
+.start-hint {
+  margin: 18px 0 0;
+  font-family: var(--f-mono);
+  font-size: var(--fs-meta);
+  color: var(--c-fg-3);
+
+  kbd {
+    padding: 1px 5px;
+    border: 1px solid var(--c-line-2);
+    border-radius: 5px;
+    background-color: var(--c-raised-2);
+    font-family: inherit;
+  }
+
+  @include touch {
+    display: none;
+  }
+}
+
+// Desktop-1440-FirstRun: a welcome and three first steps.
+.welcome {
+  width: 100%;
+  max-width: 760px;
+
+  &__eyebrow {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    margin: 0 0 10px;
+    font-family: var(--f-mono);
+    font-size: 12px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--c-accent-text);
+  }
+
+  &__title {
+    margin: 0;
+    font-size: var(--fs-display);
+    line-height: var(--lh-display);
+    font-weight: 650;
+    letter-spacing: -0.025em;
+
+    @include until($bp-lg) {
+      font-size: var(--fs-title);
+      line-height: var(--lh-title);
+    }
+  }
+
+  &__text {
+    max-width: 520px;
+    margin: 8px 0 0;
+    font-size: 15px;
+    line-height: 24px;
+    color: var(--c-fg-2);
+  }
+
+  &__steps {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 14px;
+    margin: 30px 0 0;
+    padding: 0;
+    list-style: none;
+
+    @include until($bp-lg) {
+      grid-template-columns: minmax(0, 1fr);
+    }
+  }
+
+  &__step {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    padding: 22px;
+    border-radius: 16px;
+    background-color: var(--c-raised);
+    box-shadow: inset 0 0 0 1px var(--c-line);
+  }
+
+  &__step-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 40px;
+    height: 40px;
+    border-radius: 11px;
+    background-color: var(--c-accent-soft);
+    color: var(--c-accent);
+  }
+
+  &__step-title {
+    margin: 0;
+    font-size: 15px;
+    font-weight: 600;
+  }
+
+  &__step-text {
+    margin: 3px 0 0;
+    font-size: 13.5px;
+    line-height: 20px;
+    color: var(--c-fg-2);
+  }
+
+  &__step-action {
+    margin-top: auto;
+  }
+}
+
+// ConnectionStrip (States-Connection): one line under the room header.
+.conn-strip {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: none;
+  padding: 7px 16px;
+  border-bottom: 1px solid var(--c-line);
+  font-size: var(--fs-caption);
+  line-height: var(--lh-caption);
+  color: var(--c-fg-2);
+  background-color: var(--c-raised-2);
+
+  .signal-bars {
+    height: 11px;
+
+    i.is-lit {
+      background-color: currentColor;
+    }
+  }
+
+  &.is-connecting,
+  &.is-reconnecting {
+    background-color: var(--c-warn-soft);
+    color: var(--c-warn);
+  }
+
+  &.is-failed {
+    background-color: var(--c-danger-soft);
+    color: var(--c-danger);
+  }
+
+  &.is-back {
+    background-color: var(--c-success-soft);
+    color: var(--c-success);
   }
 }

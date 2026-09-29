@@ -8,10 +8,16 @@ import Contacts from './Contacts'
 import { removeContact } from '../../services/api/contacts'
 import type { ContactType, ConversationType } from '../../utils/baseTypes'
 
-const contacts: ContactType[] = [
+const someContacts: ContactType[] = [
   { id: 'n', name: 'nitsuj1001', is_online: true },
   { id: 'k', name: 'Kal', is_online: false, last_seen_at: null },
 ]
+let contactsQuery: { data: ContactType[]; isLoading: boolean; error: Error | null; refetch: () => void } = {
+  data: someContacts,
+  isLoading: false,
+  error: null,
+  refetch: vi.fn(),
+}
 
 vi.mock('../../services/api/contacts', () => ({ removeContact: vi.fn() }))
 // useConversations subscribes to Echo; the list only needs the data.
@@ -22,9 +28,7 @@ vi.mock('../../hooks/useConversations', () => ({
     ] as ConversationType[],
   }),
 }))
-vi.mock('../../hooks/useContacts', () => ({
-  default: () => ({ data: contacts, isLoading: false, error: null }),
-}))
+vi.mock('../../hooks/useContacts', () => ({ default: () => contactsQuery }))
 
 const Opened = () => <p>Opened {useParams().id}</p>
 
@@ -51,6 +55,7 @@ const renderContacts = (props: Partial<Parameters<typeof Contacts>[0]> = {}) =>
 
 beforeEach(() => {
   vi.clearAllMocks()
+  contactsQuery = { data: someContacts, isLoading: false, error: null, refetch: vi.fn() }
 })
 
 describe('Contacts', () => {
@@ -105,5 +110,32 @@ describe('Contacts', () => {
 
     await user.click(screen.getByRole('button', { name: /Add contact/ }))
     expect(onAddContact).toHaveBeenCalled()
+  })
+})
+
+describe('Contacts — states', () => {
+  it('stands a new account’s empty list on its own, with Add contact', async () => {
+    const user = userEvent.setup()
+    const onAddContact = vi.fn()
+    contactsQuery = { ...contactsQuery, data: [] }
+    renderContacts({ onAddContact })
+
+    expect(screen.getByRole('heading', { name: 'No contacts yet' })).toBeInTheDocument()
+    // Nothing to filter yet.
+    expect(screen.queryByRole('searchbox', { name: 'Search contacts' })).not.toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: 'Add contact' }))
+    expect(onAddContact).toHaveBeenCalled()
+  })
+
+  it('says the list couldn’t load, and tries again', async () => {
+    const user = userEvent.setup()
+    const refetch = vi.fn()
+    contactsQuery = { data: [], isLoading: false, error: new Error('Network Error'), refetch }
+    renderContacts()
+
+    expect(screen.getByRole('heading', { name: 'Couldn’t load your contacts' })).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Try again' }))
+    expect(refetch).toHaveBeenCalled()
   })
 })
