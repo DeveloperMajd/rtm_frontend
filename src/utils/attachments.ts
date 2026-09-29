@@ -5,7 +5,8 @@
  */
 export const MAX_ATTACHMENTS = 10
 export const MAX_FILE_BYTES = 15 * 1024 * 1024
-export const ACCEPTED_TYPES = ['image/jpeg', 'image/png', 'image/gif', 'image/webp', 'application/pdf']
+export const IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/gif', 'image/webp']
+export const ACCEPTED_TYPES = [...IMAGE_TYPES, 'application/pdf']
 export const ACCEPTED_SUMMARY = 'JPG · PNG · GIF · WebP · PDF — up to 15 MB each'
 
 export function formatBytes(bytes: number): string {

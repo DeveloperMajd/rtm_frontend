@@ -204,7 +204,7 @@ const Lightbox = ({ images, index, onIndexChange, onClose, sender, sentAt, onRef
           <span aria-live='polite'>
             {index + 1} of {count}
           </span>
-          <span aria-hidden='true'>
+          <span className='lightbox__keys-hint' aria-hidden='true'>
             {count > 1 && ' · ← → to browse'} · Esc to close
           </span>
         </p>

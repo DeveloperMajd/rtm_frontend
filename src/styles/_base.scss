@@ -77,7 +77,8 @@ img {
   border: 1px solid var(--c-line);
   border-radius: var(--radius-sm);
   box-shadow: var(--shadow-e2);
-  transform: translateY(-150%);
+  // Far enough up that its shadow doesn't show along the top edge either.
+  transform: translateY(-200%);
   transition: transform $dur $ease-out;
 
   &:focus {

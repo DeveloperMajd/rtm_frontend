@@ -142,10 +142,41 @@
   // so pills render as a separate row under the bubble rather than beside
   // it in `.msg-row`'s own flex row.
   &__content {
+    position: relative;
     display: flex;
     flex-direction: column;
     align-items: flex-start;
     min-width: 0;
+
+    // Touch: a finger held on a message opens its actions and a pull to
+    // the right replies (useMessageGestures). Vertical drags still scroll;
+    // the text isn't selected and no system menu opens under the finger.
+    @include touch {
+      touch-action: pan-y pinch-zoom;
+      -webkit-touch-callout: none;
+      -webkit-user-select: none;
+      user-select: none;
+      transition: transform $dur $ease-out;
+    }
+  }
+
+  // The reply arrow the pull uncovers, just behind the message; it grows
+  // in as the pull nears the point where letting go replies.
+  &__swipe-hint {
+    position: absolute;
+    top: 50%;
+    right: calc(100% + 8px);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    border-radius: 999px;
+    background-color: var(--c-accent-soft);
+    color: var(--c-accent);
+    opacity: var(--swipe, 0);
+    transform: translateY(-50%) scale(calc(0.6 + var(--swipe, 0) * 0.4));
+    pointer-events: none;
   }
 }
 
@@ -384,6 +415,22 @@
   }
 }
 
+// Touch screens: a tap leaves :hover stuck, and the long press is the way
+// to a message's actions — the toolbar shows only for a keyboard.
+@include touch {
+  .msg-row:hover .msg-toolbar,
+  .msg-row:focus-within .msg-toolbar {
+    opacity: 0;
+    pointer-events: none;
+  }
+
+  .msg-row:has(:focus-visible) .msg-toolbar,
+  .msg-row.is-active .msg-toolbar {
+    opacity: 1;
+    pointer-events: auto;
+  }
+}
+
 // Reaction pills under the bubble (Study-Reactions): emoji plus a mono
 // count; yours outlined in the accent. The add button at the end of the row
 // shows with the toolbar. Margin on both sides so the row reads as
@@ -471,6 +518,22 @@
     &:hover {
       background-color: var(--c-raised-2);
       color: var(--c-fg);
+    }
+
+    // As with the toolbar: the long-press sheet has the reactions.
+    @include touch {
+      .msg-row:hover &,
+      .msg-row:focus-within & {
+        opacity: 0;
+        pointer-events: none;
+      }
+
+      .msg-row:has(:focus-visible) &,
+      .msg-row.is-active &,
+      &[aria-expanded='true'] {
+        opacity: 1;
+        pointer-events: auto;
+      }
     }
   }
 }
@@ -579,6 +642,11 @@
     box-shadow: 0 0 0 3px var(--c-accent-soft);
   }
 
+  // A phone's pill-shaped composer (Mobile-430-Chat-Group).
+  @include until($bp-md) {
+    border-radius: 22px;
+  }
+
   &__row {
     display: flex;
     align-items: flex-end;
@@ -609,6 +677,11 @@
       opacity: 0.4;
       cursor: not-allowed;
     }
+
+    @include touch {
+      width: 40px;
+      height: 40px;
+    }
   }
 
   &__text {
@@ -633,10 +706,21 @@
     &:focus-visible {
       outline: none;
     }
+
+    // 16px keeps iOS from zooming in on focus.
+    @include touch {
+      font-size: 16px;
+    }
   }
 
   &__send {
     flex: none;
+
+    @include touch {
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+    }
   }
 
   &__banner {
@@ -752,6 +836,11 @@
       font-family: inherit;
     }
 
+    // Keyboard shortcuts mean nothing on a touch screen.
+    @include touch {
+      display: none;
+    }
+
     // With files in the tray: the accepted types on the left, "Limit
     // reached" on the right.
     &.is-split {
@@ -789,4 +878,76 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+// A long press's sheet (Mobile-430-Message-Sheet): the six reactions, the
+// message it's about, then its actions.
+.message-sheet {
+  &__reactions {
+    display: flex;
+    justify-content: space-between;
+    gap: 2px;
+    margin-bottom: 12px;
+    padding: 4px;
+    border-radius: 14px;
+    background-color: var(--c-raised);
+    box-shadow: inset 0 0 0 1px var(--c-line-2);
+  }
+
+  &__reaction {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 46px;
+    height: 46px;
+    padding: 0;
+    border: 0;
+    border-radius: var(--r-control);
+    background: transparent;
+    font-size: 25px;
+    line-height: 1;
+    cursor: pointer;
+
+    &:active {
+      background-color: var(--c-raised-2);
+    }
+
+    // Yours: violet-outlined, as in the desktop picker.
+    &.is-mine {
+      background-color: var(--c-accent-soft);
+      box-shadow: inset 0 0 0 1.5px var(--c-accent);
+    }
+  }
+
+  &__preview {
+    margin: 0 0 10px;
+    padding: 10px 12px;
+    border-radius: var(--r-bubble);
+    background-color: var(--c-bubble-other);
+    color: var(--c-bubble-other-fg);
+
+    &.is-own {
+      background-color: var(--c-bubble-own);
+      color: var(--c-bubble-own-fg);
+    }
+
+    blockquote {
+      display: -webkit-box;
+      -webkit-line-clamp: 3;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+      margin: 0;
+      font-size: var(--fs-message);
+      line-height: var(--lh-message);
+      white-space: pre-wrap;
+      overflow-wrap: anywhere;
+    }
+
+    figcaption {
+      margin-top: 4px;
+      font-family: var(--f-mono);
+      font-size: var(--fs-meta);
+      opacity: 0.7;
+    }
+  }
 }

@@ -8,6 +8,7 @@ import { markMessageDeletedInCache } from '../../utils/messagePages'
 import { copyText } from '../../utils/clipboard'
 import useAuth from '../../hooks/useAuth'
 import useMessageReactions from '../../hooks/useMessageReactions'
+import useMessageGestures from '../../hooks/useMessageGestures'
 import type { AnchorRect } from '../../hooks/useAnchoredPopover'
 import Avatar from '../ui/Avatar'
 import Icon from '../ui/Icon'
@@ -18,6 +19,7 @@ import Lightbox from './Lightbox'
 import MessageReactions from './MessageReactions'
 import MessageToolbar from './MessageToolbar'
 import MessageMenu from './MessageMenu'
+import MessageActionSheet from './MessageActionSheet'
 import ReactionPicker from './ReactionPicker'
 
 type MessageItemProps = {
@@ -48,6 +50,7 @@ const MessageItem = ({
   const { grouped: reactionGroups, toggleReaction } = useMessageReactions(message.id, message.reactions)
   const [openPopover, setOpenPopover] = useState<OpenPopover>(null)
   const [isConfirmingDelete, setIsConfirmingDelete] = useState(false)
+  const [isSheetOpen, setIsSheetOpen] = useState(false)
   const menuId = useId()
 
   const contentRef = useRef<HTMLDivElement>(null)
@@ -59,6 +62,14 @@ const MessageItem = ({
 
   const isOwn = message.sender?.id === user?.id
   const isDeleted = Boolean(message.deleted_at)
+  const canSwipeToReply = !isDeleted && !readOnly
+
+  // Touch screens: hold for the actions sheet, pull right to reply.
+  const gestures = useMessageGestures({
+    targetRef: contentRef,
+    onLongPress: isDeleted ? undefined : () => setIsSheetOpen(true),
+    onSwipe: canSwipeToReply ? () => onReply(message) : undefined,
+  })
 
   const attachments = message.attachments ?? []
   const images = attachments.filter((a) => a.is_image)
@@ -156,7 +167,12 @@ const MessageItem = ({
         )}
       </div>
 
-      <div ref={contentRef} className='msg-row__content'>
+      <div ref={contentRef} className='msg-row__content' {...gestures}>
+        {canSwipeToReply && (
+          <span className='msg-row__swipe-hint' aria-hidden='true'>
+            <Icon name='reply' size={16} />
+          </span>
+        )}
         <div ref={bubbleRef} className={`bubble${isDeleted ? ' is-deleted' : ''}`}>
           {!isOwn && !grouped && (
             <span className='bubble__sender'>{message.sender?.name ?? 'Unknown'}</span>
@@ -261,6 +277,20 @@ const MessageItem = ({
             onReply={() => onReply(message)}
             onCopy={handleCopy}
             onReact={() => setOpenPopover('react-toolbar')}
+            onEdit={() => onEdit(message)}
+            onDelete={() => setIsConfirmingDelete(true)}
+          />
+
+          <MessageActionSheet
+            open={isSheetOpen}
+            onClose={() => setIsSheetOpen(false)}
+            message={message}
+            isOwn={isOwn}
+            readOnly={readOnly}
+            mine={myReactions}
+            onToggleReaction={(reaction, reacted) => toggleReaction({ reaction, reacted })}
+            onReply={() => onReply(message)}
+            onCopy={handleCopy}
             onEdit={() => onEdit(message)}
             onDelete={() => setIsConfirmingDelete(true)}
           />

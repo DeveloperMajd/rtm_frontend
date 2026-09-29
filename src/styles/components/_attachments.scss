@@ -495,7 +495,12 @@
   inset: 0;
   z-index: $z-modal;
   display: grid;
-  grid-template-rows: auto 1fr auto;
+  // The column is the screen's width, never the photo's: left to size
+  // itself, it grew to a large image's natural width on a phone and pushed
+  // the buttons, the next arrow and half the image off the right edge.
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  overflow: hidden;
   background-color: rgb(4 5 9 / 0.94);
   color: #eceef6;
   animation: modal-fade $dur $ease-out;
@@ -510,6 +515,11 @@
     justify-content: space-between;
     gap: 1rem;
     padding: 0.75rem 1rem;
+
+    @include until($bp-md) {
+      gap: 0.5rem;
+      padding: 0.6rem 0.5rem 0.6rem 0.75rem;
+    }
   }
 
   &__who {
@@ -541,6 +551,10 @@
     display: flex;
     flex: none;
     gap: 0.25rem;
+
+    @include until($bp-md) {
+      gap: 0;
+    }
   }
 
   &__icon-btn {
@@ -569,6 +583,11 @@
     min-height: 0;
     padding: 0 4.5rem;
     overflow: hidden;
+
+    // A phone: the image takes the width, the arrows sit over its edges.
+    @include until($bp-md) {
+      padding: 0 0.75rem;
+    }
 
     // Actual size: the image keeps its own pixels and the stage scrolls.
     &.is-zoomed {
@@ -618,6 +637,19 @@
 
     &.is-next {
       right: 1.25rem;
+    }
+
+    @include until($bp-md) {
+      width: 2.5rem;
+      height: 2.5rem;
+
+      &.is-prev {
+        left: 1rem;
+      }
+
+      &.is-next {
+        right: 1rem;
+      }
     }
   }
 
@@ -688,6 +720,13 @@
     font-family: var(--f-mono);
     font-size: var(--fs-meta);
     color: #a9adc2;
+  }
+
+  // "← → to browse · Esc to close" — keys a touch screen doesn't have.
+  &__keys-hint {
+    @include touch {
+      display: none;
+    }
   }
 
   // The app's focus colour, fixed to the dark-theme value here since this

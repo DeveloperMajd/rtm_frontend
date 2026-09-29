@@ -177,3 +177,12 @@
   resize: vertical;
   min-height: 2.5rem;
 }
+
+// iOS zooms the page into any field smaller than 16px when it takes focus.
+@include touch {
+  .input,
+  .textarea,
+  .input-shell__input {
+    font-size: 16px;
+  }
+}

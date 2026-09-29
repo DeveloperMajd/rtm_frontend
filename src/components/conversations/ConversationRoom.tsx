@@ -18,6 +18,7 @@ import OnlineStatus from '../ui/OnlineStatus'
 import Tooltip from '../ui/Tooltip'
 import Badge from '../ui/Badge'
 import { format } from 'date-fns'
+import { unreadTotal } from '../../utils/conversations'
 import type { MessageType } from '../../utils/baseTypes'
 
 const ConversationRoomView = () => {
@@ -54,6 +55,7 @@ const ConversationRoomView = () => {
   const conversation = conversations.find((c) => c.id === id)
   const isGroup = conversation?.type === 'group'
   const hasLeft = Boolean(conversation?.viewer_left_at)
+  const unreadElsewhere = unreadTotal(conversations, id)
 
   // Dragging files over the conversation turns the whole pane into a drop
   // target (Attach-Composer); dropped files go through the composer's own
@@ -139,15 +141,23 @@ const ConversationRoomView = () => {
         )}
 
         <header className='room__header'>
-          <Button
-            variant='ghost'
-            icon
+          {/* Phone only (the list is beside the room from 768px). It counts
+              what's waiting in the other conversations (Mobile-430-Chat-Group). */}
+          <button
+            type='button'
             className='room__back'
-            aria-label='Back to conversations'
+            aria-label={
+              unreadElsewhere > 0 ? `Back to conversations, ${unreadElsewhere} unread` : 'Back to conversations'
+            }
             onClick={() => navigate('/conversations')}
           >
             <Icon name='arrowLeft' />
-          </Button>
+            {unreadElsewhere > 0 && (
+              <span className='unread-pill' aria-hidden='true'>
+                {unreadElsewhere > 99 ? '99+' : unreadElsewhere}
+              </span>
+            )}
+          </button>
 
           <Avatar
             name={headerTitle}

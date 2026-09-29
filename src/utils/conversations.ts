@@ -8,6 +8,16 @@ export function conversationTitle(c: ConversationType): string {
     : c.other_participant?.name || 'Direct conversation'
 }
 
+/** Unread messages across the viewer's conversations — optionally leaving
+ * one out (the one on screen). A group the viewer has left doesn't count:
+ * nothing new can arrive there for them. */
+export function unreadTotal(conversations: ConversationType[], exceptId?: string): number {
+  return conversations.reduce(
+    (total, c) => (c.id !== exceptId && !c.viewer_left_at ? total + (c.unread_count ?? 0) : total),
+    0,
+  )
+}
+
 /**
  * The backend returns conversations in no particular order (no `ORDER BY`
  * on the endpoint) — sort by most recent activity so the list is at least

@@ -1,12 +1,12 @@
-import { setTheme, useThemePref, type ThemePref } from '../../utils/theme'
+import { setTheme, THEME_LABELS, useThemePref, type ThemePref } from '../../utils/theme'
 import Icon from './Icon'
 import type { IconName } from './icons'
 
 const ORDER: ThemePref[] = ['light', 'dark', 'system']
 const META: Record<ThemePref, { icon: IconName; label: string }> = {
-  light: { icon: 'sun', label: 'Light' },
-  dark: { icon: 'moon', label: 'Dark' },
-  system: { icon: 'monitor', label: 'System' },
+  light: { icon: 'sun', label: THEME_LABELS.light },
+  dark: { icon: 'moon', label: THEME_LABELS.dark },
+  system: { icon: 'monitor', label: THEME_LABELS.system },
 }
 
 /** The rail's one-button theme switch: cycles Light → Dark → System. The

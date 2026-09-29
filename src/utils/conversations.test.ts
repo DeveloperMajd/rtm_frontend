@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { sortByRecency } from './conversations'
+import { sortByRecency, unreadTotal } from './conversations'
 import type { ConversationType } from './baseTypes'
 
 const conversation = (overrides: Partial<ConversationType>): ConversationType => ({
@@ -43,5 +43,22 @@ describe('sortByRecency', () => {
     const original = [...list]
     sortByRecency(list)
     expect(list).toEqual(original)
+  })
+})
+
+describe('unreadTotal', () => {
+  const list = [
+    conversation({ id: 'a', unread_count: 2 }),
+    conversation({ id: 'b', unread_count: 3 }),
+    conversation({ id: 'c' }),
+    conversation({ id: 'left', unread_count: 9, viewer_left_at: '2026-01-02T00:00:00Z' }),
+  ]
+
+  it('adds up the unread messages, leaving out groups the viewer has left', () => {
+    expect(unreadTotal(list)).toBe(5)
+  })
+
+  it('can leave out the conversation on screen', () => {
+    expect(unreadTotal(list, 'b')).toBe(2)
   })
 })

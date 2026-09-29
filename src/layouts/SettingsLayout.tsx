@@ -1,9 +1,11 @@
 import { Link, Outlet, useLocation } from 'react-router-dom'
 import toast from 'react-hot-toast'
 import useAuth from '../hooks/useAuth'
+import Avatar from '../components/ui/Avatar'
 import Badge from '../components/ui/Badge'
 import Icon from '../components/ui/Icon'
 import type { IconName } from '../components/ui/icons'
+import { THEME_LABELS, useThemePref } from '../utils/theme'
 
 type Section = {
   to: string
@@ -44,10 +46,15 @@ const SECTIONS: Section[] = [
 /**
  * Profile-1440 / Settings-1440: the settings list in the list pane's place,
  * with Sign out at its foot, beside whichever page is open.
+ *
+ * On a phone the list is a screen of its own (Profile-Mobile's Profile tab,
+ * at /me): who you are at the top, then the sections, each opening its page
+ * full-screen.
  */
 function SettingsLayout() {
-  const { logout } = useAuth()
+  const { user, logout } = useAuth()
   const { pathname, hash } = useLocation()
+  const theme = useThemePref()
 
   // Signed out, RequireAuth takes the viewer to sign in.
   const signOut = async () => {
@@ -62,14 +69,22 @@ function SettingsLayout() {
     <>
       <section className='settings-nav' aria-labelledby='settings-nav-title'>
         <header className='settings-nav__header'>
-          {/* Below 1024px there's no rail to go back to Chats with. */}
-          <Link to='/conversations' className='settings-nav__back' aria-label='Back to chats'>
-            <Icon name='arrowLeft' />
-          </Link>
           <h2 id='settings-nav-title' className='settings-nav__title'>
             Settings
           </h2>
         </header>
+
+        {/* Phone only — from 768px the rail's avatar says who's signed in. */}
+        {user && (
+          <div className='settings-nav__identity'>
+            <Avatar name={user.name} src={user.avatar_url} size='lg' />
+            <div className='settings-nav__who'>
+              <p className='settings-nav__name'>{user.name}</p>
+              <p className='settings-nav__email'>{user.email}</p>
+              {user.bio && <p className='settings-nav__bio'>{user.bio}</p>}
+            </div>
+          </div>
+        )}
 
         <nav aria-label='Settings sections'>
           <ul className='settings-nav__list'>
@@ -88,6 +103,12 @@ function SettingsLayout() {
                       <Badge tone='soon'>Soon</Badge>
                     </>
                   )}
+                  {section.to === '/settings' && (
+                    <span className='settings-nav__value' aria-hidden='true'>
+                      {THEME_LABELS[theme]}
+                    </span>
+                  )}
+                  <Icon name='chevR' size={16} className='settings-nav__chevron' />
                 </Link>
               </li>
             ))}

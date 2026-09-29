@@ -32,6 +32,13 @@
     animation: none;
   }
 
+  // A phone: the panel is a screen of its own (Mobile-430-Group-Info).
+  @include until($bp-md) {
+    width: 100%;
+    border-left: 0;
+    box-shadow: none;
+  }
+
   &__header {
     display: flex;
     align-items: center;
@@ -68,6 +75,11 @@
     &:hover {
       background-color: var(--c-raised-2);
       color: var(--c-fg);
+    }
+
+    @include touch {
+      width: 40px;
+      height: 40px;
     }
   }
 
@@ -270,6 +282,13 @@
     .member-list__item:focus-within &,
     .member-list__item.is-active & {
       opacity: 1;
+    }
+
+    // Nothing to hover with on a touch screen: always there.
+    @include touch {
+      opacity: 1;
+      width: 40px;
+      height: 40px;
     }
 
     &:hover,

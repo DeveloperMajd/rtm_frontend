@@ -4,6 +4,7 @@ import Badge from '../components/ui/Badge'
 import Icon from '../components/ui/Icon'
 import Switch from '../components/ui/Switch'
 import { setTheme, useThemePref, type ThemePref } from '../utils/theme'
+import SettingsPageHeader from '../components/settings/SettingsPageHeader'
 
 const THEMES: { value: ThemePref; label: string }[] = [
   { value: 'dark', label: 'Dark' },
@@ -96,9 +97,7 @@ function SettingsPage() {
 
   return (
     <div className='settings-page'>
-      <header className='settings-page__header'>
-        <h1 className='settings-page__title'>Appearance</h1>
-      </header>
+      <SettingsPageHeader title='Appearance' />
 
       <div className='settings-page__body'>
         <section className='settings-section' aria-labelledby='theme-heading'>

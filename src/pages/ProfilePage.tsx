@@ -14,6 +14,7 @@ import ActionToast from '../components/ui/ActionToast'
 import PasswordField from '../components/ui/PasswordField'
 import { isPasswordStrong } from '../utils/passwordRules'
 import { changePassword, updateProfile, uploadAvatar, deleteAvatar } from '../services/api/profile'
+import SettingsPageHeader from '../components/settings/SettingsPageHeader'
 
 const BIO_MAX = 500
 // The counter turns amber from here (Profile-Form-States "near the limit").
@@ -337,9 +338,7 @@ const ProfilePage = () => {
 
   return (
     <div className='settings-page'>
-      <header className='settings-page__header'>
-        <h1 className='settings-page__title'>Profile</h1>
-      </header>
+      <SettingsPageHeader title='Profile' />
 
       <div className='settings-page__body'>
         <AvatarEditor user={user} onChanged={refreshUser} />

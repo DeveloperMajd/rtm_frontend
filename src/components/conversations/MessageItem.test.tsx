@@ -1,12 +1,12 @@
 import type { ReactNode } from 'react'
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
-import { render, screen, waitFor, within } from '@testing-library/react'
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import toast, { Toaster } from 'react-hot-toast'
 import MessageItem from './MessageItem'
 import { AuthContext, type AuthContextType } from '../../hooks/useAuth'
-import { deleteMessage } from '../../services/api/messages'
+import { addReaction, deleteMessage } from '../../services/api/messages'
 import type { MessageType } from '../../utils/baseTypes'
 
 vi.mock('../../services/api/messages', () => ({
@@ -326,5 +326,198 @@ describe('MessageItem', () => {
     const quote = container.querySelector('.bubble__quote') as HTMLElement
     expect(within(quote).getByText(author)).toBeInTheDocument()
     expect(within(quote).getByText(text)).toBeInTheDocument()
+  })
+})
+
+describe('MessageItem on a touch screen', () => {
+  beforeEach(() => {
+    vi.useFakeTimers()
+  })
+
+  afterEach(() => {
+    // Every press ends with the finger lifting — which also ends the guard
+    // on the clicks that follow it.
+    fireEvent.pointerUp(document.body, { pointerType: 'touch', pointerId: 1 })
+    act(() => {
+      vi.runOnlyPendingTimers()
+    })
+    vi.useRealTimers()
+  })
+
+  const contentOf = (text: string) => screen.getByText(text).closest('.msg-row__content') as HTMLElement
+
+  const touch = (type: 'pointerDown' | 'pointerMove' | 'pointerUp', el: Element, x: number, y = 200) =>
+    fireEvent[type](el, { pointerType: 'touch', isPrimary: true, pointerId: 1, clientX: x, clientY: y })
+
+  const longPress = (el: Element) => {
+    touch('pointerDown', el, 200)
+    act(() => {
+      vi.advanceTimersByTime(500)
+    })
+  }
+
+  /** The finger leaving the screen, wherever it is by then. */
+  const lift = (el: Element) => {
+    touch('pointerUp', el, 200)
+    act(() => {
+      vi.advanceTimersByTime(500)
+    })
+  }
+
+  it('opens the message’s actions on a long press: the reactions, then what the More menu offers', () => {
+    renderItem(<MessageItem message={own()} onReply={noop} onEdit={noop} />)
+
+    longPress(contentOf('Deploying the fix now'))
+
+    const sheet = screen.getByRole('dialog', { name: 'Message actions' })
+    expect(within(sheet).getAllByRole('button', { name: /Thumbs up|Heart|Laugh|Surprised|Sad|Thanks/ })).toHaveLength(6)
+    expect(within(sheet).getByRole('button', { name: 'Reply' })).toBeEnabled()
+    expect(within(sheet).getByRole('button', { name: 'Copy text' })).toBeEnabled()
+    expect(within(sheet).getByRole('button', { name: 'Edit' })).toBeEnabled()
+    expect(within(sheet).getByRole('button', { name: 'Message info Soon' })).toBeDisabled()
+    expect(within(sheet).getByRole('button', { name: 'Delete' })).toBeEnabled()
+  })
+
+  it('offers the unbuilt Copy link and Save on someone else’s message, disabled, and no Edit or Delete', () => {
+    renderItem(<MessageItem message={message()} onReply={noop} onEdit={noop} />)
+
+    longPress(contentOf('Can you check the queue worker?'))
+
+    const sheet = screen.getByRole('dialog', { name: 'Message actions' })
+    expect(within(sheet).getByRole('button', { name: 'Copy link Soon' })).toBeDisabled()
+    expect(within(sheet).getByRole('button', { name: 'Save message Soon' })).toBeDisabled()
+    expect(within(sheet).queryByRole('button', { name: 'Edit' })).not.toBeInTheDocument()
+    expect(within(sheet).queryByRole('button', { name: 'Delete' })).not.toBeInTheDocument()
+  })
+
+  it('does nothing for a mouse held down — that has the toolbar', () => {
+    renderItem(<MessageItem message={own()} onReply={noop} onEdit={noop} />)
+
+    fireEvent.pointerDown(contentOf('Deploying the fix now'), { pointerType: 'mouse', isPrimary: true, clientX: 200 })
+    act(() => {
+      vi.advanceTimersByTime(1000)
+    })
+
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+  })
+
+  it('treats a finger that moves before the press completes as a scroll', () => {
+    renderItem(<MessageItem message={own()} onReply={noop} onEdit={noop} />)
+    const content = contentOf('Deploying the fix now')
+
+    touch('pointerDown', content, 200, 200)
+    touch('pointerMove', content, 202, 240)
+    act(() => {
+      vi.advanceTimersByTime(1000)
+    })
+
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+  })
+
+  it('swallows the click the lifting finger sets off, so it can’t choose an action by accident', () => {
+    const onReply = vi.fn()
+    renderItem(<MessageItem message={own()} onReply={onReply} onEdit={noop} />)
+    const content = contentOf('Deploying the fix now')
+
+    longPress(content)
+    const sheet = screen.getByRole('dialog', { name: 'Message actions' })
+    fireEvent.pointerUp(document.body, { pointerType: 'touch', pointerId: 1 })
+    fireEvent.click(within(sheet).getByRole('button', { name: 'Reply' }))
+
+    expect(onReply).not.toHaveBeenCalled()
+    expect(sheet).toBeInTheDocument()
+
+    // A real tap, after the finger has lifted, goes through.
+    act(() => {
+      vi.advanceTimersByTime(500)
+    })
+    fireEvent.click(within(sheet).getByRole('button', { name: 'Reply' }))
+    expect(onReply).toHaveBeenCalledWith(expect.objectContaining({ id: 'm1' }))
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+  })
+
+  it('reacts from the sheet, and closes it', async () => {
+    vi.mocked(addReaction).mockResolvedValue(undefined as never)
+    renderItem(<MessageItem message={message()} onReply={noop} onEdit={noop} />)
+    const content = contentOf('Can you check the queue worker?')
+
+    longPress(content)
+    lift(content)
+    fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Heart' }))
+
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+    await act(async () => {
+      await vi.runAllTimersAsync()
+    })
+    expect(addReaction).toHaveBeenCalledWith('m1', '❤️')
+  })
+
+  it('asks before deleting from the sheet', () => {
+    renderItem(<MessageItem message={own()} onReply={noop} onEdit={noop} />)
+    const content = contentOf('Deploying the fix now')
+
+    longPress(content)
+    lift(content)
+    fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Delete' }))
+
+    expect(screen.getByRole('dialog', { name: 'Delete this message?' })).toBeInTheDocument()
+  })
+
+  it('keeps only Copy text for a group the viewer has left, and no reactions', () => {
+    renderItem(<MessageItem message={message()} onReply={noop} onEdit={noop} readOnly />)
+
+    longPress(contentOf('Can you check the queue worker?'))
+
+    const sheet = screen.getByRole('dialog', { name: 'Message actions' })
+    expect(within(sheet).getAllByRole('button').map((b) => b.textContent)).toEqual(['Copy text'])
+  })
+
+  it('replies when a message is pulled far enough right, and springs back', () => {
+    const onReply = vi.fn()
+    renderItem(<MessageItem message={message()} onReply={onReply} onEdit={noop} />)
+    const content = contentOf('Can you check the queue worker?')
+
+    touch('pointerDown', content, 100)
+    touch('pointerMove', content, 130)
+    touch('pointerMove', content, 170)
+    expect(content.style.transform).toBe('translateX(70px)')
+
+    touch('pointerUp', content, 170)
+    expect(onReply).toHaveBeenCalledWith(expect.objectContaining({ id: 'm1' }))
+    expect(content.style.transform).toBe('')
+  })
+
+  it('doesn’t reply for a short pull, a pull from the screen edge, or a pull left', () => {
+    const onReply = vi.fn()
+    renderItem(<MessageItem message={message()} onReply={onReply} onEdit={noop} />)
+    const content = contentOf('Can you check the queue worker?')
+
+    // Short.
+    touch('pointerDown', content, 100)
+    touch('pointerMove', content, 140)
+    touch('pointerUp', content, 140)
+    // From the left edge, where the system's back gesture lives.
+    touch('pointerDown', content, 10)
+    touch('pointerMove', content, 100)
+    touch('pointerUp', content, 100)
+    // Leftwards.
+    touch('pointerDown', content, 300)
+    touch('pointerMove', content, 200)
+    touch('pointerUp', content, 200)
+
+    expect(onReply).not.toHaveBeenCalled()
+  })
+
+  it('can’t be pulled to reply in a group the viewer has left', () => {
+    const onReply = vi.fn()
+    renderItem(<MessageItem message={message()} onReply={onReply} onEdit={noop} readOnly />)
+    const content = contentOf('Can you check the queue worker?')
+
+    touch('pointerDown', content, 100)
+    touch('pointerMove', content, 200)
+    touch('pointerUp', content, 200)
+
+    expect(onReply).not.toHaveBeenCalled()
+    expect(content.style.transform).toBe('')
   })
 })

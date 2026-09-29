@@ -11,6 +11,7 @@ import RequireAuth from './layouts/RequireAuth.tsx'
 import AppShell from './layouts/AppShell.tsx'
 import ConversationsLayout from './layouts/ConversationsLayout.tsx'
 import SettingsLayout from './layouts/SettingsLayout.tsx'
+import SettingsHome from './components/settings/SettingsHome.tsx'
 import ConversationRoom from './components/conversations/ConversationRoom.tsx'
 import ErrorBoundary from './components/ui/ErrorBoundary.tsx'
 import Spinner from './components/ui/Spinner.tsx'
@@ -60,6 +61,8 @@ const router = createBrowserRouter([
           {
             element: <SettingsLayout />,
             children: [
+              // The settings list itself — a phone's Profile tab.
+              { path: '/me', element: <SettingsHome /> },
               { path: '/profile', element: withSuspense(<ProfilePage />) },
               { path: '/settings', element: withSuspense(<SettingsPage />) },
             ],

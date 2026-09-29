@@ -152,6 +152,7 @@
   --shadow-e3: 0 18px 40px rgb(16 24 40 / 0.18);
   /* Floating cards (sign-in card, popovers). */
   --sh-pop: 0 14px 36px rgb(24 28 70 / 0.16), 0 2px 8px rgb(24 28 70 / 0.08);
+  --sh-sheet: 0 -12px 40px rgb(24 28 70 / 0.18), 0 0 0 1px rgb(20 22 45 / 0.08);
 }
 
 /* ---- Dark theme (Obsidian): explicit opt-in wins in both directions ---- */
@@ -205,6 +206,7 @@
   --shadow-e2: 0 4px 14px rgb(0 0 0 / 0.5);
   --shadow-e3: 0 18px 40px rgb(0 0 0 / 0.6);
   --sh-pop: 0 14px 36px rgb(0 0 0 / 0.55), 0 2px 8px rgb(0 0 0 / 0.4);
+  --sh-sheet: 0 -16px 48px rgb(0 0 0 / 0.55), 0 0 0 1px rgb(255 255 255 / 0.08);
 }
 
 /* ---- Dark theme: follow the OS when the user has not chosen ---- */
@@ -259,6 +261,7 @@
     --shadow-e2: 0 4px 14px rgb(0 0 0 / 0.5);
     --shadow-e3: 0 18px 40px rgb(0 0 0 / 0.6);
     --sh-pop: 0 14px 36px rgb(0 0 0 / 0.55), 0 2px 8px rgb(0 0 0 / 0.4);
+    --sh-sheet: 0 -16px 48px rgb(0 0 0 / 0.55), 0 0 0 1px rgb(255 255 255 / 0.08);
   }
 }
 

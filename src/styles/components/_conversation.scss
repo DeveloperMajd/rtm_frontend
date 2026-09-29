@@ -24,8 +24,10 @@
   }
 }
 
+// The signed-in app, sized to what's visible — the whole screen, or the
+// part above a phone's on-screen keyboard (see useVisibleViewport).
 .app-shell {
-  height: 100dvh;
+  @include visible-viewport;
   display: flex;
   overflow: hidden;
   background-color: var(--c-bg);
@@ -35,85 +37,34 @@
   @include from($bp-lg) {
     border-inline: 1px solid var(--c-line);
   }
-}
 
-.sidebar {
-  display: flex;
-  flex-direction: column;
-  width: 100%;
-  border-right: 1px solid var(--c-line);
-  background-color: var(--c-surface);
+  // A phone shows one screen at a time, with the tab bar under the two
+  // top-level ones (Mobile-430-Chats, Profile-Mobile). `data-view` is set
+  // from the route by AppShell.
+  @include until($bp-md) {
+    flex-direction: column;
 
-  @include from($bp-md) {
-    width: 22rem;
-    flex: 0 0 22rem;
-  }
-
-  // The rail + list-pane below take over from here — this keeps serving
-  // every width Stage 10 hasn't rebuilt yet (up to and including tablet).
-  @include from($bp-lg) {
-    display: none;
-  }
-
-  &__header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 0.75rem;
-    padding: 0.6rem 0.85rem;
-    min-height: 3.5rem;
-    border-bottom: 1px solid var(--c-line);
-  }
-
-  &__identity {
-    display: flex;
-    align-items: center;
-    gap: 0.6rem;
-    min-width: 0;
-    color: inherit;
-
-    span {
-      @include truncate;
-      font-weight: 600;
-      font-size: 0.9rem;
+    &[data-view='room'] .rail,
+    &[data-view='settings'] .rail,
+    &[data-view='list'] .main-content,
+    &[data-view='room'] .list-pane,
+    &[data-view='settings-hub'] .settings-main,
+    &[data-view='settings'] .settings-nav {
+      display: none;
     }
-  }
-
-  &__list {
-    flex: 1;
-    overflow-y: auto;
-    @include custom-scrollbar;
-  }
-
-  &__footer {
-    padding: 0.75rem 1rem;
-    border-top: 1px solid var(--c-line);
-  }
-}
-
-// On mobile the room takes the whole screen; the sidebar hides when a
-// conversation is open. Driven by a `data-view` attribute on `.app-shell`.
-@include until($bp-md) {
-  .app-shell[data-view='room'] .sidebar {
-    display: none;
-  }
-  .app-shell[data-view='list'] .room {
-    display: none;
   }
 }
 
 // ---------------------------------------------------------------------
-// ≥1024px: the Signal shell — a primary icon rail plus a separate list
-// pane, replacing the sidebar above. Below 1024px (including tablet),
-// `.sidebar` above keeps serving every width until Stage 10 rebuilds
-// mobile/tablet against the design's own 375/430/768/1024 breakpoints.
+// The primary navigation. From 768px, the icon rail down the left edge
+// (Tablet-768-Split, Main); on a phone the same buttons, labelled, make
+// the tab bar along the bottom (Mobile-430-Chats).
 // ---------------------------------------------------------------------
 
 .rail {
-  display: none;
+  display: flex;
 
-  @include from($bp-lg) {
-    display: flex;
+  @include from($bp-md) {
     flex-direction: column;
     align-items: center;
     width: 60px;
@@ -125,6 +76,16 @@
     border-right: 1px solid var(--c-line);
   }
 
+  @include until($bp-md) {
+    // Last on screen, though first in the page — the landmark order stays
+    // navigation, then content.
+    order: 1;
+    flex: none;
+    padding: 0 6px;
+    background-color: var(--c-list);
+    border-top: 1px solid var(--c-line);
+  }
+
   &__brand {
     margin-bottom: 14px;
   }
@@ -134,11 +95,8 @@
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    width: 36px;
-    height: 36px;
     flex: none;
     border: 0;
-    border-radius: var(--r-control);
     background: transparent;
     color: var(--c-fg-3);
     cursor: pointer;
@@ -146,26 +104,101 @@
       background-color $dur-fast $ease-out,
       color $dur-fast $ease-out;
 
-    &:hover {
-      background-color: var(--c-raised-2);
-      color: var(--c-fg);
+    @include from($bp-md) {
+      width: 36px;
+      height: 36px;
+      border-radius: var(--r-control);
+
+      &:hover {
+        background-color: var(--c-raised-2);
+        color: var(--c-fg);
+      }
+
+      &[aria-current='page'] {
+        background-color: var(--c-accent-soft);
+        color: var(--c-accent);
+      }
     }
 
-    &[aria-current='page'] {
-      background-color: var(--c-accent-soft);
-      color: var(--c-accent);
+    // A tab: icon over label, the current one lit with a short bar along
+    // its top edge.
+    @include until($bp-md) {
+      flex: 1;
+      flex-direction: column;
+      gap: 4px;
+      height: 56px;
+
+      &[aria-current='page'] {
+        color: var(--c-accent);
+
+        &::before {
+          content: '';
+          position: absolute;
+          top: 0;
+          left: 50%;
+          width: 28px;
+          height: 2px;
+          margin-left: -14px;
+          border-radius: 2px;
+          background-color: var(--c-accent);
+          box-shadow: 0 0 12px var(--c-accent-glow);
+        }
+
+        .rail__label {
+          font-weight: 600;
+        }
+      }
     }
   }
 
+  &__icon {
+    position: relative;
+    display: inline-flex;
+
+    // One height for the icons and the avatar, so the labels line up.
+    @include until($bp-md) {
+      align-items: center;
+      height: 26px;
+    }
+  }
+
+  &__label {
+    font-size: 11px;
+    line-height: 12px;
+    font-weight: 500;
+    letter-spacing: 0.005em;
+  }
+
+  // The rail marks unread with a dot…
   &__dot {
     position: absolute;
-    top: 6px;
-    right: 6px;
+    top: -3px;
+    right: -4px;
     width: 7px;
     height: 7px;
     border-radius: 999px;
     background-color: var(--c-accent);
     box-shadow: 0 0 0 2px var(--c-rail);
+  }
+
+  // …the tab bar with the count.
+  &__count {
+    position: absolute;
+    top: -6px;
+    left: 14px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 17px;
+    height: 17px;
+    padding: 0 4px;
+    border-radius: var(--r-full);
+    background-color: var(--c-accent-solid);
+    color: #fff;
+    font-size: 10.5px;
+    font-weight: 700;
+    line-height: 1;
+    box-shadow: 0 0 0 2px var(--c-list);
   }
 
   &__spacer {
@@ -189,6 +222,33 @@
       box-shadow:
         0 0 0 2px var(--c-rail),
         0 0 0 4px var(--c-accent);
+    }
+  }
+
+  &__me[aria-current='page'] .avatar__clip {
+    box-shadow:
+      0 0 0 2px var(--c-list),
+      0 0 0 3.5px var(--c-accent);
+  }
+
+  // Rail only.
+  @include until($bp-md) {
+    &__brand,
+    &__spacer,
+    &__signal,
+    &__theme,
+    &__avatar,
+    &__dot {
+      display: none;
+    }
+  }
+
+  // Tab bar only.
+  @include from($bp-md) {
+    &__label,
+    &__count,
+    &__me {
+      display: none;
     }
   }
 }
@@ -232,34 +292,116 @@
   }
 }
 
+// The conversation list: the whole screen on a phone; from 768px a column
+// beside the room, widening with the screen (288 → 320 → 340px, as the
+// 768, 1280 and 1440 boards draw it).
 .list-pane {
-  display: none;
+  display: flex;
+  flex-direction: column;
+  background-color: var(--c-list);
 
-  @include from($bp-lg) {
-    display: flex;
-    flex-direction: column;
-    width: 340px;
-    flex: 0 0 340px;
+  @include until($bp-md) {
+    flex: 1;
+    min-height: 0;
+  }
+
+  @include from($bp-md) {
+    width: 288px;
+    flex: 0 0 288px;
     height: 100%;
-    background-color: var(--c-list);
     border-right: 1px solid var(--c-line);
+  }
+
+  @include from($bp-xl) {
+    width: 320px;
+    flex-basis: 320px;
+  }
+
+  @include from($bp-2xl) {
+    width: 340px;
+    flex-basis: 340px;
   }
 
   &__header {
     display: flex;
     align-items: center;
-    justify-content: space-between;
+    gap: 10px;
     height: 60px;
     flex: none;
     padding: 0 10px 0 16px;
+
+    // A phone's large title (Mobile-430-Chats).
+    @include until($bp-md) {
+      height: auto;
+      min-height: 60px;
+      padding: 6px 8px 8px 20px;
+    }
+  }
+
+  &__heading {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-width: 0;
+    margin-right: auto;
   }
 
   &__title {
+    margin: 0;
     font-size: var(--fs-heading);
     line-height: var(--lh-heading);
     font-weight: 650;
     letter-spacing: -0.015em;
-    margin: 0;
+
+    @include until($bp-md) {
+      font-size: 30px;
+      line-height: 36px;
+      font-weight: 700;
+      letter-spacing: -0.03em;
+    }
+  }
+
+  // "Live" — or how the connection is doing when it isn't. Phone only; the
+  // rail carries it from 768px.
+  &__live {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    height: 22px;
+    padding: 0 8px;
+    border-radius: 7px;
+    background-color: var(--c-accent-soft);
+    box-shadow: inset 0 0 0 1px var(--c-line-accent);
+    color: var(--c-accent);
+    font-family: var(--f-mono);
+    font-size: 10.5px;
+    letter-spacing: 0.07em;
+    text-transform: uppercase;
+
+    .signal-bars {
+      height: 10px;
+
+      i.is-lit {
+        background-color: currentColor;
+      }
+    }
+
+    &.is-connecting,
+    &.is-reconnecting {
+      background-color: var(--c-warn-soft);
+      box-shadow: inset 0 0 0 1px var(--c-warn-line);
+      color: var(--c-warn);
+    }
+
+    &.is-offline {
+      background-color: var(--c-danger-soft);
+      box-shadow: inset 0 0 0 1px var(--c-danger-line);
+      color: var(--c-danger);
+    }
+
+    @include from($bp-md) {
+      display: none;
+    }
   }
 
   &__icon-btn {
@@ -279,11 +421,53 @@
       background-color: var(--c-raised-2);
       color: var(--c-fg);
     }
+
+    @include until($bp-md) {
+      width: 44px;
+      height: 44px;
+      border-radius: 50%;
+
+      &:not(.is-always) {
+        display: none;
+      }
+    }
+  }
+
+  // A phone's "New conversation" button: a quiet accent tint, the same
+  // family as the Live tag beside the title, rather than a solid disc.
+  &__new {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 36px;
+    height: 36px;
+    flex: none;
+    margin-right: 6px;
+    border: 0;
+    border-radius: 10px;
+    background-color: var(--c-accent-soft);
+    color: var(--c-accent);
+    box-shadow: inset 0 0 0 1px var(--c-line-accent);
+    cursor: pointer;
+    transition: background-color $dur-fast $ease-out;
+
+    &:hover,
+    &:active {
+      background-color: var(--c-accent-soft-2);
+    }
+
+    @include from($bp-md) {
+      display: none;
+    }
   }
 
   &__search {
     padding: 0 12px 10px;
     flex: none;
+
+    @include until($bp-md) {
+      padding: 0 16px 10px;
+    }
   }
 
   &__filters {
@@ -292,6 +476,11 @@
     padding: 0 12px 10px;
     flex: none;
     overflow-x: auto;
+
+    @include until($bp-md) {
+      gap: 8px;
+      padding: 0 16px 12px;
+    }
   }
 
   &__list {
@@ -360,6 +549,21 @@
     opacity: 1;
     visibility: visible;
   }
+
+  // A tap leaves :hover stuck on touch screens — the row is opening, not
+  // asking for its actions. The keyboard still reveals them.
+  @include touch {
+    &:hover .conversation-item__quick-actions,
+    &:focus-within .conversation-item__quick-actions {
+      opacity: 0;
+      visibility: hidden;
+    }
+
+    &:has(:focus-visible) .conversation-item__quick-actions {
+      opacity: 1;
+      visibility: visible;
+    }
+  }
 }
 
 .conversation-item {
@@ -396,6 +600,17 @@
     opacity: 0.62;
   }
 
+  // A phone's roomier rows (Mobile-430-Chats).
+  @include until($bp-md) {
+    gap: 14px;
+    min-height: 72px;
+    padding: 10px 16px 10px 20px;
+
+    .avatar {
+      --size: 48px;
+    }
+  }
+
   &__body {
     flex: 1;
     min-width: 0;
@@ -415,6 +630,11 @@
     @include truncate;
     font-weight: 600;
     font-size: 0.9rem;
+
+    @include until($bp-md) {
+      font-size: 16px;
+      line-height: 22px;
+    }
   }
 
   &__time {
@@ -427,6 +647,11 @@
     @include truncate;
     font-size: 0.8rem;
     color: var(--c-muted);
+
+    @include until($bp-md) {
+      font-size: 14.5px;
+      line-height: 20px;
+    }
   }
 
   // Unread state: the preview line reads as real content, not a muted hint.
@@ -553,6 +778,11 @@
     .contact-row:focus-within & {
       opacity: 1;
     }
+
+    // Nothing to hover with on a touch screen: always there.
+    @include touch {
+      opacity: 1;
+    }
   }
 
   &__action {
@@ -572,16 +802,21 @@
       background-color: var(--c-raised);
       color: var(--c-fg);
     }
+
+    @include touch {
+      width: 40px;
+      height: 40px;
+    }
   }
 }
 
 // Wraps the routed room / empty-state so there's a `<main>` landmark for the
-// skip link to jump to; it takes over the flex slot `.room` used to occupy
-// directly under `.app-shell`, so the visible layout is unchanged.
+// skip link to jump to.
 .main-content {
   flex: 1;
   display: flex;
   min-width: 0;
+  min-height: 0;
 }
 
 .room {
@@ -616,9 +851,42 @@
     // The conversation stage's own tone, matching the list-pane header —
     // not --c-surface (aliased to the list/sidebar tone, wrong here).
     background-color: var(--c-stage);
+
+    @include until($bp-md) {
+      gap: 10px;
+      padding: 0 8px;
+    }
+
+    // Touch-sized icon buttons (Mobile-430-Chat-Group: 40px).
+    @include touch {
+      .btn.icon {
+        width: 40px;
+        height: 40px;
+      }
+    }
   }
 
+  // "‹ 2" — back to the list, with what's unread elsewhere.
   &__back {
+    display: inline-flex;
+    align-items: center;
+    gap: 2px;
+    height: 44px;
+    min-width: 44px;
+    margin-left: -4px;
+    padding: 0 8px 0 4px;
+    border: 0;
+    border-radius: var(--r-control);
+    background: transparent;
+    color: var(--c-fg-2);
+    cursor: pointer;
+
+    &:hover,
+    &:active {
+      background-color: var(--c-raised-2);
+      color: var(--c-fg);
+    }
+
     @include from($bp-md) {
       display: none;
     }
@@ -644,6 +912,8 @@
     flex: 1;
     min-height: 0;
     overflow-y: auto;
+    // A message pulled sideways to reply mustn't scroll the list sideways.
+    overflow-x: hidden;
     padding: 1rem;
     @include custom-scrollbar;
   }
@@ -652,6 +922,10 @@
     border-top: 1px solid var(--c-line);
     background-color: var(--c-stage);
     padding: 0.75rem 1rem;
+
+    @include until($bp-md) {
+      padding: 6px 12px 10px;
+    }
   }
 
   // Holds the read-only card (see .locked-card) for a group the viewer is

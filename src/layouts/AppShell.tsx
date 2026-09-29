@@ -11,6 +11,8 @@ import useConversations from '../hooks/useConversations'
 import useAuth from '../hooks/useAuth'
 import usePresenceHeartbeat from '../hooks/usePresenceHeartbeat'
 import useConnectionStatus from '../hooks/useConnectionStatus'
+import useVisibleViewport from '../hooks/useVisibleViewport'
+import { unreadTotal } from '../utils/conversations'
 import type { AppShellContext, ListTab } from './appShellContext'
 
 const CONNECTION_LABEL: Record<ConnectionStatus, string> = {
@@ -32,11 +34,21 @@ const SIGNAL_STATE: Record<ConnectionStatus, SignalState> = {
   failed: 'offline',
 }
 
+/** Which screen is showing — the CSS arranges the panes for it. From 768px
+ * the list and the room sit side by side, as do the settings list and the
+ * open page; on a phone it's one at a time, and the tab bar shows only on
+ * the two top-level screens (the list, and the settings list). */
+type ShellView = 'list' | 'room' | 'settings-hub' | 'settings'
+
 /**
  * Everything the signed-in app keeps on screen whichever page is open —
- * Chats or Settings: the primary rail (≥1024px), message search (⌘K), the
+ * Chats or Settings: the primary navigation, message search (⌘K), the
  * connection banner and the presence heartbeat. The pages render beside the
- * rail, through the Outlet.
+ * navigation, through the Outlet.
+ *
+ * The navigation is one element in two shapes: from 768px, the icon rail
+ * down the left edge; on a phone, the tab bar along the bottom
+ * (Mobile-430-Chats) — Chats, Contacts, Search and Profile.
  */
 function AppShell() {
   const [activeTab, setActiveTab] = useState<ListTab>('chats')
@@ -46,6 +58,7 @@ function AppShell() {
   const navigate = useNavigate()
   const location = useLocation()
   usePresenceHeartbeat(true)
+  useVisibleViewport()
 
   // Echo/Pusher already retries on its own — this only surfaces the state.
   // Debounced so a sub-400ms blip (a normal reconnect) never flashes a banner;
@@ -73,13 +86,14 @@ function AppShell() {
     return () => window.removeEventListener('keydown', onKeyDown)
   }, [])
 
-  const inChats = location.pathname.startsWith('/conversations')
+  const { pathname } = location
+  const inChats = pathname.startsWith('/conversations')
   const inSettings = !inChats
-  // On mobile: show the list, or the open room — never both.
-  const roomOpen = /^\/conversations\/[^/]+/.test(location.pathname)
-  const view = inSettings ? 'settings' : roomOpen ? 'room' : 'list'
+  const roomOpen = /^\/conversations\/[^/]+/.test(pathname)
+  const view: ShellView = inChats ? (roomOpen ? 'room' : 'list') : pathname === '/me' ? 'settings-hub' : 'settings'
 
-  const hasUnread = conversations.some((c) => !c.viewer_left_at && !!c.unread_count)
+  const unread = unreadTotal(conversations)
+  const signal = SIGNAL_STATE[connectionStatus]
 
   // From Settings, the rail's Chats and Contacts go back to that list.
   const showList = (tab: ListTab) => {
@@ -91,6 +105,7 @@ function AppShell() {
     activeTab,
     setActiveTab,
     openSearch: () => setIsSearchOpen(true),
+    signal,
   }
 
   return (
@@ -105,9 +120,6 @@ function AppShell() {
         </div>
       )}
 
-      {/* ≥1024px: the Signal primary rail. CSS-hidden below that, where the
-          Chats screen's own sidebar and the Settings screen's back link
-          stand in for it until Stage 10 (the design's 375/430/768 layouts). */}
       <nav className='rail' aria-label='Primary'>
         <div className='rail__brand'>
           <BrandMark size={24} withWordmark={false} />
@@ -117,11 +129,24 @@ function AppShell() {
           type='button'
           className='rail__nav-btn'
           aria-current={inChats && activeTab === 'chats' ? 'page' : undefined}
-          aria-label='Chats'
+          aria-label={unread > 0 ? `Chats, ${unread} unread` : 'Chats'}
           onClick={() => showList('chats')}
         >
-          <Icon name='chatDots' />
-          {hasUnread && <span className='rail__dot' aria-hidden='true' />}
+          <span className='rail__icon'>
+            <Icon name='chatDots' />
+            {/* The rail marks unread with a dot; the tab bar counts. */}
+            {unread > 0 && (
+              <>
+                <span className='rail__dot' aria-hidden='true' />
+                <span className='rail__count' aria-hidden='true'>
+                  {unread > 99 ? '99+' : unread}
+                </span>
+              </>
+            )}
+          </span>
+          <span className='rail__label' aria-hidden='true'>
+            Chats
+          </span>
         </button>
         <button
           type='button'
@@ -130,7 +155,12 @@ function AppShell() {
           aria-label='Contacts'
           onClick={() => showList('contacts')}
         >
-          <Icon name='users' />
+          <span className='rail__icon'>
+            <Icon name='users' />
+          </span>
+          <span className='rail__label' aria-hidden='true'>
+            Contacts
+          </span>
         </button>
         <button
           type='button'
@@ -139,15 +169,24 @@ function AppShell() {
           aria-haspopup='dialog'
           onClick={() => setIsSearchOpen(true)}
         >
-          <Icon name='search' />
+          <span className='rail__icon'>
+            <Icon name='search' />
+          </span>
+          <span className='rail__label' aria-hidden='true'>
+            Search
+          </span>
         </button>
 
         <div className='rail__spacer' />
 
+        {/* Rail only: on a phone the connection shows beside the Chats
+            title, and the theme lives in Settings → Appearance. */}
         <span className='rail__signal' title={CONNECTION_LABEL[connectionStatus] || 'Connected'}>
-          <SignalBars state={SIGNAL_STATE[connectionStatus]} />
+          <SignalBars state={signal} />
         </span>
-        <ThemeToggle />
+        <span className='rail__theme'>
+          <ThemeToggle />
+        </span>
         <Link
           to='/profile'
           aria-label='Profile and settings'
@@ -155,6 +194,22 @@ function AppShell() {
           className='rail__avatar'
         >
           <Avatar name={user?.name ?? '?'} src={user?.avatar_url} size='sm' />
+        </Link>
+
+        {/* Tab bar only: Profile opens the settings list, which on a phone
+            is a screen of its own (Profile-Mobile). */}
+        <Link
+          to='/me'
+          aria-label='Profile'
+          aria-current={inSettings ? 'page' : undefined}
+          className='rail__nav-btn rail__me'
+        >
+          <span className='rail__icon'>
+            <Avatar name={user?.name ?? '?'} src={user?.avatar_url} size='xs' />
+          </span>
+          <span className='rail__label' aria-hidden='true'>
+            Profile
+          </span>
         </Link>
       </nav>
 

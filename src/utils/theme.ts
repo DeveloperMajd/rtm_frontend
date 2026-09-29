@@ -2,6 +2,12 @@ import { useSyncExternalStore } from 'react'
 
 export type ThemePref = 'light' | 'dark' | 'system'
 
+export const THEME_LABELS: Record<ThemePref, string> = {
+  light: 'Light',
+  dark: 'Dark',
+  system: 'System',
+}
+
 const KEY = 'rtm.theme'
 
 // The rail's quick toggle and the Settings page's picker can both be on

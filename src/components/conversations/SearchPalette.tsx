@@ -333,6 +333,11 @@ const PaletteDialog = ({ onClose, conversations }: SearchPaletteProps) => {
           <kbd className='palette__esc' aria-hidden='true'>
             Esc
           </kbd>
+          {/* Phone only, where search fills the screen (Mobile-Search-Flow)
+              and there's no Esc key to close it with. */}
+          <button type='button' className='palette__cancel' onClick={onClose}>
+            Cancel
+          </button>
         </div>
 
         <div className='palette__scopes' role='group' aria-label='Search in'>

@@ -8,10 +8,13 @@ import { loadDraft, saveDraft } from '../../utils/drafts'
 import {
   ACCEPTED_SUMMARY,
   ACCEPTED_TYPES,
+  IMAGE_TYPES,
   MAX_ATTACHMENTS,
   MAX_FILE_BYTES,
 } from '../../utils/attachments'
+import { isTouchScreen } from '../../utils/pointer'
 import useAuth from '../../hooks/useAuth'
+import BottomSheet, { SheetAction } from '../ui/BottomSheet'
 import Icon from '../ui/Icon'
 import ComposerTray, { type PendingUpload } from './ComposerTray'
 import type { MessageType } from '../../utils/baseTypes'
@@ -59,6 +62,11 @@ const MessageForm = ({
   const queryClient = useQueryClient()
   const typingThrottle = useRef<ReturnType<typeof setTimeout> | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
+  // The attach sheet's three ways in (touch screens only — see openAttach).
+  const photoInputRef = useRef<HTMLInputElement>(null)
+  const cameraInputRef = useRef<HTMLInputElement>(null)
+  const documentInputRef = useRef<HTMLInputElement>(null)
+  const [isAttachSheetOpen, setIsAttachSheetOpen] = useState(false)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const uploadsRef = useRef<PendingUpload[]>([])
   const bannerId = useId()
@@ -252,9 +260,22 @@ const MessageForm = ({
 
   useImperativeHandle(ref, () => ({ addFiles }))
 
-  const handleFilesSelected = (fileList: FileList | null) => {
-    if (fileList) addFiles(Array.from(fileList))
-    if (fileInputRef.current) fileInputRef.current.value = ''
+  const handleFilesSelected = (input: HTMLInputElement) => {
+    if (input.files) addFiles(Array.from(input.files))
+    input.value = ''
+  }
+
+  // With a mouse, the paperclip opens the file picker straight away. On a
+  // touch screen it offers a choice first (Mobile-Attachments-Flow): the
+  // photo library, the camera, or a document.
+  const openAttach = () => {
+    if (isTouchScreen()) setIsAttachSheetOpen(true)
+    else fileInputRef.current?.click()
+  }
+
+  const pickFrom = (input: HTMLInputElement | null) => {
+    setIsAttachSheetOpen(false)
+    input?.click()
   }
 
   // A screenshot pasted into the composer joins the tray. Only when the
@@ -386,12 +407,39 @@ const MessageForm = ({
             multiple
             accept={ACCEPTED_TYPES.join(',')}
             hidden
-            onChange={(e) => handleFilesSelected(e.target.files)}
+            onChange={(e) => handleFilesSelected(e.target)}
+          />
+          <input
+            ref={photoInputRef}
+            type='file'
+            multiple
+            accept={IMAGE_TYPES.join(',')}
+            hidden
+            data-testid='attach-photos'
+            onChange={(e) => handleFilesSelected(e.target)}
+          />
+          <input
+            ref={cameraInputRef}
+            type='file'
+            accept={IMAGE_TYPES.join(',')}
+            capture='environment'
+            hidden
+            data-testid='attach-camera'
+            onChange={(e) => handleFilesSelected(e.target)}
+          />
+          <input
+            ref={documentInputRef}
+            type='file'
+            multiple
+            accept='application/pdf'
+            hidden
+            data-testid='attach-documents'
+            onChange={(e) => handleFilesSelected(e.target)}
           />
           <button
             type='button'
             className='composer__icon-btn'
-            onClick={() => fileInputRef.current?.click()}
+            onClick={openAttach}
             disabled={Boolean(editing) || atLimit}
             aria-label='Attach files'
           >
@@ -410,6 +458,7 @@ const MessageForm = ({
             onChange={handleChange}
             onKeyDown={handleKeyDown}
             onPaste={handlePaste}
+            enterKeyHint={editing ? 'done' : 'send'}
             aria-describedby={editing || replyingTo ? bannerId : undefined}
           />
           <button
@@ -462,6 +511,34 @@ const MessageForm = ({
           </>
         )}
       </p>
+
+      <BottomSheet
+        open={isAttachSheetOpen}
+        onClose={() => setIsAttachSheetOpen(false)}
+        title='Attach'
+        note={`Up to ${MAX_ATTACHMENTS} files per message · 15 MB each`}
+      >
+        <div className='sheet-actions'>
+          <SheetAction
+            icon='image'
+            label='Photo library'
+            hint='JPG, PNG, GIF or WebP'
+            onSelect={() => pickFrom(photoInputRef.current)}
+          />
+          <SheetAction
+            icon='camera'
+            label='Take a photo'
+            hint='Opens the camera'
+            onSelect={() => pickFrom(cameraInputRef.current)}
+          />
+          <SheetAction
+            icon='fileText'
+            label='Choose a file'
+            hint='PDF documents'
+            onSelect={() => pickFrom(documentInputRef.current)}
+          />
+        </div>
+      </BottomSheet>
     </form>
   )
 }

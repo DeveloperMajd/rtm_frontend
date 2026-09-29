@@ -199,4 +199,15 @@ describe('SearchPalette', () => {
     expect(onClose).toHaveBeenCalledTimes(1)
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
   })
+
+  it('closes from Cancel, a phone’s way out with no Esc key', async () => {
+    const user = userEvent.setup()
+    const onClose = vi.fn()
+    render(<Harness onClose={onClose} />)
+
+    await user.click(screen.getByRole('button', { name: 'Cancel' }))
+
+    expect(onClose).toHaveBeenCalledTimes(1)
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+  })
 })

@@ -2,8 +2,7 @@
 @use '../abstracts/tokens' as *;
 
 .modal-overlay {
-  position: fixed;
-  inset: 0;
+  @include visible-viewport;
   z-index: $z-modal;
   display: flex;
   align-items: center;
@@ -16,6 +15,25 @@
   // nothing on it can be used until the viewer signs in again.
   &.is-alert {
     backdrop-filter: blur(6px);
+  }
+
+  // A phone: dialogs rise from the bottom edge, like the sheets
+  // (Mobile-NewChat-Flow's Add contact and New group). One that has to be
+  // answered stays in the middle.
+  @include until($bp-md) {
+    &:not(.is-alert) {
+      align-items: flex-end;
+      padding: 0;
+
+      .modal-panel {
+        max-width: none;
+        max-height: 92%;
+        border-width: 1px 0 0;
+        border-radius: 20px 20px 0 0;
+        box-shadow: var(--sh-sheet);
+        animation: sheet-up $dur-slow $ease-out;
+      }
+    }
   }
 }
 
@@ -117,6 +135,11 @@
     &:hover {
       background: var(--c-raised-2);
       color: var(--c-fg);
+    }
+
+    @include touch {
+      width: 40px;
+      height: 40px;
     }
   }
 }

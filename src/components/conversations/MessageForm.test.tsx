@@ -1,6 +1,6 @@
 import { createRef, useState, type ReactNode } from 'react'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import MessageForm, { type MessageFormHandle } from './MessageForm'
@@ -365,5 +365,104 @@ describe('MessageForm — drafts', () => {
     await user.type(textbox(), ' (edited)')
 
     expect(localStorage.getItem('rtm.draft.me.c1')).toBe('half-written thought')
+  })
+})
+
+describe('MessageForm — attaching on a touch screen', () => {
+  const setTouchScreen = (touch: boolean) => {
+    window.matchMedia = vi.fn((query: string) => ({
+      matches: touch && query.includes('pointer: coarse'),
+      media: query,
+      onchange: null,
+      addListener: () => {},
+      removeListener: () => {},
+      addEventListener: () => {},
+      removeEventListener: () => {},
+      dispatchEvent: () => false,
+    })) as typeof window.matchMedia
+  }
+  const opened: HTMLInputElement[] = []
+
+  beforeEach(() => {
+    opened.length = 0
+    vi.spyOn(HTMLInputElement.prototype, 'click').mockImplementation(function (this: HTMLInputElement) {
+      opened.push(this)
+    })
+    vi.mocked(uploadAttachment).mockReset()
+    URL.createObjectURL = vi.fn(() => 'blob:preview')
+    URL.revokeObjectURL = vi.fn()
+  })
+
+  afterEach(() => {
+    vi.restoreAllMocks()
+    // @ts-expect-error jsdom has no matchMedia of its own to put back.
+    delete window.matchMedia
+  })
+
+  it('offers the photo library, the camera or a document before opening a picker', async () => {
+    const user = userEvent.setup()
+    setTouchScreen(true)
+    renderForm()
+
+    await user.click(screen.getByRole('button', { name: 'Attach files' }))
+
+    const sheet = screen.getByRole('dialog', { name: 'Attach' })
+    expect(within(sheet).getAllByRole('button').map((b) => b.textContent)).toEqual([
+      'Photo libraryJPG, PNG, GIF or WebP',
+      'Take a photoOpens the camera',
+      'Choose a filePDF documents',
+    ])
+    expect(sheet).toHaveTextContent('Up to 10 files per message · 15 MB each')
+    expect(opened).toHaveLength(0)
+  })
+
+  it('opens the camera for a photo, and closes the sheet', async () => {
+    const user = userEvent.setup()
+    setTouchScreen(true)
+    renderForm()
+
+    await user.click(screen.getByRole('button', { name: 'Attach files' }))
+    await user.click(screen.getByRole('button', { name: /Take a photo/ }))
+
+    expect(opened).toHaveLength(1)
+    expect(opened[0]).toHaveAttribute('capture', 'environment')
+    expect(opened[0].accept).toBe('image/jpeg,image/png,image/gif,image/webp')
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+  })
+
+  it('limits each way in to what it says, and whatever is picked joins the tray', async () => {
+    const user = userEvent.setup()
+    setTouchScreen(true)
+    vi.mocked(uploadAttachment).mockReturnValue(new Promise(() => {}))
+    renderForm()
+
+    await user.click(screen.getByRole('button', { name: 'Attach files' }))
+    await user.click(screen.getByRole('button', { name: /Choose a file/ }))
+    const documents = screen.getByTestId('attach-documents') as HTMLInputElement
+    expect(opened).toEqual([documents])
+    expect(documents.accept).toBe('application/pdf')
+    expect(documents.multiple).toBe(true)
+
+    fireEvent.change(documents, { target: { files: [new File(['x'], 'notes.pdf', { type: 'application/pdf' })] } })
+
+    expect(uploadAttachment).toHaveBeenCalledTimes(1)
+    expect(screen.getByRole('list', { name: 'Attachments' })).toHaveTextContent('notes.pdf')
+  })
+
+  it('opens the file picker straight away with a mouse', async () => {
+    const user = userEvent.setup()
+    setTouchScreen(false)
+    const { container } = renderForm()
+
+    await user.click(screen.getByRole('button', { name: 'Attach files' }))
+
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+    expect(opened).toEqual([container.querySelector('input[type=file]')])
+  })
+
+  it('asks the phone keyboard for a Send key', () => {
+    renderForm()
+
+    expect(textbox()).toHaveAttribute('enterkeyhint', 'send')
   })
 })
