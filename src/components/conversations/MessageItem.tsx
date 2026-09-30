@@ -4,7 +4,7 @@ import toast from 'react-hot-toast'
 import { format } from 'date-fns'
 import type { MessageType } from '../../utils/baseTypes'
 import { deleteMessage } from '../../services/api/messages'
-import { markMessageDeletedInCache } from '../../utils/messagePages'
+import { markMessageDeletedInCache, messagesKey } from '../../utils/messagePages'
 import { copyText } from '../../utils/clipboard'
 import useAuth from '../../hooks/useAuth'
 import useMessageReactions from '../../hooks/useMessageReactions'
@@ -31,6 +31,8 @@ type MessageItemProps = {
   /** The viewer's newest message carries its delivery state
    * (Study-Read-State: "read state lives on your last message"). */
   showReadState?: boolean
+  /** Follows the reply's quote to the message it quotes. */
+  onJumpTo?: (messageId: string) => void
 }
 
 /** Which popover is open, and — for the reaction picker — which button
@@ -44,6 +46,7 @@ const MessageItem = ({
   grouped = false,
   readOnly = false,
   showReadState = false,
+  onJumpTo,
 }: MessageItemProps) => {
   const { user } = useAuth()
   const queryClient = useQueryClient()
@@ -78,7 +81,7 @@ const MessageItem = ({
   // Attachment links are signed for 30 minutes when the page of messages is
   // fetched. Refetching the conversation is what re-signs them.
   const refreshLinks = () => {
-    void queryClient.invalidateQueries({ queryKey: ['messages', message.conversation_id] })
+    void queryClient.invalidateQueries({ queryKey: messagesKey(message.conversation_id) })
   }
 
   const { mutate: removeMessage, isPending: isDeleting } = useMutation({
@@ -160,7 +163,7 @@ const MessageItem = ({
     .join(' ')
 
   return (
-    <li className={rowClass}>
+    <li className={rowClass} data-message-id={message.id}>
       <div className='msg-row__avatar-slot'>
         {!isOwn && !grouped && (
           <Avatar name={message.sender?.name ?? '?'} src={message.sender?.avatar_url} size='xs' />
@@ -179,7 +182,11 @@ const MessageItem = ({
           )}
 
           {message.reply_to && !isDeleted && (
-            <ReplyQuote replyTo={message.reply_to} viewerId={user?.id} />
+            <ReplyQuote
+              replyTo={message.reply_to}
+              viewerId={user?.id}
+              onJump={onJumpTo}
+            />
           )}
 
           {/* Media first, the text beneath it as its caption
@@ -336,15 +343,18 @@ const MessageItem = ({
 
 /**
  * The message a reply quotes, inside the reply's own bubble. Copes with a
- * deleted original and with one that was only attachments. Not tappable
- * yet: jumping to the original needs a message-context endpoint (Phase 2).
+ * deleted original and with one that was only attachments. Following it
+ * jumps to the original (Study-Reply "Jump to original") — a deleted one
+ * too, which is still there as its placeholder.
  */
 const ReplyQuote = ({
   replyTo,
   viewerId,
+  onJump,
 }: {
   replyTo: NonNullable<MessageType['reply_to']>
   viewerId: string | undefined
+  onJump?: (messageId: string) => void
 }) => {
   const author =
     replyTo.sender?.id === viewerId ? 'You' : (replyTo.sender?.name ?? 'Unknown')
@@ -364,14 +374,27 @@ const ReplyQuote = ({
     )
   }
 
-  return (
-    <span className='bubble__quote'>
+  const content = (
+    <>
       <span className='bubble__quote-author'>
         <Icon name='reply' size={12} />
         {author}
       </span>
       {text && <span className='bubble__quote-text'>{text}</span>}
-    </span>
+    </>
+  )
+
+  return onJump ? (
+    <button
+      type='button'
+      className='bubble__quote'
+      aria-label={`Jump to original message from ${author === 'You' ? 'you' : author}`}
+      onClick={() => onJump(replyTo.id)}
+    >
+      {content}
+    </button>
+  ) : (
+    <span className='bubble__quote'>{content}</span>
   )
 }
 

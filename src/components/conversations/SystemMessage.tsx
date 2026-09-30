@@ -6,7 +6,7 @@ import useAuth from '../../hooks/useAuth'
 const SystemMessage = ({ message }: { message: MessageType }) => {
   const { user } = useAuth()
   return (
-    <li className='system-message'>
+    <li className='system-message' data-message-id={message.id}>
       <span className='system-message__text'>{systemMessageText(message, user?.id)}</span>
     </li>
   )

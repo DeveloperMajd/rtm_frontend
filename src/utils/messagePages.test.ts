@@ -3,6 +3,7 @@ import { QueryClient } from '@tanstack/react-query'
 import {
   appendMessageToCache,
   flattenMessagePages,
+  isLiveWindow,
   markMessageDeletedInCache,
   replaceMessageInCache,
   type MessagesPage,
@@ -208,5 +209,81 @@ describe('replaceMessageInCache / markMessageDeletedInCache', () => {
     replaceMessageInCache(client, 'c1', msg('id-99'))
 
     expect(client.getQueryData(key)).toBe(before)
+  })
+})
+
+describe('windows of history (jumping to a message)', () => {
+  const latestKey = ['messages', 'c1', 'latest']
+  const jumpKey = ['messages', 'c1', 'id-02']
+
+  /** A page that stops short of the newest message. */
+  const detached = (data: MessageType[]): MessagesPage => ({
+    data,
+    meta: { has_more: false, next_before_id: null, next_after_id: data[data.length - 1]?.id ?? null },
+  })
+
+  const seed = (client: QueryClient, key: unknown[], pages: MessagesPage[]) =>
+    client.setQueryData(key, { pages, pageParams: pages.map(() => null) })
+
+  const ids = (client: QueryClient, key: unknown[]) =>
+    flattenMessagePages(client.getQueryData<{ pages: MessagesPage[] }>(key)?.pages ?? []).map((m) => m.id)
+
+  it('tells a window that reaches the newest message from one that stops short', () => {
+    expect(isLiveWindow({ pages: [page([msg('id-01')])], pageParams: [null] })).toBe(true)
+    expect(isLiveWindow({ pages: [detached([msg('id-01')])], pageParams: [null] })).toBe(false)
+  })
+
+  // Appended there, a live message would sit straight under an older one
+  // with everything in between missing, and nothing would say so.
+  it('adds a live message only to windows that reach the newest message', () => {
+    const client = new QueryClient()
+    seed(client, latestKey, [page([msg('id-05')])])
+    seed(client, jumpKey, [detached([msg('id-01'), msg('id-02'), msg('id-03')])])
+
+    appendMessageToCache(client, 'c1', msg('id-06'))
+
+    expect(ids(client, latestKey)).toEqual(['id-05', 'id-06'])
+    expect(ids(client, jumpKey)).toEqual(['id-01', 'id-02', 'id-03'])
+  })
+
+  it('still reports the conversation as cached when only a window that stops short is', () => {
+    const client = new QueryClient()
+    seed(client, jumpKey, [detached([msg('id-02')])])
+
+    expect(appendMessageToCache(client, 'c1', msg('id-06'))).toBe(true)
+  })
+
+  it('a window that has caught up takes live messages like any other', () => {
+    const client = new QueryClient()
+    seed(client, jumpKey, [page([msg('id-04')]), detached([msg('id-02')])])
+
+    appendMessageToCache(client, 'c1', msg('id-05'))
+
+    expect(ids(client, jumpKey)).toEqual(['id-02', 'id-04', 'id-05'])
+  })
+
+  it('edits and deletes reach every window that holds the message', () => {
+    const client = new QueryClient()
+    seed(client, latestKey, [page([msg('id-02', 'before'), msg('id-03')])])
+    seed(client, jumpKey, [detached([msg('id-01'), msg('id-02', 'before')])])
+
+    replaceMessageInCache(client, 'c1', msg('id-02', 'after'))
+
+    const body = (key: unknown[]) =>
+      client.getQueryData<{ pages: MessagesPage[] }>(key)?.pages.flatMap((p) => p.data).find((m) => m.id === 'id-02')?.body
+    expect(body(latestKey)).toBe('after')
+    expect(body(jumpKey)).toBe('after')
+  })
+
+  it('leaves other conversations and search results alone', () => {
+    const client = new QueryClient()
+    seed(client, ['messages', 'c2', 'latest'], [page([msg('id-02', 'other')])])
+    client.setQueryData(['messages', 'search', 'hello'], [msg('id-02', 'hit')])
+
+    replaceMessageInCache(client, 'c1', msg('id-02', 'after'))
+    appendMessageToCache(client, 'c1', msg('id-09'))
+
+    expect(ids(client, ['messages', 'c2', 'latest'])).toEqual(['id-02'])
+    expect(client.getQueryData(['messages', 'search', 'hello'])).toEqual([msg('id-02', 'hit')])
   })
 })

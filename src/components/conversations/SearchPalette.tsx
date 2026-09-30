@@ -38,9 +38,9 @@ type Option =
  * characters it searches every conversation, results grouped by
  * conversation with the matching words marked.
  *
- * Opening a result opens its conversation — jumping to the message itself
- * needs a message-context endpoint (Phase 2). The "This conversation" scope
- * is shown, disabled and tagged, for the same reason.
+ * Opening a result opens its conversation at that message, highlighted
+ * (see ConversationRoom's `?message=`). The "This conversation" scope is
+ * shown, disabled and tagged: it needs a conversation-scoped search API.
  *
  * A combobox: focus stays in the field while ↑/↓ move through the options
  * (aria-activedescendant) and ↵ opens one. Modal, with Esc to close.
@@ -118,9 +118,13 @@ const PaletteDialog = ({ onClose, conversations }: SearchPaletteProps) => {
     document.getElementById(`${listboxId}-option-${activeIndex}`)?.scrollIntoView?.({ block: 'nearest' })
   }, [activeIndex, listboxId])
 
-  const openConversation = (conversationId: string) => {
+  const openConversation = (conversationId: string, messageId?: string) => {
     onClose()
-    navigate(`/conversations/${conversationId}`)
+    navigate(
+      messageId
+        ? `/conversations/${conversationId}?message=${encodeURIComponent(messageId)}`
+        : `/conversations/${conversationId}`,
+    )
   }
 
   const activate = (option: Option | undefined) => {
@@ -134,7 +138,7 @@ const PaletteDialog = ({ onClose, conversations }: SearchPaletteProps) => {
     } else {
       // Only searches that led somewhere are worth offering again.
       setRecent(rememberSearch(debouncedQuery))
-      openConversation(option.result.conversation_id)
+      openConversation(option.result.conversation_id, option.result.id)
     }
   }
 

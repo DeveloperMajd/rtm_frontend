@@ -341,3 +341,85 @@ describe('useStickToBottom — the list getting shorter', () => {
     expect(container.scrollTop).toBe(300)
   })
 })
+
+describe('useStickToBottom — a window opened around a jump', () => {
+  type Props = { lastMessageId: string | undefined; detached: boolean }
+
+  const renderJumpWindow = (container: HTMLElement, initialProps: Props) =>
+    renderHook(
+      ({ lastMessageId, detached }: Props) =>
+        useStickToBottom({
+          containerRef: { current: container },
+          lastMessageId,
+          isOwnLastMessage: false,
+          unreadBoundaryId: null,
+          openAtId: 'm5',
+          detached,
+        }),
+      { initialProps },
+    )
+
+  it('opens with the message it was opened for in the middle of the view', () => {
+    const container = makeContainer({ scrollHeight: 3000, clientHeight: 600 })
+    const row = document.createElement('li')
+    row.dataset.messageId = 'm5'
+    Object.defineProperty(row, 'offsetHeight', { value: 40 })
+    row.getBoundingClientRect = () => ({ top: 900 }) as DOMRect
+    container.appendChild(row)
+
+    renderJumpWindow(container, { lastMessageId: 'm9', detached: true })
+
+    // 900 down the list, less half of what's left of the view around it.
+    expect(container.scrollTop).toBe(900 - (600 - 40) / 2)
+    expect(container.dataset.positioned).toBe('')
+  })
+
+  it('doesn’t wait for an unread divider it will never have', () => {
+    const container = makeContainer({ scrollHeight: 3000, clientHeight: 600 })
+
+    renderHook(() =>
+      useStickToBottom({
+        containerRef: { current: container },
+        lastMessageId: 'm9',
+        isOwnLastMessage: false,
+        unreadBoundaryId: undefined,
+        openAtId: 'm5',
+      }),
+    )
+
+    expect(container.dataset.positioned).toBe('')
+  })
+
+  // Reading forwards is what the viewer scrolled down to do: sending them
+  // to the bottom of what just loaded would skip all of it.
+  it('leaves the view alone while newer history loads in below, and counts none of it as new', () => {
+    const container = makeContainer({ scrollHeight: 1000, clientHeight: 600 })
+    const { result, rerender } = renderJumpWindow(container, { lastMessageId: 'm6', detached: true })
+    container.scrollTop = 380 // near the bottom, which is what asked for more
+    container.dispatchEvent(new Event('scroll'))
+
+    Object.defineProperty(container, 'scrollHeight', { value: 2000, configurable: true })
+    rerender({ lastMessageId: 'm8', detached: true })
+    expect(container.scrollTop).toBe(380)
+
+    // The last page — the one that reaches the newest message — too.
+    Object.defineProperty(container, 'scrollHeight', { value: 3000, configurable: true })
+    rerender({ lastMessageId: 'm9', detached: false })
+    expect(container.scrollTop).toBe(380)
+    expect(result.current.newCount).toBe(0)
+  })
+
+  it('treats messages after it has caught up as arrivals, counted while the viewer reads above them', () => {
+    const container = makeContainer({ scrollHeight: 1000, clientHeight: 600 })
+    const { result, rerender } = renderJumpWindow(container, { lastMessageId: 'm6', detached: true })
+    container.scrollTop = 380
+    container.dispatchEvent(new Event('scroll'))
+
+    Object.defineProperty(container, 'scrollHeight', { value: 3000, configurable: true })
+    rerender({ lastMessageId: 'm9', detached: false })
+
+    rerender({ lastMessageId: 'm10', detached: false })
+    expect(container.scrollTop).toBe(380)
+    expect(result.current.newCount).toBe(1)
+  })
+})

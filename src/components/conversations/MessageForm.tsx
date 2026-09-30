@@ -4,7 +4,7 @@ import toast from 'react-hot-toast'
 import { isAxiosError } from 'axios'
 import { sendMessage, updateMessage, uploadAttachment } from '../../services/api/messages'
 import { postTyping } from '../../services/api/conversations'
-import { appendMessageToCache, replaceMessageInCache } from '../../utils/messagePages'
+import { appendMessageToCache, messagesKey, replaceMessageInCache } from '../../utils/messagePages'
 import { loadDraft, saveDraft } from '../../utils/drafts'
 import {
   ACCEPTED_SUMMARY,
@@ -37,6 +37,8 @@ type MessageFormProps = {
   editing: MessageType | null
   /** Leave edit mode — after saving, or on cancel. */
   onFinishEdit: () => void
+  /** A message has been sent (after it's in the cache). */
+  onSent?: () => void
   ref?: Ref<MessageFormHandle>
 }
 
@@ -57,6 +59,7 @@ const MessageForm = ({
   onCancelReply,
   editing,
   onFinishEdit,
+  onSent,
   ref,
 }: MessageFormProps) => {
   const { user } = useAuth()
@@ -155,8 +158,9 @@ const MessageForm = ({
       // arrives later and de-duplicates against it.
       if (!appendMessageToCache(queryClient, conversationId, created)) {
         // Nothing cached to patch (the conversation hasn't loaded here yet).
-        void queryClient.invalidateQueries({ queryKey: ['messages', conversationId] })
+        void queryClient.invalidateQueries({ queryKey: messagesKey(conversationId) })
       }
+      onSent?.()
     },
     // 429: the per-route throttle. Its Retry-After can't be read from here
     // (CORS doesn't expose it), so no countdown — just the reason.

@@ -107,6 +107,53 @@
   }
 }
 
+.message-list__loading-newer {
+  display: flex;
+  justify-content: center;
+  padding: 0.75rem 0 0.5rem;
+}
+
+// The same row, where a jump's window stops short of the newest messages.
+.message-list__newer-failed {
+  margin: 0.75rem auto 0;
+}
+
+// DS-Signal-Motion "Jump highlight": the message a jump lands on wears an
+// accent halo for 1.6 s, fading out (useJumpHighlight sets data-flash for
+// that long). Under reduced motion the halo simply stays for the same time.
+.msg-row[data-flash] .bubble {
+  animation: jump-flash 1.6s $ease-out 1;
+}
+
+// Focus lands on the row itself; its ring is drawn inside it, as the list
+// clips anything outside.
+.msg-row:focus-visible {
+  outline-offset: -2px;
+}
+
+@keyframes jump-flash {
+  0% {
+    box-shadow:
+      0 0 0 2px var(--c-accent),
+      0 0 0 8px var(--c-accent-soft-2);
+  }
+
+  100% {
+    box-shadow:
+      0 0 0 2px transparent,
+      0 0 0 8px transparent;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .msg-row[data-flash] .bubble {
+    animation: none;
+    box-shadow:
+      0 0 0 2px var(--c-accent),
+      0 0 0 7px var(--c-accent-soft);
+  }
+}
+
 // "N new messages" — offers to jump back down after a message arrives
 // while the viewer is reading older history (see useStickToBottom).
 // Anchored to `.room__stage`, which wraps the scroller without scrolling
@@ -279,6 +326,23 @@
     background-color: color-mix(in oklab, currentColor 9%, transparent);
     font-size: var(--fs-caption);
     line-height: var(--lh-caption);
+  }
+
+  // Following the quote jumps to the original (Study-Reply): a button, as
+  // wide as the bubble, that darkens a touch under the pointer.
+  button#{&}__quote {
+    width: 100%;
+    min-width: min(11rem, 100%);
+    border: 0;
+    color: inherit;
+    font-family: inherit;
+    text-align: left;
+    cursor: pointer;
+    transition: background-color $dur-fast $ease-out;
+
+    &:hover {
+      background-color: color-mix(in oklab, currentColor 14%, transparent);
+    }
   }
 
   &__quote-author {

@@ -6,7 +6,9 @@ import { resolveUnreadBoundary } from '../../utils/unreadDivider'
 import type { ReadStateSnapshot } from '../../hooks/useReadStateSnapshot'
 import useAuth from '../../hooks/useAuth'
 import { useAutoLoadOlder } from '../../hooks/useAutoLoadOlder'
+import { useAutoLoadNewer } from '../../hooks/useAutoLoadNewer'
 import { useStickToBottom } from '../../hooks/useStickToBottom'
+import { useJumpHighlight, type JumpTarget } from '../../hooks/useJumpHighlight'
 import { Link } from 'react-router-dom'
 import Button from '../ui/Button'
 import EmptyState from '../ui/EmptyState'
@@ -44,6 +46,24 @@ type MessagesProps = {
   greet?: string
   /** Puts the caret in the composer, from the empty conversation. */
   onStartWriting?: () => void
+  /**
+   * The list is a window opened around this message (a jump to something
+   * that wasn't loaded — see useMessages's anchor): it opens centred on it,
+   * with no unread divider, instead of at the newest message.
+   */
+  anchorId?: string
+  /** A message to bring into view and highlight (see useJumpHighlight). */
+  jump?: JumpTarget | null
+  /** Follows a reply's quote to the message it quotes. */
+  onJumpTo?: (messageId: string) => void
+  /** The window stops short of the newest message (see useMessages). */
+  hasNewer?: boolean
+  isLoadingNewer?: boolean
+  /** Reading newer history failed (what's loaded is still good). */
+  isNewerError?: boolean
+  onLoadNewer?: () => void
+  /** Leaves a jump's window for the newest messages. */
+  onJumpToLatest?: () => void
 }
 
 const GROUP_WINDOW_MS = 5 * 60 * 1000
@@ -74,6 +94,14 @@ const Messages = ({
   onRetry,
   greet,
   onStartWriting,
+  anchorId,
+  jump,
+  onJumpTo,
+  hasNewer = false,
+  isLoadingNewer = false,
+  isNewerError = false,
+  onLoadNewer = noop,
+  onJumpToLatest = noop,
 }: MessagesProps) => {
   const { user } = useAuth()
   const containerRef = useRef<HTMLDivElement>(null)
@@ -103,7 +131,14 @@ const Messages = ({
   // Resolving against that window puts the boundary in the wrong place and
   // then freezes it there, so every message still in flight piles up below
   // a divider that undercounts them.
-  const [unreadBoundaryId, setUnreadBoundaryId] = useState<string | null | undefined>(undefined)
+  //
+  // A window opened around a jump has no divider: it isn't where reading
+  // was left off, and paging back through it to find out would be a detour
+  // from the message the viewer asked for.
+  const isAnchored = anchorId !== undefined
+  const [unreadBoundaryId, setUnreadBoundaryId] = useState<string | null | undefined>(
+    isAnchored ? null : undefined,
+  )
   let needsMoreForBoundary = false
   if (isReady && unreadBoundaryId === undefined && readState !== undefined) {
     const resolution = resolveUnreadBoundary(
@@ -126,7 +161,9 @@ const Messages = ({
     // where it opens: until then the list sits at the top, which looked
     // like the viewer reaching for older history — the page that loaded
     // then put the view back up there, undoing the scroll to the bottom.
-    // Paging to find the unread divider (forceLoad) is the exception.
+    // Paging to find the unread divider (forceLoad) is the exception. (A
+    // jump's window is placed in the same commit its messages first render,
+    // before this looks at the scroll position.)
     hasMore: hasMore && !isOlderError && (unreadBoundaryId !== undefined || needsMoreForBoundary),
     isLoadingMore,
     isRefreshing,
@@ -135,12 +172,28 @@ const Messages = ({
     forceLoad: needsMoreForBoundary,
   })
 
+  useAutoLoadNewer({
+    containerRef,
+    hasNewer: hasNewer && !isNewerError,
+    isLoadingNewer,
+    isRefreshing,
+    onLoadNewer,
+  })
+
   const { newCount, scrollToBottom } = useStickToBottom({
     containerRef,
     lastMessageId: lastMessage?.id,
     isOwnLastMessage: lastMessage?.sender?.id === user?.id,
     unreadBoundaryId,
     unreadDividerRef,
+    openAtId: anchorId,
+    detached: hasNewer,
+  })
+
+  useJumpHighlight({
+    containerRef,
+    jump,
+    isTargetLoaded: jump ? messages.some((m) => m.id === jump.id) : false,
   })
 
   // Announce new incoming messages for screen readers. This runs during
@@ -150,14 +203,17 @@ const Messages = ({
   // announcement before paint, instead of committing once, then again.
   const [announcedId, setAnnouncedId] = useState<string | null>(null)
   const [announcement, setAnnouncement] = useState('')
+  // A jump's window gains new last messages by reading newer history in,
+  // not by messages arriving — tracked as in useStickToBottom.
+  const [announcedWhileDetached, setAnnouncedWhileDetached] = useState(hasNewer)
   if (messages.length > 0) {
     const last = messages[messages.length - 1]
     if (last.id !== announcedId) {
       setAnnouncedId(last.id)
-      // Skip the very first render (nothing to compare against yet) and
-      // messages the viewer just sent themselves — the composer already
-      // gives them feedback.
-      if (announcedId !== null) {
+      // Skip the very first render (nothing to compare against yet), pages
+      // of history, and messages the viewer just sent themselves — the
+      // composer already gives them feedback.
+      if (announcedId !== null && !announcedWhileDetached) {
         if (last.type === 'system') {
           setAnnouncement(systemMessageText(last, user?.id))
         } else if (last.sender?.id !== user?.id) {
@@ -165,6 +221,9 @@ const Messages = ({
         }
       }
     }
+  }
+  if (announcedWhileDetached !== hasNewer) {
+    setAnnouncedWhileDetached(hasNewer)
   }
 
   // The container div is always rendered — never swapped out for a bare
@@ -267,6 +326,7 @@ const Messages = ({
                     message={message}
                     onReply={onReply}
                     onEdit={onEdit}
+                    onJumpTo={onJumpTo}
                     showReadState={message.id === lastOwnMessageId}
                     grouped={
                       !showDay &&
@@ -298,6 +358,22 @@ const Messages = ({
               )
             })}
           </ul>
+
+          {isLoadingNewer && (
+            <div className='message-list__loading-newer'>
+              <Spinner size={22} />
+            </div>
+          )}
+
+          {isNewerError && !isLoadingNewer && (
+            <div className='message-list__older-failed message-list__newer-failed' role='alert'>
+              <Icon name='alertCircle' size={14} />
+              Couldn’t load newer messages.
+              <button type='button' onClick={onLoadNewer}>
+                Retry
+              </button>
+            </div>
+          )}
         </>
       )}
       </div>
@@ -318,7 +394,14 @@ const Messages = ({
           while reading back through history, and missing at the moment it
           was needed. Anchoring it to the non-scrolling stage instead keeps
           it over the viewport where it belongs. */}
-      {newCount > 0 && (
+      {/* A jump's window stops short of the newest message; the way back
+          there is a fresh read of it, not a scroll. */}
+      {hasNewer && messages.length > 0 ? (
+        <button type='button' className='new-messages-pill' onClick={onJumpToLatest}>
+          Jump to latest
+          <Icon name='arrowDown' size={14} />
+        </button>
+      ) : newCount > 0 && (
         <button type='button' className='new-messages-pill' onClick={scrollToBottom}>
           {newCount} new message{newCount === 1 ? '' : 's'}
           <Icon name='arrowDown' size={14} />

@@ -40,7 +40,12 @@ board by board for desktop, tablet and phone.
   - An unread divider where you left off, and older history that loads as
     you scroll up.
 - **Search**: a ⌘K / Ctrl+K palette with recent searches, results grouped
-  by conversation and the matching words marked.
+  by conversation and the matching words marked. A result opens at the
+  message itself.
+- **Jump to a message**: a reply's quote and a search result both jump to
+  the message, loading the history around it if it isn't on screen, with a
+  brief highlight. From there, history loads both ways as you scroll, and
+  "Jump to latest" goes back to the newest messages.
 - **Groups**: an info panel with members and admin roles. Members who leave
   or are removed keep their history, read-only and frozen at that point.
 - **Account**: sign-in, registration with a live password-rules checklist,
@@ -77,7 +82,7 @@ Some controls in the design need backend work first. They appear
 **disabled and tagged** "Soon" or "Needs API", never faked:
 - read receipts beyond "Sent";
 - pin, mute and archive;
-- search within one conversation, and jumping to a message;
+- search within one conversation;
 - message info, copy link and saved messages;
 - shared media;
 - notification and privacy settings.

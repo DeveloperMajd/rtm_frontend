@@ -3,7 +3,48 @@ import type { MessageType } from './baseTypes'
 
 export type MessagesPage = {
   data: MessageType[]
-  meta: { has_more: boolean; next_before_id: string | null }
+  meta: {
+    /** There is older history beyond this page. */
+    has_more: boolean
+    /** Where to continue reading backwards from (null when has_more is false). */
+    next_before_id: string | null
+    /**
+     * Where to continue reading forwards from, when this page doesn't reach
+     * the newest message — only ever set on a window opened somewhere in the
+     * middle of the history (a jump to a message). Absent or null on the
+     * newest page, which is what makes a window "live".
+     */
+    next_after_id?: string | null
+  }
+}
+
+/**
+ * One cached window of a conversation's history. The newest page comes
+ * first, as fetchNextPage appends older pages behind it and fetchPreviousPage
+ * puts newer ones in front.
+ *
+ * A conversation can have more than one window cached at once: the one that
+ * ends at its newest message, and one opened around a message the viewer
+ * jumped to. Each has its own query key under ['messages', conversationId].
+ */
+export type MessagesWindow = InfiniteData<MessagesPage>
+
+/** Every cached window of one conversation's history. */
+export const messagesKey = (conversationId: string) => ['messages', conversationId] as const
+
+/**
+ * Does this window reach the newest message? Only such a window may take
+ * live messages: appended to one that stops short, a message would sit
+ * directly under an older one with everything in between missing, and
+ * nothing would say so.
+ */
+export function isLiveWindow(window: MessagesWindow): boolean {
+  return !window.pages[0]?.meta.next_after_id
+}
+
+/** Skips cache entries under the prefix that aren't windows of history. */
+function isWindow(value: unknown): value is MessagesWindow {
+  return typeof value === 'object' && value !== null && Array.isArray((value as MessagesWindow).pages)
 }
 
 /**
@@ -39,49 +80,51 @@ export function flattenMessagePages(pages: MessagesPage[]): MessageType[] {
 }
 
 /**
- * Appends a message to the cached newest page, if it isn't already held.
+ * Appends a message to the newest page of every live window of the
+ * conversation (see isLiveWindow), if it isn't already held.
  *
  * Shared by the live Echo handler and the composer's own send, so a message
  * the viewer just sent shows up the moment the server confirms it rather
  * than waiting for the round trip back through the queue and Reverb.
  *
- * Returns false only when there's no cache to patch (nothing has loaded this
- * conversation yet), so the caller can fall back to a fetch.
+ * Returns false only when nothing of the conversation is cached at all (it
+ * hasn't loaded here yet), so the caller can fall back to a fetch. A window
+ * that stops short of the newest message is left alone but still counts as
+ * cached: it catches up by reading forwards, and fetching it again wouldn't
+ * put the message in it either.
  */
 export function appendMessageToCache(
   queryClient: QueryClient,
   conversationId: string,
   message: MessageType,
 ): boolean {
-  let applied = false
+  let cached = false
 
-  queryClient.setQueryData<InfiniteData<MessagesPage>>(
-    ['messages', conversationId],
-    (old) => {
-      if (!old || old.pages.length === 0) return old
+  queryClient.setQueriesData<MessagesWindow>({ queryKey: messagesKey(conversationId) }, (old) => {
+    if (!isWindow(old) || old.pages.length === 0) return old
 
-      applied = true
+    cached = true
+    if (!isLiveWindow(old)) return old
 
-      // Every page is searched, not just the newest: after offset drift the
-      // same message can already be sitting on an older page.
-      if (old.pages.some((page) => page.data.some((m) => m.id === message.id))) {
-        return old
-      }
+    // Every page is searched, not just the newest: after offset drift the
+    // same message can already be sitting on an older page.
+    if (old.pages.some((page) => page.data.some((m) => m.id === message.id))) {
+      return old
+    }
 
-      const [latest, ...older] = old.pages
-      return { ...old, pages: [{ ...latest, data: [...latest.data, message] }, ...older] }
-    },
-  )
+    const [latest, ...older] = old.pages
+    return { ...old, pages: [{ ...latest, data: [...latest.data, message] }, ...older] }
+  })
 
-  return applied
+  return cached
 }
 
 /**
  * Rewrites one message wherever it's loaded, and brings along the snapshot
  * any reply holds of it.
  *
- * An edit or a delete can land on a message from any loaded page, so every
- * page is searched. A reply carries its own copy of the message it quotes;
+ * An edit or a delete can land on a message from any loaded page, in any
+ * cached window, so every page of every window is searched. A reply carries its own copy of the message it quotes;
  * without refreshing that copy, deleting a message would leave its text
  * readable in every reply to it.
  */
@@ -91,10 +134,10 @@ export function patchMessageInCache(
   messageId: string,
   patch: (message: MessageType) => MessageType,
 ): void {
-  queryClient.setQueryData<InfiniteData<MessagesPage>>(
-    ['messages', conversationId],
+  queryClient.setQueriesData<MessagesWindow>(
+    { queryKey: messagesKey(conversationId) },
     (old) => {
-      if (!old) return old
+      if (!isWindow(old)) return old
 
       let patched: MessageType | undefined
       const pages = old.pages.map((page) => ({

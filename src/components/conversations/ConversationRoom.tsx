@@ -1,5 +1,7 @@
-import { useRef, useState, type DragEvent } from 'react'
-import { Link, useNavigate, useParams } from 'react-router-dom'
+import { useEffect, useRef, useState, type DragEvent } from 'react'
+import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
+import toast from 'react-hot-toast'
+import { isAxiosError } from 'axios'
 import MessageForm, { type MessageFormHandle } from './MessageForm'
 import { ACCEPTED_SUMMARY } from '../../utils/attachments'
 import Messages from './Messages'
@@ -19,13 +21,31 @@ import OnlineStatus from '../ui/OnlineStatus'
 import Tooltip from '../ui/Tooltip'
 import Badge from '../ui/Badge'
 import EmptyState from '../ui/EmptyState'
+import ActionToast from '../ui/ActionToast'
+import type { JumpTarget } from '../../hooks/useJumpHighlight'
 import { format } from 'date-fns'
 import { unreadTotal } from '../../utils/conversations'
 import type { MessageType } from '../../utils/baseTypes'
 
+/** What a jump to a message that couldn't be opened says (see below). */
+type JumpFailure = { messageId: string; gone: boolean }
+
 const ConversationRoomView = () => {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
+  const [searchParams, setSearchParams] = useSearchParams()
+  // `?message=` asks for a jump to one message (a search result, a link).
+  // Opened with one, the room starts from a window around that message
+  // straight away, rather than loading the newest messages first only to
+  // swap them out.
+  const requestedMessageId = searchParams.get('message')
+  const [anchor, setAnchor] = useState<string | null>(requestedMessageId)
+  const [jump, setJump] = useState<JumpTarget | null>(null)
+  // After any jump, going back to the newest messages lands at the bottom:
+  // the unread divider marked where reading had stopped when the room
+  // opened, and the viewer has been elsewhere since.
+  const [hasJumped, setHasJumped] = useState(false)
+  const [jumpFailure, setJumpFailure] = useState<JumpFailure | null>(null)
   const { conversations, isReady: areConversationsReady } = useConversations()
   const { user } = useAuth()
   const [isInfoOpen, setIsInfoOpen] = useState(false)
@@ -114,7 +134,11 @@ const ConversationRoomView = () => {
     loadOlder,
     isReady: areMessagesReady,
     isRefreshing: areMessagesRefreshing,
-  } = useMessages(id!, hasLeft, { deferUntilReady: !areConversationsReady, enabled: !isUnavailable })
+    hasNewer,
+    isLoadingNewer,
+    isNewerError,
+    loadNewer,
+  } = useMessages(id!, hasLeft, { deferUntilReady: !areConversationsReady, enabled: !isUnavailable, anchor })
   const typingText = useTypingIndicator(id!, !hasLeft && !isUnavailable)
   const readState = useReadStateSnapshot(
     id,
@@ -122,6 +146,81 @@ const ConversationRoomView = () => {
     conversation?.unread_count,
     conversation?.last_read_message_id,
   )
+
+  // --- Jumping to a message (a reply's original, a search result, a link) ---
+  //
+  // One already on screen is scrolled to where it is. Anything else opens a
+  // window of history around it (see useMessages's anchor), which reads its
+  // way back to the newest messages as the viewer scrolls down, or jumps
+  // straight there from the "Jump to latest" pill.
+  const jumpTo = (messageId: string) => {
+    setJump((current) => ({ id: messageId, seq: (current?.seq ?? 0) + 1 }))
+    setHasJumped(true)
+    if (!messages.some((m) => m.id === messageId)) {
+      setAnchor(messageId)
+    }
+  }
+
+  const jumpToLatest = () => {
+    setJump(null)
+    setAnchor(null)
+  }
+
+  // Each new `?message=` is taken up once, as it appears. Adjusted during
+  // render (React's pattern for state that follows other state), so a room
+  // opened with one never renders a frame without the jump in hand.
+  const [takenRequest, setTakenRequest] = useState<string | null>(null)
+  if (requestedMessageId !== takenRequest) {
+    setTakenRequest(requestedMessageId)
+    if (requestedMessageId) jumpTo(requestedMessageId)
+  }
+
+  // …and then dropped from the address, so reloading or coming back to the
+  // room doesn't jump again, and the same result can be opened twice.
+  useEffect(() => {
+    if (!requestedMessageId) return
+    setSearchParams(
+      (params) => {
+        params.delete('message')
+        return params
+      },
+      { replace: true },
+    )
+  }, [requestedMessageId, setSearchParams])
+
+  // A window that couldn't be opened (the message is gone, outside the
+  // history the viewer can see, or the request failed) goes back to the
+  // newest messages, and a toast says why.
+  if (anchor !== null && error && messages.length === 0) {
+    setJumpFailure({ messageId: anchor, gone: isAxiosError(error) && [403, 404].includes(error.response?.status ?? 0) })
+    setAnchor(null)
+    setJump(null)
+  }
+
+  useEffect(() => {
+    if (!jumpFailure) return
+    if (jumpFailure.gone) {
+      toast.error('That message isn’t available. It may be outside the history you can see.', {
+        id: 'jump-failed',
+      })
+    } else {
+      toast.error(
+        (t) => (
+          <ActionToast
+            title='Couldn’t open that message'
+            body='Something went wrong. Try again.'
+            actionLabel='Retry'
+            onAction={() => {
+              toast.dismiss(t.id)
+              setJump((current) => ({ id: jumpFailure.messageId, seq: (current?.seq ?? 0) + 1 }))
+              setAnchor(jumpFailure.messageId)
+            }}
+          />
+        ),
+        { id: 'jump-failed' },
+      )
+    }
+  }, [jumpFailure])
 
   const headerTitle = isGroup
     ? conversation?.title || 'Untitled group'
@@ -210,8 +309,8 @@ const ConversationRoomView = () => {
           </div>
 
           {/* Searching inside one conversation (Search-InConversation) needs a
-              conversation-scoped search and jump-to-message API — Phase 2.
-              The entry point is here, honestly disabled, until then. */}
+              conversation-scoped search API — Phase 2. The entry point is
+              here, honestly disabled, until then. */}
           <Tooltip label='Search this conversation — Soon'>
             <Button variant='ghost' icon disabled aria-label='Search this conversation (coming soon)'>
               <Icon name='search' />
@@ -238,11 +337,12 @@ const ConversationRoomView = () => {
 
         <ConnectionStrip />
 
-        {/* No key needed here: the whole room is keyed by conversation id
-            (see the wrapper at the bottom of this file), so this remounts and
-            resets its scroll position, unread divider and new-message count
-            along with everything else. */}
+        {/* Keyed by the window it shows: opening a window around a jump, or
+            going back to the newest messages, starts its scroll position,
+            divider and new-message count afresh. (Switching conversations
+            remounts the whole room — see the wrapper at the bottom.) */}
         <Messages
+          key={anchor ?? 'latest'}
           messages={messages}
           isLoading={isLoading}
           isLoadingMore={isLoadingMore}
@@ -252,13 +352,21 @@ const ConversationRoomView = () => {
           onReply={startReply}
           onEdit={startEdit}
           readOnly={hasLeft}
-          readState={readState}
+          readState={hasJumped ? NOTHING_UNREAD : readState}
           isReady={areMessagesReady}
           isRefreshing={areMessagesRefreshing}
           isOlderError={isOlderError}
           onRetry={retry}
           greet={isGroup ? 'the group' : conversation?.other_participant?.name}
           onStartWriting={() => composerRef.current?.focus()}
+          anchorId={anchor ?? undefined}
+          jump={jump}
+          onJumpTo={jumpTo}
+          hasNewer={hasNewer}
+          isLoadingNewer={isLoadingNewer}
+          isNewerError={isNewerError}
+          onLoadNewer={loadNewer}
+          onJumpToLatest={jumpToLatest}
         />
 
         {!hasLeft && (
@@ -305,6 +413,9 @@ const ConversationRoomView = () => {
               onCancelReply={() => setReplyingTo(null)}
               editing={editing}
               onFinishEdit={() => setEditing(null)}
+              // Sent from a jump's window, which stops short of the newest
+              // messages: go there, where the message just sent now is.
+              onSent={hasNewer ? jumpToLatest : undefined}
             />
           </div>
         )}
@@ -323,6 +434,8 @@ const ConversationRoomView = () => {
     </div>
   )
 }
+
+const NOTHING_UNREAD = { unreadCount: 0, lastReadMessageId: null }
 
 /**
  * Keyed by conversation id so that switching conversations is a real mount

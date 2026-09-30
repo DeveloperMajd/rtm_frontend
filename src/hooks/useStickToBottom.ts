@@ -19,6 +19,32 @@ interface Options {
   /** Where to scroll to when unreadBoundaryId names a real message —
    * typically a ref on the rendered divider row itself. */
   unreadDividerRef?: RefObject<HTMLElement | null>
+  /**
+   * Open centred on this message rather than at the bottom or the unread
+   * divider — a window opened around a jump. Found by its `data-message-id`.
+   */
+  openAtId?: string
+  /**
+   * The list stops short of the newest message (a jump's window that hasn't
+   * caught up). What changes at its end then is a page of newer history
+   * being read in, not a message arriving: it's neither counted nor
+   * followed down.
+   */
+  detached?: boolean
+}
+
+/** The rendered row of one message, found by its `data-message-id`. */
+export function findMessageElement(container: HTMLElement, messageId: string): HTMLElement | null {
+  for (const element of container.querySelectorAll<HTMLElement>('[data-message-id]')) {
+    if (element.dataset.messageId === messageId) return element
+  }
+  return null
+}
+
+/** Scroll offset that puts `element` in the middle of `container`. */
+export function centredOffset(container: HTMLElement, element: HTMLElement): number {
+  const top = element.getBoundingClientRect().top - container.getBoundingClientRect().top + container.scrollTop
+  return Math.max(top - (container.clientHeight - element.offsetHeight) / 2, 0)
 }
 
 /**
@@ -52,6 +78,8 @@ export function useStickToBottom({
   isOwnLastMessage,
   unreadBoundaryId,
   unreadDividerRef,
+  openAtId,
+  detached = false,
 }: Options) {
   const [isNearBottom, setIsNearBottom] = useState(true)
 
@@ -109,10 +137,24 @@ export function useStickToBottom({
     return () => observer.disconnect()
   }, [containerRef])
 
+  // Whether the list stopped short of the newest message as of the last
+  // change to its end — the render before a page of newer history lands is
+  // the one that knows it was a page, since landing the last one can also
+  // make the list reach the end.
+  const [wasDetached, setWasDetached] = useState(detached)
   if (lastMessageId !== undefined && lastMessageId !== countedForId) {
     const isVeryFirst = countedForId === undefined
     setCountedForId(lastMessageId)
-    setNewCount(isVeryFirst || isNearBottom || isOwnLastMessage ? 0 : (n) => n + 1)
+    if (wasDetached && !isVeryFirst) {
+      // A page read in below the view: whoever was near the bottom isn't
+      // any more, and nothing about it is new.
+      setIsNearBottom(false)
+    } else {
+      setNewCount(isVeryFirst || isNearBottom || isOwnLastMessage ? 0 : (n) => n + 1)
+    }
+  }
+  if (wasDetached !== detached) {
+    setWasDetached(detached)
   }
 
   // --- The actual scroll mutation — a real side effect, kept free of any
@@ -127,29 +169,46 @@ export function useStickToBottom({
   // already in place.
   const scrolledForIdRef = useRef<string | undefined>(undefined)
   const isFirstScrollRef = useRef(true)
+  const wasDetachedRef = useRef(detached)
   useLayoutEffect(() => {
+    // Read and move on before anything returns early: a later run has to
+    // know how this one left the list, whichever branch it took.
+    const pageLanded = wasDetachedRef.current
+    wasDetachedRef.current = detached
+
     if (lastMessageId === undefined || lastMessageId === scrolledForIdRef.current) return
 
     const wasFirst = isFirstScrollRef.current
-    if (wasFirst && unreadBoundaryId === undefined) return // wait for the boundary to resolve
+    // Wait for the boundary to resolve — unless opening at a message, where
+    // there's no divider to find.
+    if (wasFirst && unreadBoundaryId === undefined && !openAtId) return
 
     scrolledForIdRef.current = lastMessageId
     const container = containerRef.current
 
     if (wasFirst) {
       isFirstScrollRef.current = false
-      const target = unreadBoundaryId ? unreadDividerRef?.current : null
       if (container) {
-        container.scrollTop = target ? Math.max(target.offsetTop - 12, 0) : container.scrollHeight
+        const opening = openAtId ? findMessageElement(container, openAtId) : null
+        const divider = unreadBoundaryId ? unreadDividerRef?.current : null
+        container.scrollTop = opening
+          ? centredOffset(container, opening)
+          : divider
+            ? Math.max(divider.offsetTop - 12, 0)
+            : container.scrollHeight
         container.dataset.positioned = ''
       }
       return
     }
 
+    // Newer history read in below, where the viewer is heading anyway:
+    // leave them where they are rather than send them past all of it.
+    if (pageLanded) return
+
     if ((isNearBottom || isOwnLastMessage) && container) {
       container.scrollTop = container.scrollHeight
     }
-  }, [lastMessageId, isNearBottom, isOwnLastMessage, unreadBoundaryId, unreadDividerRef, containerRef])
+  }, [lastMessageId, isNearBottom, isOwnLastMessage, unreadBoundaryId, unreadDividerRef, containerRef, openAtId, detached])
 
   // A safety net: if deciding where to open takes too long (a slow network
   // holding up the read state), show the list at the bottom rather than

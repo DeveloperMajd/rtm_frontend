@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { MemoryRouter, Route, Routes, useParams } from 'react-router-dom'
+import { MemoryRouter, Route, Routes, useLocation, useParams } from 'react-router-dom'
 import SearchPalette from './SearchPalette'
 import { searchMessages } from '../../services/api/messages'
 import type { ConversationType, MessageSearchResultType } from '../../utils/baseTypes'
@@ -44,7 +44,15 @@ const result = (id: string, conversationId: string, body: string, title: string)
   created_at: '2026-09-24T10:02:00Z',
 })
 
-const OpenedConversation = () => <p>Opened {useParams().id}</p>
+const OpenedConversation = () => {
+  const message = new URLSearchParams(useLocation().search).get('message')
+  return (
+    <p>
+      Opened {useParams().id}
+      {message && ` at ${message}`}
+    </p>
+  )
+}
 
 const Harness = ({ onClose = vi.fn() }: { onClose?: () => void }) => {
   const [open, setOpen] = useState(true)
@@ -139,7 +147,7 @@ describe('SearchPalette', () => {
     expect(options[1]).toHaveAttribute('aria-selected', 'true')
   })
 
-  it('opens the result’s conversation and remembers the search', async () => {
+  it('opens the result’s conversation at that message, and remembers the search', async () => {
     const user = userEvent.setup()
     vi.mocked(searchMessages).mockResolvedValue([result('m1', 'c-group', 'Redis is up', 'Hi justin')])
     render(<Harness />)
@@ -148,7 +156,7 @@ describe('SearchPalette', () => {
     await screen.findByRole('option')
     await user.keyboard('{Enter}')
 
-    expect(screen.getByText('Opened c-group')).toBeInTheDocument()
+    expect(screen.getByText('Opened c-group at m1')).toBeInTheDocument()
     expect(JSON.parse(localStorage.getItem('rtm.recentSearches') ?? '[]')).toEqual(['redis'])
   })
 

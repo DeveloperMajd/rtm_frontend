@@ -1,6 +1,6 @@
 import type { ComponentProps } from 'react'
-import { describe, expect, it, vi } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { afterEach, describe, expect, it, vi } from 'vitest'
+import { act, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { MemoryRouter } from 'react-router-dom'
@@ -144,5 +144,102 @@ describe('Messages — opening at the right place', () => {
 
     expect(container.querySelector('.msg-cover .msg-skeleton')).not.toBeNull()
     expect(container.querySelector('.room__scroll')).not.toHaveAttribute('data-positioned')
+  })
+})
+
+describe('Messages — jumping to a message', () => {
+  const reply = (id: string, quoted: MessageType): MessageType => ({
+    ...message(id),
+    reply_to_message_id: quoted.id,
+    reply_to: { id: quoted.id, body: quoted.body, sender: quoted.sender },
+  })
+
+  afterEach(() => {
+    vi.useRealTimers()
+  })
+
+  it('follows a reply’s quote to the message it quotes', async () => {
+    const user = userEvent.setup()
+    const onJumpTo = vi.fn()
+    renderMessages({ messages: [message('m1'), reply('m2', message('m1'))], onJumpTo })
+
+    await user.click(screen.getByRole('button', { name: 'Jump to original message from Jordan' }))
+
+    expect(onJumpTo).toHaveBeenCalledWith('m1')
+  })
+
+  it('lands on the message: the halo for 1.6 s, and focus', () => {
+    vi.useFakeTimers()
+    const { container } = renderMessages({
+      messages: [message('m1'), message('m2'), message('m3')],
+      jump: { id: 'm2', seq: 1 },
+    })
+
+    const row = container.querySelector<HTMLElement>('[data-message-id="m2"]')!
+    expect(row).toHaveAttribute('data-flash')
+    expect(row).toHaveFocus()
+
+    act(() => vi.advanceTimersByTime(1600))
+    expect(row).not.toHaveAttribute('data-flash')
+  })
+
+  it('waits for the message to load before landing on it', () => {
+    const jump = { id: 'm5', seq: 1 }
+    const { container, rerender } = renderMessages({ messages: [], isLoading: true, jump, anchorId: 'm5' })
+    expect(container.querySelector('[data-flash]')).toBeNull()
+
+    rerender(
+      <QueryClientProvider client={new QueryClient()}>
+        <AuthContext.Provider value={authValue}>
+          <MemoryRouter>
+            <Messages
+              messages={[message('m4'), message('m5')]}
+              isLoading={false}
+              isLoadingMore={false}
+              hasMore={false}
+              error={null}
+              onLoadOlder={vi.fn()}
+              onReply={vi.fn()}
+              jump={jump}
+              anchorId='m5'
+            />
+          </MemoryRouter>
+        </AuthContext.Provider>
+      </QueryClientProvider>,
+    )
+
+    expect(container.querySelector('[data-message-id="m5"]')).toHaveAttribute('data-flash')
+  })
+
+  // The divider marks where reading had stopped; a window opened somewhere
+  // else in the history isn't that place.
+  it('opens a jump’s window without an unread divider', () => {
+    renderMessages({
+      messages: [message('m4'), message('m5'), message('m6')],
+      anchorId: 'm5',
+      readState: { unreadCount: 2, lastReadMessageId: 'm4' },
+    })
+
+    expect(screen.queryByText('New')).not.toBeInTheDocument()
+  })
+
+  it('offers the way back to the newest messages while the window stops short of them', async () => {
+    const user = userEvent.setup()
+    const onJumpToLatest = vi.fn()
+    renderMessages({ messages: [message('m5')], anchorId: 'm5', hasNewer: true, onJumpToLatest })
+
+    await user.click(screen.getByRole('button', { name: 'Jump to latest' }))
+
+    expect(onJumpToLatest).toHaveBeenCalled()
+  })
+
+  it('keeps what’s loaded when newer history fails, and retries from the row', async () => {
+    const user = userEvent.setup()
+    const onLoadNewer = vi.fn()
+    renderMessages({ messages: [message('m5')], anchorId: 'm5', hasNewer: true, isNewerError: true, onLoadNewer })
+
+    expect(screen.getByRole('alert')).toHaveTextContent('Couldn’t load newer messages.')
+    await user.click(screen.getByRole('button', { name: 'Retry' }))
+    expect(onLoadNewer).toHaveBeenCalled()
   })
 })

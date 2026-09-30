@@ -1,13 +1,14 @@
-import { useCallback, useEffect } from 'react'
-import { useInfiniteQuery, useQueryClient, type InfiniteData } from '@tanstack/react-query'
-import { getMessagesByConversationId } from '../services/api/messages'
+import { useCallback, useEffect, useRef } from 'react'
+import { useInfiniteQuery, useQueryClient } from '@tanstack/react-query'
+import { isAxiosError } from 'axios'
+import { getMessagesPage, type MessagesPageParam } from '../services/api/messages'
 import { markConversationAsRead } from '../services/api/conversations'
 import type { ConversationType, MessageType } from '../utils/baseTypes'
 import {
   appendMessageToCache,
   flattenMessagePages,
+  messagesKey,
   replaceMessageInCache,
-  type MessagesPage as MessagesResponse,
 } from '../utils/messagePages'
 import useEcho from './useEcho'
 
@@ -31,10 +32,25 @@ interface UseMessagesOptions {
   /** False for a conversation that isn't there (deleted, or a bad link):
    * nothing to fetch, mark read or subscribe to. */
   enabled?: boolean
+  /**
+   * Open the history around this message instead of at the newest one — a
+   * jump to a reply's original or a search result that isn't loaded. The
+   * window reads older and newer from there, and becomes the live one once
+   * it has caught up with the newest message.
+   */
+  anchor?: string | null
 }
 
+/** Not worth retrying: the message isn't there for this viewer, and asking
+ * again won't change that. */
+const isGone = (error: unknown) =>
+  isAxiosError(error) && (error.response?.status === 403 || error.response?.status === 404)
+
+/** Live messages held for a window that hasn't caught up yet, at most. */
+const PENDING_LIMIT = 200
+
 const useMessages = (conversationId: string, readOnly = false, options: UseMessagesOptions = {}) => {
-  const { deferUntilReady = false, enabled = true } = options
+  const { deferUntilReady = false, enabled = true, anchor = null } = options
   const queryClient = useQueryClient()
   const echo = useEcho()
 
@@ -43,24 +59,38 @@ const useMessages = (conversationId: string, readOnly = false, options: UseMessa
     isLoading,
     isFetching,
     isFetchingNextPage,
+    isFetchingPreviousPage,
     isFetchedAfterMount,
     hasNextPage,
+    hasPreviousPage,
     fetchNextPage,
+    fetchPreviousPage,
     isFetchNextPageError,
+    isFetchPreviousPageError,
     refetch,
     error,
   } = useInfiniteQuery({
-    queryKey: ['messages', conversationId],
-    queryFn: ({ pageParam }) => getMessagesByConversationId(conversationId, pageParam),
-    // null = "the newest page"; every later page is anchored to the oldest id
-    // of the one before it. On a refetch React Query re-derives each
-    // subsequent cursor from the page it just fetched, so the refetched
-    // window stays contiguous no matter how many messages arrived meanwhile.
-    // Page numbers could not do that: re-deriving "page 2" over a list that
-    // had grown returned rows page 1 already held.
-    initialPageParam: null as string | null,
-    getNextPageParam: (lastPage) =>
-      lastPage.meta.has_more ? lastPage.meta.next_before_id : undefined,
+    // One window per place the history was opened at: the newest messages,
+    // or around a message jumped to. See MessagesWindow.
+    queryKey: [...messagesKey(conversationId), anchor ?? 'latest'],
+    queryFn: ({ pageParam }) => getMessagesPage(conversationId, pageParam),
+    // Every page after the first is anchored to a message id at the edge of
+    // the one before it: its oldest for older history, its newest for newer.
+    // On a refetch React Query re-derives each subsequent cursor from the
+    // page it just fetched, so the refetched window stays contiguous no
+    // matter how many messages arrived meanwhile. Page numbers could not do
+    // that: re-deriving "page 2" over a list that had grown returned rows
+    // page 1 already held.
+    initialPageParam: (anchor ? { kind: 'around', id: anchor } : { kind: 'latest' }) as MessagesPageParam,
+    getNextPageParam: (lastPage): MessagesPageParam | undefined =>
+      lastPage.meta.has_more && lastPage.meta.next_before_id
+        ? { kind: 'older', before: lastPage.meta.next_before_id }
+        : undefined,
+    // Only a window opened around a jump has newer pages to read: the
+    // newest page has no next_after_id.
+    getPreviousPageParam: (firstPage): MessagesPageParam | undefined =>
+      firstPage.meta.next_after_id ? { kind: 'newer', after: firstPage.meta.next_after_id } : undefined,
+    retry: (failureCount, err) => !isGone(err) && failureCount < 1,
     // This cache is only trustworthy while the Echo subscription below is
     // live: that subscription is what keeps it current, and it's torn down
     // the moment the room unmounts. Anything that arrives while the viewer
@@ -97,9 +127,34 @@ const useMessages = (conversationId: string, readOnly = false, options: UseMessa
     // subscription — missing it live. Refetch once so the frozen history
     // (which does include that line) replaces whatever was cached before.
     if (readOnly) {
-      void queryClient.invalidateQueries({ queryKey: ['messages', conversationId] })
+      void queryClient.invalidateQueries({ queryKey: messagesKey(conversationId) })
     }
   }, [readOnly, conversationId, queryClient])
+
+  // A window opened around a jump doesn't reach the newest message yet, so a
+  // live message can't go into it (see isLiveWindow) — but it mustn't be
+  // lost either. The window catches up by reading forwards, and a message
+  // committed just after the last of those reads was answered would be in
+  // neither that answer nor the window. Held here, and added once the
+  // window has caught up; anything the reads already brought is de-duplicated.
+  const hasNewer = hasPreviousPage
+  const hasNewerRef = useRef(hasNewer)
+  const pendingLiveRef = useRef<MessageType[]>([])
+
+  useEffect(() => {
+    hasNewerRef.current = hasNewer
+    if (hasNewer || pendingLiveRef.current.length === 0) return
+    for (const message of pendingLiveRef.current) {
+      appendMessageToCache(queryClient, conversationId, message)
+    }
+    pendingLiveRef.current = []
+  }, [hasNewer, queryClient, conversationId])
+
+  // Opening a different window starts it from a fresh read, which already
+  // includes everything held for the one before.
+  useEffect(() => {
+    pendingLiveRef.current = []
+  }, [anchor])
 
   useEffect(() => {
     // A left/kicked member's history is frozen server-side and this channel
@@ -127,16 +182,24 @@ const useMessages = (conversationId: string, readOnly = false, options: UseMessa
 
     markRead()
 
+    // A held message edited, deleted or reacted to before it's added.
+    const replacePending = (updated: MessageType) => {
+      pendingLiveRef.current = pendingLiveRef.current.map((m) => (m.id === updated.id ? updated : m))
+    }
+
     const channel = echo
       .private(`conversation.${conversationId}`)
       .listen('MessageSent', (message: MessageType) => {
-        // The most recently fetched page is always the newest batch of
-        // messages, regardless of how many older pages have since been
-        // loaded via loadOlder — so a live message is always appended there.
+        // Into the newest page of the window that reaches the newest
+        // message, however many older pages have since been loaded; held
+        // instead while this one doesn't reach it yet (see pendingLiveRef).
         // A message the viewer sent themselves is usually already in the
         // cache by now (the composer patches it in from the send response),
         // in which case this is a no-op.
         appendMessageToCache(queryClient, conversationId, message)
+        if (hasNewerRef.current) {
+          pendingLiveRef.current = [...pendingLiveRef.current, message].slice(-PENDING_LIMIT)
+        }
 
         queryClient.setQueryData<ConversationsResponse>(
           ['conversations'],
@@ -169,25 +232,15 @@ const useMessages = (conversationId: string, readOnly = false, options: UseMessa
       })
       .listen('MessageReactionUpdated', (updatedMessage: MessageType) => {
         // A reaction can land on a message from any loaded page (not just
-        // the newest one), so every page has to be searched for it.
-        queryClient.setQueryData<InfiniteData<MessagesResponse>>(
-          ['messages', conversationId],
-          (old) => {
-            if (!old) return old
-            return {
-              ...old,
-              pages: old.pages.map((page) => ({
-                ...page,
-                data: page.data.map((m) => (m.id === updatedMessage.id ? updatedMessage : m)),
-              })),
-            }
-          },
-        )
+        // the newest one), in any cached window.
+        replaceMessageInCache(queryClient, conversationId, updatedMessage)
+        replacePending(updatedMessage)
       })
       .listen('MessageUpdated', (updatedMessage: MessageType) => {
         // An edit or a delete (redaction), on any loaded page — including
         // the snapshot every reply holds of it (see patchMessageInCache).
         replaceMessageInCache(queryClient, conversationId, updatedMessage)
+        replacePending(updatedMessage)
       })
 
     return () => {
@@ -210,6 +263,10 @@ const useMessages = (conversationId: string, readOnly = false, options: UseMessa
     void fetchNextPage()
   }, [fetchNextPage])
 
+  const loadNewer = useCallback(() => {
+    void fetchPreviousPage()
+  }, [fetchPreviousPage])
+
   return {
     messages,
     isLoading,
@@ -221,10 +278,20 @@ const useMessages = (conversationId: string, readOnly = false, options: UseMessa
     retry: () => void refetch(),
     loadOlder,
     /**
+     * This window stops short of the newest message: it was opened around a
+     * jump and hasn't caught up yet. Live messages aren't shown in it until
+     * it has (see the pending note above).
+     */
+    hasNewer,
+    isLoadingNewer: isFetchingPreviousPage,
+    /** Reading forwards towards the newest message failed. */
+    isNewerError: isFetchPreviousPageError,
+    loadNewer,
+    /**
      * A whole-query refetch is in flight (as opposed to paging in one more
      * page of history).
      *
-     * Nothing may call loadOlder while this is true. Refetching an infinite
+     * Nothing may call loadOlder (or loadNewer) while this is true. Refetching an infinite
      * query rebuilds its entire `pages` array page by page; a fetchNextPage
      * that starts in the middle of that appends to the array as it was
      * *before* the rebuild, and whichever finishes last wins. When the page
@@ -234,7 +301,7 @@ const useMessages = (conversationId: string, readOnly = false, options: UseMessa
      * messages that never appeared and dividers anchored to a stale end of
      * the list, and it was intermittent precisely because it was a race.
      */
-    isRefreshing: isFetching && !isFetchingNextPage,
+    isRefreshing: isFetching && !isFetchingNextPage && !isFetchingPreviousPage,
     /**
      * True once this mount has fetched its own copy of the messages, rather
      * than only rendering what a previous visit left in the cache. The
