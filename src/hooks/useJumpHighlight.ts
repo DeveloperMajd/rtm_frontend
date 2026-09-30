@@ -4,9 +4,11 @@ import { centredOffset, findMessageElement } from './useStickToBottom'
 /**
  * A request to bring one message into view — from a reply's quote, a search
  * result or a link. `seq` tells two requests for the same message apart, so
- * following the same quote twice highlights it twice.
+ * following the same quote twice highlights it twice. `focus: false` leaves
+ * focus where it is: stepping through the in-chat search's matches keeps
+ * the caret in the search field.
  */
-export type JumpTarget = { id: string; seq: number }
+export type JumpTarget = { id: string; seq: number; focus?: boolean }
 
 /** DS-Signal-Motion "Jump highlight": 1.6 s, then the halo fades out. */
 export const HIGHLIGHT_MS = 1600
@@ -48,9 +50,11 @@ export function useJumpHighlight({ containerRef, jump, isTargetLoaded }: Options
     const isShortHop = Math.abs(top - container.scrollTop) < container.clientHeight * 2
     container.scrollTo?.({ top, behavior: isShortHop && !reduceMotion ? 'smooth' : 'auto' })
 
-    // Focusable only from here on: a message isn't a tab stop of its own.
-    row.setAttribute('tabindex', '-1')
-    row.focus({ preventScroll: true })
+    if (jump.focus !== false) {
+      // Focusable only from here on: a message isn't a tab stop of its own.
+      row.setAttribute('tabindex', '-1')
+      row.focus({ preventScroll: true })
+    }
 
     row.dataset.flash = ''
     const timer = setTimeout(() => delete row.dataset.flash, HIGHLIGHT_MS)

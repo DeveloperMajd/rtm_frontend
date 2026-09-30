@@ -119,6 +119,9 @@
   --c-accent-hover: #4e2ee6;
   --c-accent-soft: rgb(91 61 245 / 0.09);
   --c-accent-soft-2: rgb(91 61 245 / 0.16);
+  /* Search matches marked in text (Search-InConversation). */
+  --c-mark-bg: rgb(91 61 245 / 0.16);
+  --c-mark-fg: #2b169c;
   --c-accent-text: #3d22c9;
   --c-focus: #5b3df5;
   --c-on-accent: #ffffff;
@@ -178,6 +181,9 @@
   --c-accent-hover: #7b5fff;
   --c-accent-soft: rgb(139 120 255 / 0.14);
   --c-accent-soft-2: rgb(139 120 255 / 0.24);
+  /* Search matches marked in text (Search-InConversation). */
+  --c-mark-bg: rgb(139 120 255 / 0.3);
+  --c-mark-fg: #e4dfff;
   --c-accent-text: #c9c0ff;
   --c-focus: #a596ff;
   --c-on-accent: #ffffff;
@@ -235,6 +241,9 @@
     --c-accent-hover: #7b5fff;
     --c-accent-soft: rgb(139 120 255 / 0.14);
     --c-accent-soft-2: rgb(139 120 255 / 0.24);
+    /* Search matches marked in text (Search-InConversation). */
+    --c-mark-bg: rgb(139 120 255 / 0.3);
+    --c-mark-fg: #e4dfff;
     --c-accent-text: #c9c0ff;
     --c-focus: #a596ff;
     --c-on-accent: #ffffff;

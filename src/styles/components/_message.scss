@@ -125,6 +125,20 @@
   animation: jump-flash 1.6s $ease-out 1;
 }
 
+// The search match being shown keeps the halo, unfaded, until the search
+// moves on or closes (Search-InConversation).
+.msg-row.is-current-match .bubble {
+  box-shadow:
+    0 0 0 2px var(--c-accent),
+    0 0 0 7px var(--c-accent-soft);
+}
+
+// …without the jump's fade, which would carry the ring away and then snap
+// it back when the animation ended.
+.msg-row.is-current-match[data-flash] .bubble {
+  animation: none;
+}
+
 // Focus lands on the row itself; its ring is drawn inside it, as the list
 // clips anything outside.
 .msg-row:focus-visible {
@@ -368,6 +382,16 @@
       vertical-align: -2px;
       margin-right: 0.25rem;
     }
+  }
+
+  // A searched-for word (Search-InConversation). Tinted to read on
+  // incoming and outgoing bubbles alike, in either theme.
+  &__mark {
+    margin: 0 -1px;
+    padding: 0 2px;
+    border-radius: 3px;
+    background-color: var(--c-mark-bg);
+    color: var(--c-mark-fg);
   }
 
   // "edited" sits inside the bubble, after the text, in mono.

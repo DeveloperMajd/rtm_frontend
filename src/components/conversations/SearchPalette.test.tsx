@@ -54,12 +54,12 @@ const OpenedConversation = () => {
   )
 }
 
-const Harness = ({ onClose = vi.fn() }: { onClose?: () => void }) => {
+const Harness = ({ onClose = vi.fn(), at = '/conversations' }: { onClose?: () => void; at?: string }) => {
   const [open, setOpen] = useState(true)
   const [queryClient] = useState(() => new QueryClient({ defaultOptions: { queries: { retry: false } } }))
   return (
     <QueryClientProvider client={queryClient}>
-      <MemoryRouter initialEntries={['/conversations']}>
+      <MemoryRouter initialEntries={[at]}>
         <div id='root' />
         <Routes>
           <Route path='/conversations' element={null} />
@@ -86,14 +86,29 @@ beforeEach(() => {
 })
 
 describe('SearchPalette', () => {
-  it('opens with the field focused, the search scoped Everywhere, and "This conversation" not yet available', () => {
+  it('opens with the field focused and the search scoped Everywhere; "This conversation" needs one open', () => {
     render(<Harness />)
 
     expect(input()).toHaveFocus()
     expect(screen.getByRole('button', { name: /Everywhere/ })).toHaveAttribute('aria-pressed', 'true')
-    const thisConversation = screen.getByRole('button', { name: 'This conversation (coming soon)' })
-    expect(thisConversation).toBeDisabled()
-    expect(thisConversation).toHaveTextContent('Soon')
+    expect(screen.getByRole('button', { name: 'This conversation' })).toBeDisabled()
+  })
+
+  it('narrows the search to the open conversation, and back', async () => {
+    const user = userEvent.setup()
+    vi.mocked(searchMessages).mockResolvedValue([result('m1', 'c-group', 'Redis is up', 'Hi justin')])
+    render(<Harness at='/conversations/c-group' />)
+
+    await user.click(screen.getByRole('button', { name: 'This conversation' }))
+    expect(screen.getByRole('button', { name: 'This conversation' })).toHaveAttribute('aria-pressed', 'true')
+    expect(input()).toHaveFocus()
+
+    await user.type(input(), 'redis')
+    await screen.findByRole('option')
+    expect(searchMessages).toHaveBeenLastCalledWith('redis', 'c-group')
+
+    await user.click(screen.getByRole('button', { name: /Everywhere/ }))
+    await waitFor(() => expect(searchMessages).toHaveBeenLastCalledWith('redis', undefined))
   })
 
   it('offers recent searches and conversations to jump to before anything is typed', () => {
@@ -136,7 +151,7 @@ describe('SearchPalette', () => {
     const groups = await screen.findAllByRole('group', { name: /matches|match/ })
     expect(groups.map((g) => within(g).getAllByRole('option').length)).toEqual([2, 1])
     expect(groups[0]).toHaveAccessibleName(/Hi justin\s*2 matches/)
-    expect(searchMessages).toHaveBeenCalledWith('redis')
+    expect(searchMessages).toHaveBeenCalledWith('redis', undefined)
     expect(screen.getAllByText('Redis', { selector: 'mark' })).toHaveLength(3)
     expect(screen.getByText('3 results')).toBeInTheDocument()
 

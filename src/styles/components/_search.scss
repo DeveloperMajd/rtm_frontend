@@ -455,3 +455,70 @@
     font-size: var(--fs-meta);
   }
 }
+
+// Search-InConversation: a row under the conversation's header — the field,
+// where the viewer is among the matches, and the steps between them.
+.convo-search {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: none;
+  min-height: 48px;
+  padding: 6px 10px 6px 16px;
+  border-bottom: 1px solid var(--c-line);
+  background-color: var(--c-stage);
+
+  @include until($bp-md) {
+    padding: 6px 8px;
+  }
+
+  &__field {
+    flex: 1;
+    min-width: 0;
+    margin-right: 4px;
+
+    .input {
+      height: 34px;
+      padding-top: 0;
+      padding-bottom: 0;
+    }
+
+    // The field's clear (×) would sit beside the bar's own Close.
+    input::-webkit-search-cancel-button {
+      appearance: none;
+    }
+  }
+
+  // While a search is on its way, in the magnifier's place.
+  &__busy {
+    position: absolute;
+    left: 0.75rem;
+    height: 12px;
+    color: var(--c-accent);
+    pointer-events: none;
+  }
+
+  &__count {
+    flex: none;
+    min-width: 4.5rem;
+    font-family: var(--f-mono);
+    font-size: var(--fs-caption);
+    color: var(--c-fg-2);
+    text-align: right;
+    white-space: nowrap;
+
+    &.is-empty {
+      color: var(--c-fg-3);
+    }
+  }
+
+  .btn.icon {
+    width: 2rem;
+    min-height: 2rem;
+
+    @include touch {
+      width: 40px;
+      min-height: 40px;
+    }
+  }
+}

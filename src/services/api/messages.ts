@@ -135,14 +135,33 @@ const deleteMessage = async (messageId: string): Promise<void> => {
   await api.delete(`/messages/${messageId}`)
 }
 
+/** The ⌘K palette's search: the best 20 matches everywhere, or in one
+ * conversation (its "This conversation" scope). */
 const searchMessages = async (
   query: string,
+  conversationId?: string,
 ): Promise<MessageSearchResultType[]> => {
   const response = await api.get<{ data: MessageSearchResultType[] }>(
     '/messages/search',
-    { params: { q: query } },
+    { params: conversationId ? { q: query, conversation_id: conversationId } : { q: query } },
   )
   return response.data.data
+}
+
+/** The most matches the API returns for one conversation. */
+export const CONVERSATION_SEARCH_LIMIT = 50
+
+/** The in-chat search bar's search: the newest 50 matches in one
+ * conversation, newest first, and how many there are in all. */
+const searchConversation = async (
+  conversationId: string,
+  query: string,
+): Promise<{ results: MessageSearchResultType[]; total: number }> => {
+  const response = await api.get<{ data: MessageSearchResultType[]; meta: { total: number } }>(
+    '/messages/search',
+    { params: { q: query, conversation_id: conversationId, sort: 'recent', limit: CONVERSATION_SEARCH_LIMIT } },
+  )
+  return { results: response.data.data, total: response.data.meta.total }
 }
 
 const addReaction = async (messageId: string, reaction: string): Promise<void> => {
@@ -160,6 +179,7 @@ export {
   updateMessage,
   deleteMessage,
   searchMessages,
+  searchConversation,
   addReaction,
   removeReaction,
 }

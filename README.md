@@ -41,7 +41,12 @@ board by board for desktop, tablet and phone.
     you scroll up.
 - **Search**: a ⌘K / Ctrl+K palette with recent searches, results grouped
   by conversation and the matching words marked. A result opens at the
-  message itself.
+  message itself. Inside a conversation, the palette can search just that
+  one.
+- **Search within a conversation**: the magnifier in the conversation's
+  header opens a search bar. It marks the words in the messages and steps
+  through the matches, newest first. Enter or ↑ goes to an older match,
+  Shift+Enter or ↓ to a newer one, and Esc closes the bar.
 - **Jump to a message**: a reply's quote and a search result both jump to
   the message, loading the history around it if it isn't on screen, with a
   brief highlight. From there, history loads both ways as you scroll, and
@@ -82,7 +87,6 @@ Some controls in the design need backend work first. They appear
 **disabled and tagged** "Soon" or "Needs API", never faked:
 - read receipts beyond "Sent";
 - pin, mute and archive;
-- search within one conversation;
 - message info, copy link and saved messages;
 - shared media;
 - notification and privacy settings.

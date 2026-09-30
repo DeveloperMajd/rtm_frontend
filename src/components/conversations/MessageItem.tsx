@@ -1,4 +1,4 @@
-import { useId, useRef, useState, type ReactNode } from 'react'
+import { Fragment, useId, useRef, useState, type ReactNode } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import toast from 'react-hot-toast'
 import { format } from 'date-fns'
@@ -6,6 +6,7 @@ import type { MessageType } from '../../utils/baseTypes'
 import { deleteMessage } from '../../services/api/messages'
 import { markMessageDeletedInCache, messagesKey } from '../../utils/messagePages'
 import { copyText } from '../../utils/clipboard'
+import { highlightSegments } from '../../utils/searchText'
 import useAuth from '../../hooks/useAuth'
 import useMessageReactions from '../../hooks/useMessageReactions'
 import useMessageGestures from '../../hooks/useMessageGestures'
@@ -33,6 +34,10 @@ type MessageItemProps = {
   showReadState?: boolean
   /** Follows the reply's quote to the message it quotes. */
   onJumpTo?: (messageId: string) => void
+  /** Words to mark in the text — a search of this conversation. */
+  highlightTerms?: string[]
+  /** The search match being shown (a ring until the search moves on). */
+  isCurrentMatch?: boolean
 }
 
 /** Which popover is open, and — for the reaction picker — which button
@@ -47,6 +52,8 @@ const MessageItem = ({
   readOnly = false,
   showReadState = false,
   onJumpTo,
+  highlightTerms,
+  isCurrentMatch = false,
 }: MessageItemProps) => {
   const { user } = useAuth()
   const queryClient = useQueryClient()
@@ -158,6 +165,7 @@ const MessageItem = ({
     // Keeps the toolbar showing while its menu or picker is open — focus
     // and the pointer have both moved into a popover outside the row.
     openPopover ? 'is-active' : '',
+    isCurrentMatch ? 'is-current-match' : '',
   ]
     .filter(Boolean)
     .join(' ')
@@ -207,7 +215,17 @@ const MessageItem = ({
           ) : (
             message.body && (
               <span className='bubble__body'>
-                {message.body}
+                {highlightTerms && highlightTerms.length > 0
+                  ? highlightSegments(message.body, highlightTerms).map((segment, i) =>
+                      segment.match ? (
+                        <mark key={i} className='bubble__mark'>
+                          {segment.text}
+                        </mark>
+                      ) : (
+                        <Fragment key={i}>{segment.text}</Fragment>
+                      ),
+                    )
+                  : message.body}
                 {message.edited_at && <span className='bubble__edited'>edited</span>}
               </span>
             )

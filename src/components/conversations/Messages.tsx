@@ -64,6 +64,11 @@ type MessagesProps = {
   onLoadNewer?: () => void
   /** Leaves a jump's window for the newest messages. */
   onJumpToLatest?: () => void
+  /** Words being searched for in this conversation, marked where they
+   * appear (see useConversationSearch). */
+  searchTerms?: string[]
+  /** The search match being shown, which keeps a ring while it is. */
+  currentMatchId?: string | null
 }
 
 const GROUP_WINDOW_MS = 5 * 60 * 1000
@@ -102,6 +107,8 @@ const Messages = ({
   isNewerError = false,
   onLoadNewer = noop,
   onJumpToLatest = noop,
+  searchTerms,
+  currentMatchId = null,
 }: MessagesProps) => {
   const { user } = useAuth()
   const containerRef = useRef<HTMLDivElement>(null)
@@ -327,6 +334,8 @@ const Messages = ({
                     onReply={onReply}
                     onEdit={onEdit}
                     onJumpTo={onJumpTo}
+                    highlightTerms={searchTerms}
+                    isCurrentMatch={message.id === currentMatchId}
                     showReadState={message.id === lastOwnMessageId}
                     grouped={
                       !showDay &&

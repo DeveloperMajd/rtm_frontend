@@ -1,6 +1,6 @@
 import { Fragment, useEffect, useId, useRef, useState, type KeyboardEvent, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
-import { useNavigate } from 'react-router-dom'
+import { useMatch, useNavigate } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { searchMessages } from '../../services/api/messages'
 import { useModalBehavior } from '../../hooks/useModalBehavior'
@@ -8,7 +8,6 @@ import { loadRecentSearches, rememberSearch } from '../../utils/recentSearches'
 import { highlightSegments, queryTerms, resultTime, snippetAround } from '../../utils/searchText'
 import { conversationTitle } from '../../utils/conversations'
 import Avatar from '../ui/Avatar'
-import Badge from '../ui/Badge'
 import Icon from '../ui/Icon'
 import SignalBars from '../ui/SignalBars'
 import type { ConversationType, MessageSearchResultType } from '../../utils/baseTypes'
@@ -39,8 +38,8 @@ type Option =
  * conversation with the matching words marked.
  *
  * Opening a result opens its conversation at that message, highlighted
- * (see ConversationRoom's `?message=`). The "This conversation" scope is
- * shown, disabled and tagged: it needs a conversation-scoped search API.
+ * (see ConversationRoom's `?message=`). With a conversation open, "This
+ * conversation" narrows the search to it.
  *
  * A combobox: focus stays in the field while ↑/↓ move through the options
  * (aria-activedescendant) and ↵ opens one. Modal, with Esc to close.
@@ -65,6 +64,18 @@ const PaletteDialog = ({ onClose, conversations }: SearchPaletteProps) => {
   const [debouncedQuery, setDebouncedQuery] = useState('')
   const [recent, setRecent] = useState(loadRecentSearches)
 
+  // "This conversation" needs one to be open (and still on the list — not
+  // a deleted group or a bad link).
+  const openConversationId = useMatch('/conversations/:id')?.params.id
+  const currentConversation = conversations.find((c) => c.id === openConversationId)
+  const [scope, setScope] = useState<'everywhere' | 'conversation'>('everywhere')
+  const scopeId = scope === 'conversation' ? currentConversation?.id : undefined
+  // Back to the field after choosing, where the typing happens.
+  const chooseScope = (next: typeof scope) => {
+    setScope(next)
+    inputRef.current?.focus()
+  }
+
   useEffect(() => {
     const timer = setTimeout(() => setDebouncedQuery(query.trim()), DEBOUNCE_MS)
     return () => clearTimeout(timer)
@@ -72,8 +83,8 @@ const PaletteDialog = ({ onClose, conversations }: SearchPaletteProps) => {
 
   const isSearching = debouncedQuery.length >= MIN_CHARS
   const { data: results = [], isLoading, isError, refetch } = useQuery({
-    queryKey: ['messages', 'search', debouncedQuery],
-    queryFn: () => searchMessages(debouncedQuery),
+    queryKey: ['messages', 'search', debouncedQuery, scopeId ?? 'everywhere'],
+    queryFn: () => searchMessages(debouncedQuery, scopeId),
     enabled: isSearching,
     retry: 1,
   })
@@ -106,7 +117,7 @@ const PaletteDialog = ({ onClose, conversations }: SearchPaletteProps) => {
 
   // Back to the first option whenever the list itself changes. Adjusted
   // during render (React's pattern for state that follows other state).
-  const optionsKey = `${isSearching}:${debouncedQuery}:${isLoading}:${options.length}`
+  const optionsKey = `${isSearching}:${debouncedQuery}:${scopeId}:${isLoading}:${options.length}`
   const [activeFor, setActiveFor] = useState(optionsKey)
   const [activeIndex, setActiveIndex] = useState(0)
   if (activeFor !== optionsKey) {
@@ -345,14 +356,26 @@ const PaletteDialog = ({ onClose, conversations }: SearchPaletteProps) => {
         </div>
 
         <div className='palette__scopes' role='group' aria-label='Search in'>
-          <button type='button' className='chip' aria-pressed='true'>
+          <button
+            type='button'
+            className='chip'
+            aria-pressed={scopeId === undefined}
+            onClick={() => chooseScope('everywhere')}
+          >
             <Icon name='globe' size={14} />
             Everywhere
           </button>
-          <button type='button' className='chip' disabled aria-label='This conversation (coming soon)'>
+          {/* Only offered from inside a conversation. */}
+          <button
+            type='button'
+            className='chip'
+            aria-pressed={scopeId !== undefined}
+            disabled={!currentConversation}
+            title={currentConversation ? `Search ${conversationTitle(currentConversation)} only` : 'Open a conversation to search just that one'}
+            onClick={() => chooseScope('conversation')}
+          >
             <Icon name='chat' size={14} />
             This conversation
-            <Badge tone='soon'>Soon</Badge>
           </button>
         </div>
 

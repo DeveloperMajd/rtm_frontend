@@ -9,11 +9,13 @@ import GroupInfoPanel from './GroupInfoPanel'
 import ContactInfoPanel from './ContactInfoPanel'
 import InfoPanel from './InfoPanel'
 import ConnectionStrip from './ConnectionStrip'
+import ConversationSearchBar from './ConversationSearchBar'
 import useMessages from '../../hooks/useMessages'
 import useTypingIndicator from '../../hooks/useTypingIndicator'
 import useConversations from '../../hooks/useConversations'
 import useAuth from '../../hooks/useAuth'
 import { useReadStateSnapshot } from '../../hooks/useReadStateSnapshot'
+import { useConversationSearch } from '../../hooks/useConversationSearch'
 import Avatar from '../ui/Avatar'
 import Button from '../ui/Button'
 import Icon from '../ui/Icon'
@@ -153,8 +155,8 @@ const ConversationRoomView = () => {
   // window of history around it (see useMessages's anchor), which reads its
   // way back to the newest messages as the viewer scrolls down, or jumps
   // straight there from the "Jump to latest" pill.
-  const jumpTo = (messageId: string) => {
-    setJump((current) => ({ id: messageId, seq: (current?.seq ?? 0) + 1 }))
+  const jumpTo = (messageId: string, { focus = true }: { focus?: boolean } = {}) => {
+    setJump((current) => ({ id: messageId, seq: (current?.seq ?? 0) + 1, focus }))
     setHasJumped(true)
     if (!messages.some((m) => m.id === messageId)) {
       setAnchor(messageId)
@@ -187,6 +189,34 @@ const ConversationRoomView = () => {
       { replace: true },
     )
   }, [requestedMessageId, setSearchParams])
+
+  // --- Searching this conversation (Search-InConversation) ---
+  const [isSearchOpen, setIsSearchOpen] = useState(false)
+  const searchToggleRef = useRef<HTMLButtonElement>(null)
+  const searchInputRef = useRef<HTMLInputElement>(null)
+  const searchBarId = `convo-search-${id}`
+  const search = useConversationSearch(id!, isSearchOpen)
+
+  const openSearch = () => {
+    setIsSearchOpen(true)
+    // Already open: back into the field, where the keys are.
+    searchInputRef.current?.focus()
+  }
+  const closeSearch = () => {
+    setIsSearchOpen(false)
+    search.reset()
+    searchToggleRef.current?.focus()
+  }
+
+  // Each match the search lands on is brought into view as a jump — without
+  // taking focus, which stays in the search field. Adjusted during render,
+  // like `?message=` above.
+  const currentMatchId = search.current?.id ?? null
+  const [shownMatchId, setShownMatchId] = useState<string | null>(null)
+  if (currentMatchId !== shownMatchId) {
+    setShownMatchId(currentMatchId)
+    if (currentMatchId) jumpTo(currentMatchId, { focus: false })
+  }
 
   // A window that couldn't be opened (the message is gone, outside the
   // history the viewer can see, or the request failed) goes back to the
@@ -308,11 +338,16 @@ const ConversationRoomView = () => {
             )}
           </div>
 
-          {/* Searching inside one conversation (Search-InConversation) needs a
-              conversation-scoped search API — Phase 2. The entry point is
-              here, honestly disabled, until then. */}
-          <Tooltip label='Search this conversation — Soon'>
-            <Button variant='ghost' icon disabled aria-label='Search this conversation (coming soon)'>
+          <Tooltip label='Search this conversation'>
+            <Button
+              ref={searchToggleRef}
+              variant='ghost'
+              icon
+              aria-label='Search this conversation'
+              aria-expanded={isSearchOpen}
+              aria-controls={isSearchOpen ? searchBarId : undefined}
+              onClick={() => (isSearchOpen ? closeSearch() : openSearch())}
+            >
               <Icon name='search' />
             </Button>
           </Tooltip>
@@ -334,6 +369,10 @@ const ConversationRoomView = () => {
             </Tooltip>
           )}
         </header>
+
+        {isSearchOpen && (
+          <ConversationSearchBar id={searchBarId} search={search} onClose={closeSearch} inputRef={searchInputRef} />
+        )}
 
         <ConnectionStrip />
 
@@ -367,6 +406,8 @@ const ConversationRoomView = () => {
           isNewerError={isNewerError}
           onLoadNewer={loadNewer}
           onJumpToLatest={jumpToLatest}
+          searchTerms={search.terms}
+          currentMatchId={isSearchOpen ? currentMatchId : null}
         />
 
         {!hasLeft && (
