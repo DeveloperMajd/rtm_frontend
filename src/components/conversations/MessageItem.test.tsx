@@ -155,7 +155,7 @@ describe('MessageItem', () => {
         })}
         onReply={noop}
         onEdit={noop}
-        showReadState
+        receipt={{ kind: 'sent' }}
       />,
     )
 
@@ -279,8 +279,8 @@ describe('MessageItem', () => {
     expect(within(menu).getByRole('menuitem', { name: /Copy text/ })).toHaveAttribute('aria-disabled', 'true')
   })
 
-  it('shows Sent — and only Sent — where asked to carry the delivery state', () => {
-    const { rerender } = renderItem(<MessageItem message={own()} onReply={noop} onEdit={noop} showReadState />)
+  it('shows the read state only where asked to carry it', () => {
+    const { rerender } = renderItem(<MessageItem message={own()} onReply={noop} onEdit={noop} receipt={{ kind: 'sent' }} />)
     expect(screen.getByText('Sent')).toBeInTheDocument()
     expect(screen.queryByText(/Seen/)).not.toBeInTheDocument()
 

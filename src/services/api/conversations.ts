@@ -45,8 +45,22 @@ const postTyping = async (conversationId: string): Promise<void> => {
   await api.post(`/conversations/${conversationId}/typing`)
 }
 
-const markConversationAsRead = async (conversationId: string): Promise<void> => {
-  await api.post(`/conversations/${conversationId}/read`)
+/** Moves the viewer's read pointer up to `messageId` — or to the newest
+ * message, without one. The server never moves it backwards. */
+const markConversationAsRead = async (conversationId: string, messageId?: string): Promise<void> => {
+  await api.post(`/conversations/${conversationId}/read`, messageId ? { message_id: messageId } : undefined)
+}
+
+/** How far someone still in the conversation has read. */
+export type ReadPointer = {
+  user_id: string
+  last_read_message_id: string | null
+  last_read_at: string | null
+}
+
+const getReadPointers = async (conversationId: string): Promise<ReadPointer[]> => {
+  const response = await api.get<{ data: ReadPointer[] }>(`/conversations/${conversationId}/reads`)
+  return response.data.data
 }
 
 const addParticipant = async (conversationId: string, userId: string): Promise<void> => {
@@ -84,6 +98,7 @@ export {
   renameConversation,
   postTyping,
   markConversationAsRead,
+  getReadPointers,
   addParticipant,
   kickParticipant,
   leaveConversation,

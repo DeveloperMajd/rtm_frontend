@@ -3,6 +3,8 @@ import { format, isToday, isYesterday } from 'date-fns'
 import type { MessageType } from '../../utils/baseTypes'
 import { systemMessageText } from '../../utils/systemMessageText'
 import { resolveUnreadBoundary } from '../../utils/unreadDivider'
+import { receiptFor, type Reader } from '../../utils/readReceipts'
+import type { ReadPointer } from '../../services/api/conversations'
 import type { ReadStateSnapshot } from '../../hooks/useReadStateSnapshot'
 import useAuth from '../../hooks/useAuth'
 import { useAutoLoadOlder } from '../../hooks/useAutoLoadOlder'
@@ -69,6 +71,11 @@ type MessagesProps = {
   searchTerms?: string[]
   /** The search match being shown, which keeps a ring while it is. */
   currentMatchId?: string | null
+  /** Everyone else still in the conversation, and how far each has read —
+   * the read state on the viewer's newest message (see receiptFor). */
+  readers?: Reader[]
+  readPointers?: ReadPointer[]
+  isGroup?: boolean
 }
 
 const GROUP_WINDOW_MS = 5 * 60 * 1000
@@ -109,6 +116,9 @@ const Messages = ({
   onJumpToLatest = noop,
   searchTerms,
   currentMatchId = null,
+  readers = [],
+  readPointers = [],
+  isGroup = false,
 }: MessagesProps) => {
   const { user } = useAuth()
   const containerRef = useRef<HTMLDivElement>(null)
@@ -116,11 +126,12 @@ const Messages = ({
 
   const lastMessage = messages[messages.length - 1] as MessageType | undefined
 
-  // Delivery state is shown once, on the viewer's newest message that's
-  // still there (Study-Read-State) — not repeated down every bubble.
+  // Read state is shown once, on the viewer's newest message that's still
+  // there (Study-Read-State) — not repeated down every bubble.
   const lastOwnMessageId = messages.findLast(
     (m) => m.type !== 'system' && !m.deleted_at && m.sender?.id === user?.id,
   )?.id
+  const receipt = lastOwnMessageId ? receiptFor(lastOwnMessageId, readers, readPointers, isGroup) : undefined
 
   // The unread divider's position is resolved once per conversation (the
   // whole room is remounted per conversation — see ConversationRoom) and
@@ -336,7 +347,7 @@ const Messages = ({
                     onJumpTo={onJumpTo}
                     highlightTerms={searchTerms}
                     isCurrentMatch={message.id === currentMatchId}
-                    showReadState={message.id === lastOwnMessageId}
+                    receipt={message.id === lastOwnMessageId ? receipt : undefined}
                     grouped={
                       !showDay &&
                       !showUnread &&

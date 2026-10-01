@@ -13,6 +13,7 @@ import ConversationSearchBar from './ConversationSearchBar'
 import useMessages from '../../hooks/useMessages'
 import useTypingIndicator from '../../hooks/useTypingIndicator'
 import useConversations from '../../hooks/useConversations'
+import useReadPointers from '../../hooks/useReadPointers'
 import useAuth from '../../hooks/useAuth'
 import { useReadStateSnapshot } from '../../hooks/useReadStateSnapshot'
 import { useConversationSearch } from '../../hooks/useConversationSearch'
@@ -142,6 +143,13 @@ const ConversationRoomView = () => {
     loadNewer,
   } = useMessages(id!, hasLeft, { deferUntilReady: !areConversationsReady, enabled: !isUnavailable, anchor })
   const typingText = useTypingIndicator(id!, !hasLeft && !isUnavailable)
+  // Who could have read the viewer's messages, and how far each has.
+  // Receipts belong to members only: someone who left sees the group as it
+  // was, and their messages just say "Sent".
+  const readPointers = useReadPointers(id!, !hasLeft && !isUnavailable)
+  const readers = (conversation?.participants ?? [])
+    .filter((p) => !p.left_at && p.user_id !== user?.id)
+    .map((p) => ({ user_id: p.user_id, name: p.name, avatar_url: p.avatar_url }))
   const readState = useReadStateSnapshot(
     id,
     areConversationsReady,
@@ -408,6 +416,9 @@ const ConversationRoomView = () => {
           onJumpToLatest={jumpToLatest}
           searchTerms={search.terms}
           currentMatchId={isSearchOpen ? currentMatchId : null}
+          readers={readers}
+          readPointers={readPointers}
+          isGroup={isGroup}
         />
 
         {!hasLeft && (

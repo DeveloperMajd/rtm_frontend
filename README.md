@@ -47,6 +47,11 @@ board by board for desktop, tablet and phone.
   header opens a search bar. It marks the words in the messages and steps
   through the matches, newest first. Enter or ↑ goes to an older match,
   Shift+Enter or ↓ to a newer one, and Esc closes the bar.
+- **Read receipts**: your newest message says "Sent" until it has been
+  read, then "Seen" in a direct conversation or "Seen by N" in a group,
+  which lists who has read it and who hasn't. It updates live.
+  Conversations are marked as read only while you're looking: the tab is
+  visible and the window focused.
 - **Jump to a message**: a reply's quote and a search result both jump to
   the message, loading the history around it if it isn't on screen, with a
   brief highlight. From there, history loads both ways as you scroll, and
@@ -85,7 +90,6 @@ board by board for desktop, tablet and phone.
 
 Some controls in the design need backend work first. They appear
 **disabled and tagged** "Soon" or "Needs API", never faked:
-- read receipts beyond "Sent";
 - pin, mute and archive;
 - message info, copy link and saved messages;
 - shared media;

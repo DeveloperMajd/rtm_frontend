@@ -3,6 +3,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query'
 import toast from 'react-hot-toast'
 import { format } from 'date-fns'
 import type { MessageType } from '../../utils/baseTypes'
+import type { Receipt } from '../../utils/readReceipts'
 import { deleteMessage } from '../../services/api/messages'
 import { markMessageDeletedInCache, messagesKey } from '../../utils/messagePages'
 import { copyText } from '../../utils/clipboard'
@@ -22,6 +23,7 @@ import MessageToolbar from './MessageToolbar'
 import MessageMenu from './MessageMenu'
 import MessageActionSheet from './MessageActionSheet'
 import ReactionPicker from './ReactionPicker'
+import ReadReceipt from './ReadReceipt'
 
 type MessageItemProps = {
   message: MessageType
@@ -29,9 +31,9 @@ type MessageItemProps = {
   onEdit: (message: MessageType) => void
   grouped?: boolean
   readOnly?: boolean
-  /** The viewer's newest message carries its delivery state
+  /** The viewer's newest message carries its read state
    * (Study-Read-State: "read state lives on your last message"). */
-  showReadState?: boolean
+  receipt?: Receipt
   /** Follows the reply's quote to the message it quotes. */
   onJumpTo?: (messageId: string) => void
   /** Words to mark in the text — a search of this conversation. */
@@ -50,7 +52,7 @@ const MessageItem = ({
   onEdit,
   grouped = false,
   readOnly = false,
-  showReadState = false,
+  receipt,
   onJumpTo,
   highlightTerms,
   isCurrentMatch = false,
@@ -237,21 +239,10 @@ const MessageItem = ({
               Only the sender name/avatar are suppressed when grouped. */}
           <span className='bubble__meta'>
             <time dateTime={message.created_at}>{format(new Date(message.created_at), 'HH:mm')}</time>
-            {showReadState && !isDeleted && (
+            {receipt && !isDeleted && (
               <>
                 <span aria-hidden='true'> · </span>
-                {/* Sent is the only step this app can vouch for today:
-                    every message on screen has been accepted by the server
-                    (there's no optimistic send). Seen needs read pointers
-                    exposed to clients — Phase 2. */}
-                <span className='read-state'>
-                  <span className='signal-bars read-state__bars' aria-hidden='true'>
-                    <i className='is-lit' />
-                    <i />
-                    <i />
-                  </span>
-                  Sent
-                </span>
+                <ReadReceipt receipt={receipt} />
               </>
             )}
           </span>

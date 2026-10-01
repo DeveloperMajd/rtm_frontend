@@ -1,9 +1,12 @@
 import type { ReactNode } from 'react'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { act, renderHook, waitFor } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import useMessages from './useMessages'
+import { AuthContext, type AuthContextType } from './useAuth'
 import { getMessagesPage, type MessagesPageParam } from '../services/api/messages'
+import { markConversationAsRead, type ReadPointer } from '../services/api/conversations'
+import { readPointersKey } from '../utils/readReceipts'
 import type { MessageType } from '../utils/baseTypes'
 import type { MessagesPage } from '../utils/messagePages'
 
@@ -50,9 +53,31 @@ const broadcast = async (event: string, payload: unknown) => {
   })
 }
 
+const auth: AuthContextType = {
+  user: { id: 'me', name: 'Me', email: 'me@example.com' },
+  isAuthenticated: true,
+  isLoading: false,
+  sessionExpired: false,
+  signedOutByChoice: false,
+  login: vi.fn(),
+  logout: vi.fn(),
+  register: vi.fn(),
+  refreshUser: vi.fn(),
+  endExpiredSession: vi.fn(),
+}
+
+let client: QueryClient
+
 const wrapper = ({ children }: { children: ReactNode }) => (
-  <QueryClientProvider client={new QueryClient()}>{children}</QueryClientProvider>
+  <QueryClientProvider client={client}>
+    <AuthContext.Provider value={auth}>{children}</AuthContext.Provider>
+  </QueryClientProvider>
 )
+
+/** Whether the viewer is looking: the tab visible, the window focused. */
+let tabVisible = true
+let windowFocused = true
+Object.defineProperty(document, 'visibilityState', { configurable: true, get: () => (tabVisible ? 'visible' : 'hidden') })
 
 /** Serves one conversation of m1…m9, with `newest` as its newest message. */
 function serve(pages: Partial<Record<MessagesPageParam['kind'], MessagesPage>>) {
@@ -66,8 +91,17 @@ function serve(pages: Partial<Record<MessagesPageParam['kind'], MessagesPage>>) 
 const ids = (messages: MessageType[]) => messages.map((m) => m.id)
 
 beforeEach(() => {
+  client = new QueryClient()
   fetchPage.mockReset()
+  vi.mocked(markConversationAsRead).mockClear()
   for (const event of Object.keys(echo.handlers)) delete echo.handlers[event]
+  tabVisible = true
+  windowFocused = true
+  vi.spyOn(document, 'hasFocus').mockImplementation(() => windowFocused)
+})
+
+afterEach(() => {
+  vi.restoreAllMocks()
 })
 
 describe('useMessages — a window opened around a jump', () => {
@@ -154,5 +188,98 @@ describe('useMessages — the newest messages', () => {
     await broadcast('MessageSent', msg('m2'))
 
     expect(ids(result.current.messages)).toEqual(['m1', 'm2'])
+  })
+})
+
+describe('useMessages — marking as read', () => {
+  const latest = (...ids: string[]) =>
+    serve({ latest: { data: ids.map(msg), meta: { has_more: false, next_before_id: null } } })
+
+  const marked = () => vi.mocked(markConversationAsRead).mock.calls
+
+  it('marks read up to the newest message on screen, once the viewer is looking', async () => {
+    latest('m1', 'm2')
+    renderHook(() => useMessages('c1'), { wrapper })
+
+    await waitFor(() => expect(marked()).toEqual([['c1', 'm2']]))
+  })
+
+  // One request and one broadcast for a burst, not one for each message.
+  it('reads a burst of messages in one go', async () => {
+    latest('m1')
+    const { result } = renderHook(() => useMessages('c1'), { wrapper })
+    await waitFor(() => expect(marked()).toHaveLength(1))
+
+    await broadcast('MessageSent', msg('m2'))
+    await broadcast('MessageSent', msg('m3'))
+    await broadcast('MessageSent', msg('m4'))
+
+    await waitFor(() => expect(marked()).toHaveLength(2))
+    expect(marked()[1]).toEqual(['c1', 'm4'])
+    expect(result.current.messages.at(-1)?.id).toBe('m4')
+  })
+
+  it('leaves a message that arrives in a background tab unread until the viewer comes back', async () => {
+    latest('m1')
+    renderHook(() => useMessages('c1'), { wrapper })
+    await waitFor(() => expect(marked()).toHaveLength(1))
+
+    tabVisible = false
+    await broadcast('MessageSent', msg('m2'))
+    await new Promise((resolve) => setTimeout(resolve, 900))
+    expect(marked()).toHaveLength(1)
+
+    tabVisible = true
+    act(() => document.dispatchEvent(new Event('visibilitychange')))
+
+    await waitFor(() => expect(marked()).toEqual([['c1', 'm1'], ['c1', 'm2']]))
+  })
+
+  it('and while the window is in the background, until it has focus again', async () => {
+    windowFocused = false
+    latest('m1')
+    renderHook(() => useMessages('c1'), { wrapper })
+    await new Promise((resolve) => setTimeout(resolve, 900))
+    expect(marked()).toHaveLength(0)
+
+    windowFocused = true
+    act(() => window.dispatchEvent(new Event('focus')))
+
+    await waitFor(() => expect(marked()).toEqual([['c1', 'm1']]))
+  })
+
+  it('counts a message from someone else as unread in the list while the viewer isn’t looking', async () => {
+    latest('m1')
+    client.setQueryData(['conversations'], { data: [{ id: 'c1', type: 'direct', unread_count: 0 }] })
+    renderHook(() => useMessages('c1'), { wrapper })
+    await waitFor(() => expect(marked()).toHaveLength(1))
+
+    tabVisible = false
+    await broadcast('MessageSent', msg('m2'))
+    await broadcast('MessageSent', { ...msg('m3'), sender: { id: 'me', name: 'Me' } })
+
+    expect(client.getQueryData<{ data: { unread_count: number }[] }>(['conversations'])?.data[0].unread_count).toBe(1)
+  })
+
+  it('marks nothing in a group the viewer has left', async () => {
+    latest('m1')
+    renderHook(() => useMessages('c1', true), { wrapper })
+    await new Promise((resolve) => setTimeout(resolve, 900))
+
+    expect(marked()).toHaveLength(0)
+  })
+
+  it('takes others’ reads as they happen, furthest first', async () => {
+    latest('m1')
+    const pointers: ReadPointer[] = [{ user_id: 'jo', last_read_message_id: 'm0', last_read_at: null }]
+    client.setQueryData(readPointersKey('c1'), pointers)
+    renderHook(() => useMessages('c1'), { wrapper })
+    await waitFor(() => expect(echo.handlers.ConversationRead).toBeDefined())
+
+    await broadcast('ConversationRead', { user_id: 'jo', last_read_message_id: 'm1', last_read_at: '2026-09-30T10:00:00Z' })
+
+    expect(client.getQueryData<ReadPointer[]>(readPointersKey('c1'))).toEqual([
+      { user_id: 'jo', last_read_message_id: 'm1', last_read_at: '2026-09-30T10:00:00Z' },
+    ])
   })
 })

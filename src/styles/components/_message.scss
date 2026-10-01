@@ -443,9 +443,9 @@
   }
 }
 
-// Delivery state on the viewer's newest message (Study-Read-State): the
-// signal-bars motif with one bar lit for Sent. Grey, not accent — the
-// accent is kept for Seen, which needs read pointers exposed (Phase 2).
+// Read state on the viewer's newest message (Study-Read-State): the
+// signal-bars motif, one bar lit for Sent, in grey; all three for Seen, in
+// the accent.
 .read-state {
   display: inline-flex;
   align-items: center;
@@ -464,6 +464,98 @@
     i:not(.is-lit) {
       opacity: 0.3;
     }
+  }
+
+  // Seen: three bars, in the accent (Study-Read-State). The text-strength
+  // accent, so it reads on the viewer's own tinted bubble in both themes.
+  &.is-seen {
+    color: var(--c-accent-text);
+  }
+
+  // "Seen by N" in a group: a button that lists who has read it.
+  &__button {
+    gap: 0.3rem;
+    margin: -2px -4px;
+    padding: 2px 4px;
+    border: 0;
+    border-radius: var(--r-tag);
+    background: transparent;
+    font: inherit;
+    cursor: pointer;
+
+    &:hover {
+      background-color: color-mix(in oklab, currentColor 12%, transparent);
+    }
+  }
+
+  // The first few readers' faces, overlapping, each cut out of the bubble
+  // behind it by a ring in the bubble's own colour.
+  &__faces {
+    display: inline-flex;
+    padding-left: 5px;
+  }
+
+  // Paired with .avatar so it outranks the avatar's own size classes,
+  // whichever stylesheet comes first.
+  .avatar#{&}__face {
+    --size: 14px;
+    margin-left: -5px;
+    box-shadow: 0 0 0 1.5px var(--c-out);
+  }
+}
+
+// Who has read the viewer's message in a group (Study-Read-State "Seen by").
+.seen-by {
+  min-width: 15rem;
+  max-width: min(20rem, calc(100vw - 16px));
+  padding: 8px 4px 6px;
+
+  &:focus-visible {
+    outline-offset: -2px;
+  }
+
+  &__title {
+    margin: 0;
+    padding: 0 10px 6px;
+    font-family: var(--f-mono);
+    font-size: var(--fs-meta);
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--c-fg-2);
+  }
+
+  &__list {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  &__row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-height: 40px;
+    padding: 0 10px;
+    font-size: var(--fs-body);
+  }
+
+  &__name {
+    flex: 1;
+    min-width: 0;
+    @include truncate;
+  }
+
+  &__status {
+    flex: none;
+    font-family: var(--f-mono);
+    font-size: var(--fs-meta);
+    color: var(--c-fg-2);
+  }
+
+  // Not yet: quieter, by colour rather than opacity, so it keeps its
+  // contrast.
+  &__row.is-not-yet &__name {
+    color: var(--c-fg-2);
   }
 }
 

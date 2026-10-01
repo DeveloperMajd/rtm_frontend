@@ -243,3 +243,57 @@ describe('Messages — jumping to a message', () => {
     expect(onLoadNewer).toHaveBeenCalled()
   })
 })
+
+describe('Messages — read state', () => {
+  const own = (id: string): MessageType => ({ ...message(id), sender: { id: 'me', name: 'Me' } })
+  const pointer = (userId: string, messageId: string | null) => ({
+    user_id: userId,
+    last_read_message_id: messageId,
+    last_read_at: null,
+  })
+
+  it('puts the read state on the viewer’s newest message only — Seen once the other person reads it', () => {
+    const readers = [{ user_id: 'other', name: 'Jordan' }]
+    const { rerender } = renderMessages({ messages: [own('m1'), own('m2')], readers, readPointers: [pointer('other', 'm1')] })
+
+    expect(screen.getAllByText(/^(Sent|Seen)$/)).toHaveLength(1)
+    expect(screen.getByText('Sent')).toBeInTheDocument()
+
+    rerender(
+      <QueryClientProvider client={new QueryClient()}>
+        <AuthContext.Provider value={authValue}>
+          <MemoryRouter>
+            <Messages
+              messages={[own('m1'), own('m2')]}
+              isLoading={false}
+              isLoadingMore={false}
+              hasMore={false}
+              error={null}
+              onLoadOlder={vi.fn()}
+              onReply={vi.fn()}
+              readers={readers}
+              readPointers={[pointer('other', 'm2')]}
+            />
+          </MemoryRouter>
+        </AuthContext.Provider>
+      </QueryClientProvider>,
+    )
+
+    expect(screen.getByText('Seen')).toBeInTheDocument()
+  })
+
+  it('in a group, says how many of the others have read it', () => {
+    renderMessages({
+      messages: [own('m1')],
+      isGroup: true,
+      readers: [
+        { user_id: 'a', name: 'Ana' },
+        { user_id: 'b', name: 'Ben' },
+        { user_id: 'c', name: 'Cy' },
+      ],
+      readPointers: [pointer('a', 'm1'), pointer('b', 'm1'), pointer('c', null)],
+    })
+
+    expect(screen.getByRole('button', { name: 'Seen by 2 of 3 — show who' })).toBeInTheDocument()
+  })
+})

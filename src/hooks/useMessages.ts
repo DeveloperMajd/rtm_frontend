@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef } from 'react'
 import { useInfiniteQuery, useQueryClient } from '@tanstack/react-query'
 import { isAxiosError } from 'axios'
 import { getMessagesPage, type MessagesPageParam } from '../services/api/messages'
-import { markConversationAsRead } from '../services/api/conversations'
+import { markConversationAsRead, type ReadPointer } from '../services/api/conversations'
 import type { ConversationType, MessageType } from '../utils/baseTypes'
 import {
   appendMessageToCache,
@@ -10,7 +10,10 @@ import {
   messagesKey,
   replaceMessageInCache,
 } from '../utils/messagePages'
+import { applyReadPointer } from '../utils/readReceipts'
+import { isViewing } from '../utils/viewing'
 import useEcho from './useEcho'
+import useAuth from './useAuth'
 
 type ConversationsResponse = { data: ConversationType[] }
 
@@ -49,10 +52,14 @@ const isGone = (error: unknown) =>
 /** Live messages held for a window that hasn't caught up yet, at most. */
 const PENDING_LIMIT = 200
 
+/** A burst of messages is read in one go: one request, one broadcast. */
+export const MARK_READ_DEBOUNCE_MS = 750
+
 const useMessages = (conversationId: string, readOnly = false, options: UseMessagesOptions = {}) => {
   const { deferUntilReady = false, enabled = true, anchor = null } = options
   const queryClient = useQueryClient()
   const echo = useEcho()
+  const viewerId = useAuth().user?.id
 
   const {
     data,
@@ -131,6 +138,11 @@ const useMessages = (conversationId: string, readOnly = false, options: UseMessa
     }
   }, [readOnly, conversationId, queryClient])
 
+  // De-duplicated and re-sorted rather than a plain flatMap — see
+  // flattenMessagePages for why offset pagination hands back overlapping
+  // pages once a conversation is live.
+  const messages: MessageType[] = data ? flattenMessagePages(data.pages) : []
+
   // A window opened around a jump doesn't reach the newest message yet, so a
   // live message can't go into it (see isLiveWindow) — but it mustn't be
   // lost either. The window catches up by reading forwards, and a message
@@ -164,24 +176,6 @@ const useMessages = (conversationId: string, readOnly = false, options: UseMessa
     // its own doc comment above.
     if (readOnly || deferUntilReady || !enabled) return
 
-    const markRead = () => {
-      markConversationAsRead(conversationId)
-        .then(() => {
-          queryClient.setQueryData<ConversationsResponse>(['conversations'], (old) => {
-            if (!old) return old
-            return {
-              ...old,
-              data: old.data.map((c) =>
-                c.id === conversationId ? { ...c, unread_count: 0 } : c,
-              ),
-            }
-          })
-        })
-        .catch(() => {})
-    }
-
-    markRead()
-
     // A held message edited, deleted or reacted to before it's added.
     const replacePending = (updated: MessageType) => {
       pendingLiveRef.current = pendingLiveRef.current.map((m) => (m.id === updated.id ? updated : m))
@@ -211,6 +205,13 @@ const useMessages = (conversationId: string, readOnly = false, options: UseMessa
                 c.id === conversationId
                   ? {
                       ...c,
+                      // Someone else's message that arrives while the viewer
+                      // isn't looking stays unread until they are (see the
+                      // marking below), and the list says so meanwhile.
+                      unread_count:
+                        message.type !== 'system' && message.sender?.id !== viewerId && !isViewing()
+                          ? (c.unread_count ?? 0) + 1
+                          : c.unread_count,
                       last_message_at: message.created_at,
                       latest_message: {
                         type: message.type,
@@ -226,9 +227,6 @@ const useMessages = (conversationId: string, readOnly = false, options: UseMessa
           },
         )
 
-        // Already viewing this conversation, so the just-arrived message
-        // counts as read too — advance the server-side read pointer.
-        markRead()
       })
       .listen('MessageReactionUpdated', (updatedMessage: MessageType) => {
         // A reaction can land on a message from any loaded page (not just
@@ -242,19 +240,75 @@ const useMessages = (conversationId: string, readOnly = false, options: UseMessa
         replaceMessageInCache(queryClient, conversationId, updatedMessage)
         replacePending(updatedMessage)
       })
+      .listen('ConversationRead', (pointer: ReadPointer) => {
+        // Someone read further: "Sent" becomes "Seen" (see useReadPointers).
+        applyReadPointer(queryClient, conversationId, pointer)
+      })
 
     return () => {
       channel.stopListening('MessageSent')
       channel.stopListening('MessageReactionUpdated')
       channel.stopListening('MessageUpdated')
+      channel.stopListening('ConversationRead')
       echo.leave(`conversation.${conversationId}`)
     }
-  }, [conversationId, echo, queryClient, readOnly, deferUntilReady, enabled])
+  }, [conversationId, echo, queryClient, readOnly, deferUntilReady, enabled, viewerId])
 
-  // De-duplicated and re-sorted rather than a plain flatMap — see
-  // flattenMessagePages for why offset pagination hands back overlapping
-  // pages once a conversation is live.
-  const messages: MessageType[] = data ? flattenMessagePages(data.pages) : []
+
+  // --- Marking as read ---
+  //
+  // Up to the newest message the viewer has in front of them — the end of
+  // this window, which is the conversation's newest message unless they've
+  // jumped back into its history — and only while they're actually looking:
+  // the tab visible and focused. A message that arrives in a background tab
+  // stays unread until they come back, rather than reading as "Seen" to
+  // whoever sent it. Debounced, so a burst of messages costs one request and
+  // one broadcast rather than one each; and a pointer already reported isn't
+  // sent again. (The server never moves a pointer back, either.)
+  const newestLoadedId = messages.at(-1)?.id
+  const reportedReadRef = useRef<string | null>(null)
+
+  useEffect(() => {
+    // A member who has left reads a frozen history; deferUntilReady holds
+    // this off for the reason in its own doc comment.
+    if (readOnly || deferUntilReady || !enabled || !newestLoadedId) return
+
+    let timer: ReturnType<typeof setTimeout> | undefined
+    const markRead = () => {
+      const reported = reportedReadRef.current
+      if (!isViewing() || (reported !== null && reported >= newestLoadedId)) return
+      clearTimeout(timer)
+      timer = setTimeout(() => {
+        const reachesNewest = !hasNewerRef.current
+        markConversationAsRead(conversationId, newestLoadedId)
+          .then(() => {
+            if (reportedReadRef.current === null || newestLoadedId > reportedReadRef.current) {
+              reportedReadRef.current = newestLoadedId
+            }
+            if (!reachesNewest) return
+            queryClient.setQueryData<ConversationsResponse>(['conversations'], (old) => {
+              if (!old) return old
+              return {
+                ...old,
+                data: old.data.map((c) => (c.id === conversationId ? { ...c, unread_count: 0 } : c)),
+              }
+            })
+          })
+          .catch(() => {})
+      }, MARK_READ_DEBOUNCE_MS)
+    }
+
+    markRead()
+    // Coming back to the tab, or to the window, is when a waiting message
+    // gets read.
+    document.addEventListener('visibilitychange', markRead)
+    window.addEventListener('focus', markRead)
+    return () => {
+      clearTimeout(timer)
+      document.removeEventListener('visibilitychange', markRead)
+      window.removeEventListener('focus', markRead)
+    }
+  }, [conversationId, newestLoadedId, readOnly, deferUntilReady, enabled, queryClient])
 
   // Stable identity: useAutoLoadOlder puts this in a scroll-listener
   // effect's dependency array, and a fresh function reference on every
