@@ -29,6 +29,8 @@ function ConversationsLayout() {
   const shell = useAppShell()
   const { activeTab, setActiveTab, openSearch, signal, connection } = shell
   const [filter, setFilter] = useState<ConversationFilter>('all')
+  // The archived conversations, in the list's place (no filters there).
+  const [listView, setListView] = useState<'chats' | 'archived'>('chats')
   const [isNewOpen, setIsNewOpen] = useState(false)
   const [isGroupModalOpen, setIsGroupModalOpen] = useState(false)
   const [isAddContactOpen, setIsAddContactOpen] = useState(false)
@@ -98,7 +100,7 @@ function ConversationsLayout() {
             <div className='list-pane__search'>
               <SearchTrigger onOpen={openSearch} />
             </div>
-            <div className='list-pane__filters' role='group' aria-label='Filter conversations'>
+            <div className='list-pane__filters' role='group' aria-label='Filter conversations' hidden={listView === 'archived'}>
               {FILTERS.map(({ key, label }) => (
                 <button
                   key={key}
@@ -122,6 +124,9 @@ function ConversationsLayout() {
               isLoading={isLoading}
               error={error}
               filter={filter}
+              view={listView}
+              onShowArchived={() => setListView('archived')}
+              onShowChats={() => setListView('chats')}
               onShowAll={() => setFilter('all')}
               onAddContact={() => setIsAddContactOpen(true)}
               onNewGroup={() => setIsGroupModalOpen(true)}

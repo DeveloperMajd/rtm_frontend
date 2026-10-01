@@ -51,6 +51,22 @@ const markConversationAsRead = async (conversationId: string, messageId?: string
   await api.post(`/conversations/${conversationId}/read`, messageId ? { message_id: messageId } : undefined)
 }
 
+export type ConversationPreferences = Pick<ConversationType, 'pinned_at' | 'muted_at' | 'archived_at'>
+
+/** Pins, mutes or archives a conversation for the viewer, or undoes it.
+ * Resolves with all three as they now stand: archiving also unpins, and
+ * pinning also unarchives. */
+const updateConversationPreferences = async (
+  conversationId: string,
+  changes: { pinned?: boolean; muted?: boolean; archived?: boolean },
+): Promise<ConversationPreferences> => {
+  const response = await api.patch<{ data: ConversationPreferences }>(
+    `/conversations/${conversationId}/preferences`,
+    changes,
+  )
+  return response.data.data
+}
+
 /** How far someone still in the conversation has read. */
 export type ReadPointer = {
   user_id: string
@@ -99,6 +115,7 @@ export {
   postTyping,
   markConversationAsRead,
   getReadPointers,
+  updateConversationPreferences,
   addParticipant,
   kickParticipant,
   leaveConversation,

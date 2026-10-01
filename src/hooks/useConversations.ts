@@ -1,9 +1,9 @@
 import { useEffect, useRef } from 'react'
 import { useLocation } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { getAllConversations } from '../services/api/conversations'
+import { getAllConversations, type ConversationPreferences } from '../services/api/conversations'
 import type { ConversationType, MessageType } from '../utils/baseTypes'
-import { sortByRecency } from '../utils/conversations'
+import { patchConversationInCache, sortConversations } from '../utils/conversations'
 import useEcho from './useEcho'
 import useAuth from './useAuth'
 
@@ -16,7 +16,7 @@ const useConversations = () => {
   const { data, isLoading, isFetchedAfterMount, error, refetch } = useQuery({
     queryKey: ['conversations'],
     queryFn: getAllConversations,
-    select: (response): ConversationType[] => sortByRecency(response.data),
+    select: (response): ConversationType[] => sortConversations(response.data),
     // Online status has no realtime push (it's a Redis TTL heartbeat, not a
     // broadcast event), so poll at the same cadence as the heartbeat itself.
     refetchInterval: 15000,
@@ -60,11 +60,17 @@ const useConversations = () => {
       .listen('ConversationDeleted', () => {
         void queryClient.invalidateQueries({ queryKey: ['conversations'] })
       })
+      .listen('ConversationPreferencesUpdated', (preferences: { conversation_id: string } & ConversationPreferences) => {
+        // Pinned, muted or archived in another tab or on another device.
+        const { conversation_id, ...rest } = preferences
+        patchConversationInCache(queryClient, conversation_id, rest)
+      })
 
     return () => {
       channel.stopListening('MessageSent')
       channel.stopListening('ConversationParticipantsUpdated')
       channel.stopListening('ConversationDeleted')
+      channel.stopListening('ConversationPreferencesUpdated')
       echo.leave(`App.Models.User.${user.id}`)
     }
   }, [user, echo, queryClient])

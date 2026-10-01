@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { sortByRecency, unreadTotal } from './conversations'
+import { sortConversations, unreadTotal } from './conversations'
 import type { ConversationType } from './baseTypes'
 
 const conversation = (overrides: Partial<ConversationType>): ConversationType => ({
@@ -11,13 +11,13 @@ const conversation = (overrides: Partial<ConversationType>): ConversationType =>
   ...overrides,
 })
 
-describe('sortByRecency', () => {
+describe('sortConversations', () => {
   it('orders by last_message_at, most recent first', () => {
     const older = conversation({ id: 'older', last_message_at: '2026-01-01T00:00:00Z' })
     const newer = conversation({ id: 'newer', last_message_at: '2026-01-03T00:00:00Z' })
     const middle = conversation({ id: 'middle', last_message_at: '2026-01-02T00:00:00Z' })
 
-    expect(sortByRecency([older, newer, middle]).map((c) => c.id)).toEqual([
+    expect(sortConversations([older, newer, middle]).map((c) => c.id)).toEqual([
       'newer',
       'middle',
       'older',
@@ -32,16 +32,27 @@ describe('sortByRecency', () => {
     })
     const withMessages = conversation({ id: 'with-messages', last_message_at: '2026-01-02T00:00:00Z' })
 
-    expect(sortByRecency([withMessages, noMessages]).map((c) => c.id)).toEqual([
+    expect(sortConversations([withMessages, noMessages]).map((c) => c.id)).toEqual([
       'no-messages',
       'with-messages',
     ])
   })
 
+  it('puts pinned conversations first, each part by recency', () => {
+    const list = [
+      conversation({ id: 'recent', last_message_at: '2026-01-09T00:00:00Z' }),
+      conversation({ id: 'pinned-old', last_message_at: '2026-01-01T00:00:00Z', pinned_at: '2026-01-05T00:00:00Z' }),
+      conversation({ id: 'older', last_message_at: '2026-01-02T00:00:00Z' }),
+      conversation({ id: 'pinned-new', last_message_at: '2026-01-04T00:00:00Z', pinned_at: '2026-01-03T00:00:00Z' }),
+    ]
+
+    expect(sortConversations(list).map((c) => c.id)).toEqual(['pinned-new', 'pinned-old', 'recent', 'older'])
+  })
+
   it('does not mutate the input array', () => {
     const list = [conversation({ id: 'a' }), conversation({ id: 'b' })]
     const original = [...list]
-    sortByRecency(list)
+    sortConversations(list)
     expect(list).toEqual(original)
   })
 })
@@ -60,5 +71,17 @@ describe('unreadTotal', () => {
 
   it('can leave out the conversation on screen', () => {
     expect(unreadTotal(list, 'b')).toBe(2)
+  })
+
+  // Muting is how someone says they don't want to hear about it; archiving
+  // tidies it away. Each still shows its own count on its row.
+  it('leaves out muted and archived conversations', () => {
+    expect(
+      unreadTotal([
+        ...list,
+        conversation({ id: 'muted', unread_count: 4, muted_at: '2026-01-02T00:00:00Z' }),
+        conversation({ id: 'archived', unread_count: 6, archived_at: '2026-01-02T00:00:00Z' }),
+      ]),
+    ).toBe(5)
   })
 })

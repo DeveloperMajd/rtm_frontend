@@ -60,6 +60,11 @@ export type ConversationType = {
    * derived from, and what the unread divider is anchored to. Null when the
    * viewer has never read this conversation (or has left it). */
   last_read_message_id?: string | null
+  /** The viewer's own pin, mute and archive: when each was switched on, or
+   * null when it's off. Nobody else sees them. */
+  pinned_at?: string | null
+  muted_at?: string | null
+  archived_at?: string | null
   created_at: string
   updated_at: string
 }

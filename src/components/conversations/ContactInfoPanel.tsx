@@ -10,13 +10,15 @@ import Avatar from '../ui/Avatar'
 import Badge from '../ui/Badge'
 import ConfirmDialog from '../ui/ConfirmDialog'
 import Icon from '../ui/Icon'
-import SoonActions from './SoonActions'
+import ConversationActions from './ConversationActions'
 import type { ConversationType } from '../../utils/baseTypes'
 
 type ContactInfoPanelProps = {
   conversation: ConversationType
   /** Every conversation the viewer is in — for the groups you share. */
   conversations: ConversationType[]
+  /** Opens the search bar in the conversation. */
+  onSearch?: () => void
 }
 
 /**
@@ -25,7 +27,7 @@ type ContactInfoPanelProps = {
  * your contacts — removing them. Their bio isn't exposed by the API, so
  * it's left out rather than faked.
  */
-const ContactInfoPanel = ({ conversation, conversations }: ContactInfoPanelProps) => {
+const ContactInfoPanel = ({ conversation, conversations, onSearch }: ContactInfoPanelProps) => {
   const queryClient = useQueryClient()
   const { data: contacts = [] } = useContacts()
   const [confirmingRemove, setConfirmingRemove] = useState(false)
@@ -61,7 +63,7 @@ const ContactInfoPanel = ({ conversation, conversations }: ContactInfoPanelProps
         </p>
       </div>
 
-      <SoonActions />
+      <ConversationActions conversation={conversation} onSearch={onSearch} />
 
       <dl className='info-facts'>
         <div>

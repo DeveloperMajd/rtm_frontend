@@ -454,6 +454,11 @@
     flex: none;
     overflow-x: auto;
 
+    // Not while Archived is showing.
+    &[hidden] {
+      display: none;
+    }
+
     @include until($bp-md) {
       gap: 8px;
       padding: 0 16px 12px;
@@ -524,7 +529,7 @@
   &:hover .conversation-item__quick-actions,
   &:focus-within .conversation-item__quick-actions {
     opacity: 1;
-    visibility: visible;
+    pointer-events: auto;
   }
 
   // A tap leaves :hover stuck on touch screens — the row is opening, not
@@ -533,12 +538,12 @@
     &:hover .conversation-item__quick-actions,
     &:focus-within .conversation-item__quick-actions {
       opacity: 0;
-      visibility: hidden;
+      pointer-events: none;
     }
 
     &:has(:focus-visible) .conversation-item__quick-actions {
       opacity: 1;
-      visibility: visible;
+      pointer-events: auto;
     }
   }
 }
@@ -651,6 +656,9 @@
 // Pin/Mute/Archive — see Conversations.tsx's QuickActions. Overlays the
 // timestamp's own slot (same top-right corner) rather than reserving
 // permanent width for controls that are disabled today.
+// Hidden by opacity, not visibility: a hidden element can't take focus,
+// and focus has to land here when a row moves under it (see Conversations).
+// Nothing hidden can be clicked, though: pointer-events go with it.
 .conversation-item__quick-actions {
   position: absolute;
   top: 0.6rem;
@@ -658,7 +666,7 @@
   display: flex;
   gap: 0.15rem;
   opacity: 0;
-  visibility: hidden;
+  pointer-events: none;
   transition: opacity $dur-fast $ease-out;
 }
 
@@ -666,13 +674,117 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 22px;
-  height: 22px;
+  width: 24px;
+  height: 24px;
   border: 0;
   border-radius: var(--r-btn-sm);
-  background: transparent;
+  background-color: var(--c-list);
+  color: var(--c-fg-2);
+  cursor: pointer;
+
+  &:hover {
+    background-color: var(--c-raised-2);
+    color: var(--c-fg);
+  }
+
+  // Pinned, or muted: the action is on, in the accent.
+  &[aria-pressed='true'] {
+    color: var(--c-accent-text);
+  }
+}
+
+// A pinned or muted conversation's mark, beside its title and time.
+.conversation-item__flag {
+  display: inline-flex;
+  flex: none;
   color: var(--c-fg-3);
-  cursor: not-allowed;
+}
+
+// "Pinned" above the pinned conversations, "Chats" above the rest.
+.list-section {
+  margin: 0;
+  padding: 10px 16px 4px;
+  font-family: var(--f-mono);
+  font-size: var(--fs-meta);
+  font-weight: 500;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--c-fg-2);
+}
+
+// The way into Archived, under the main list.
+.archived-entry {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  width: 100%;
+  padding: 0.7rem 1rem;
+  border: 0;
+  background: transparent;
+  color: var(--c-fg-2);
+  font: inherit;
+  font-size: var(--fs-body);
+  text-align: left;
+  cursor: pointer;
+
+  &:hover {
+    background-color: var(--c-raised-2);
+    color: var(--c-fg);
+  }
+
+  &:focus-visible {
+    outline-offset: -2px;
+  }
+
+  &__icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 2.5rem;
+    color: var(--c-fg-3);
+  }
+
+  &__label {
+    flex: 1;
+  }
+
+  &__count {
+    font-family: var(--f-mono);
+    font-size: var(--fs-caption);
+    color: var(--c-fg-3);
+  }
+}
+
+// Archived's own header, in the list's place: back, and the title.
+.list-archived-head {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 2px 12px 8px;
+
+  &__back {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    border: 0;
+    border-radius: var(--r-btn-sm);
+    background: transparent;
+    color: var(--c-fg-2);
+    cursor: pointer;
+
+    &:hover {
+      background-color: var(--c-raised-2);
+      color: var(--c-fg);
+    }
+  }
+
+  &__title {
+    margin: 0;
+    font-size: var(--fs-body);
+    font-weight: 600;
+  }
 }
 
 // Contacts tab row: a clickable person + a remove affordance.

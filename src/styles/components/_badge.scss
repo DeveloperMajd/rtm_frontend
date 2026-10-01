@@ -44,4 +44,11 @@
   color: var(--c-on-accent);
   font-size: 0.7rem;
   font-weight: 700;
+
+  // A muted conversation still says how much is unread, without calling
+  // for attention.
+  &.is-muted {
+    background-color: var(--c-raised-2);
+    color: var(--c-fg-2);
+  }
 }

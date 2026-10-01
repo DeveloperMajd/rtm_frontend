@@ -212,6 +212,12 @@ const useMessages = (conversationId: string, readOnly = false, options: UseMessa
                         message.type !== 'system' && message.sender?.id !== viewerId && !isViewing()
                           ? (c.unread_count ?? 0) + 1
                           : c.unread_count,
+                      // The server brings an archived conversation back with
+                      // someone else's message unless it's muted; so here.
+                      archived_at:
+                        message.type !== 'system' && message.sender?.id !== viewerId && !c.muted_at
+                          ? null
+                          : c.archived_at,
                       last_message_at: message.created_at,
                       latest_message: {
                         type: message.type,

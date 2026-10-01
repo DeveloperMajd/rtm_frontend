@@ -21,7 +21,7 @@ import Icon from '../ui/Icon'
 import Menu, { type MenuEntry } from '../ui/Menu'
 import Modal from '../ui/Modal'
 import PersonRow from './PersonRow'
-import SoonActions from './SoonActions'
+import ConversationActions from './ConversationActions'
 import type { ContactType, ConversationType } from '../../utils/baseTypes'
 
 type Participant = NonNullable<ConversationType['participants']>[number]
@@ -31,6 +31,8 @@ type GroupInfoPanelProps = {
   currentUserId: string
   /** The viewer has left or been removed: everything is look-only. */
   readOnly: boolean
+  /** Opens the search bar in the conversation. */
+  onSearch?: () => void
 }
 
 type ApiError = AxiosError<{ data?: { message?: string } }>
@@ -51,7 +53,7 @@ type OpenDialog = 'add' | 'leave' | 'hand-over' | 'delete' | { remove: Participa
  * made admin before you leave); the last member is warned there's no way
  * back in. Server refusals are shown in the server's own words.
  */
-const GroupInfoPanel = ({ conversation, currentUserId, readOnly }: GroupInfoPanelProps) => {
+const GroupInfoPanel = ({ conversation, currentUserId, readOnly, onSearch }: GroupInfoPanelProps) => {
   const queryClient = useQueryClient()
   const navigate = useNavigate()
   const [title, setTitle] = useState(conversation.title ?? '')
@@ -142,7 +144,7 @@ const GroupInfoPanel = ({ conversation, currentUserId, readOnly }: GroupInfoPane
         </p>
       </div>
 
-      <SoonActions />
+      <ConversationActions conversation={conversation} onSearch={onSearch} />
 
       {isAdmin ? (
         <section className='admin-card' aria-labelledby='admin-controls-heading'>

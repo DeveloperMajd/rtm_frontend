@@ -94,11 +94,10 @@ describe('ContactInfoPanel', () => {
     expect(screen.queryByRole('button', { name: /Remove from contacts/ })).not.toBeInTheDocument()
   })
 
-  it('shows search, mute and pin as coming, not as working', () => {
+  it('offers mute, pin and archive for this conversation', () => {
     renderPanel()
 
-    for (const label of ['Search', 'Mute', 'Pin']) {
-      expect(screen.getByRole('button', { name: `${label} (coming soon)` })).toBeDisabled()
-    }
+    const actions = screen.getByRole('group', { name: 'Conversation actions' })
+    expect(within(actions).getAllByRole('button').map((b) => b.textContent)).toEqual(['Mute', 'Pin', 'Archive'])
   })
 })

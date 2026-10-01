@@ -210,6 +210,12 @@ const ConversationRoomView = () => {
     // Already open: back into the field, where the keys are.
     searchInputRef.current?.focus()
   }
+  // From the info panel: the panel steps aside (on a phone it covers the
+  // conversation) and the search bar opens.
+  const searchFromPanel = () => {
+    setIsInfoOpen(false)
+    openSearch()
+  }
   const closeSearch = () => {
     setIsSearchOpen(false)
     search.reset()
@@ -477,9 +483,9 @@ const ConversationRoomView = () => {
       {isInfoOpen && conversation && user && (
         <InfoPanel id={infoPanelId} title={isGroup ? 'Group info' : 'Contact'} onClose={closeInfo}>
           {isGroup ? (
-            <GroupInfoPanel conversation={conversation} currentUserId={user.id} readOnly={hasLeft} />
+            <GroupInfoPanel conversation={conversation} currentUserId={user.id} readOnly={hasLeft} onSearch={searchFromPanel} />
           ) : (
-            <ContactInfoPanel conversation={conversation} conversations={conversations} />
+            <ContactInfoPanel conversation={conversation} conversations={conversations} onSearch={searchFromPanel} />
           )}
         </InfoPanel>
       )}

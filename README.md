@@ -47,6 +47,15 @@ board by board for desktop, tablet and phone.
   header opens a search bar. It marks the words in the messages and steps
   through the matches, newest first. Enter or ↑ goes to an older match,
   Shift+Enter or ↓ to a newer one, and Esc closes the bar.
+- **Pin, mute and archive**, from a chat's row in the list or its info
+  panel:
+  - Pinned chats sit at the top under their own heading.
+  - Muted chats keep their unread count on their row, in grey, but drop out
+    of the badges that add them up.
+  - Archived chats move to Archived, under the list. Archiving shows a
+    toast with Undo, and a new message brings the chat back unless it's
+    muted.
+  - Your other tabs follow along.
 - **Read receipts**: your newest message says "Sent" until it has been
   read, then "Seen" in a direct conversation or "Seen by N" in a group,
   which lists who has read it and who hasn't. It updates live.
@@ -90,7 +99,6 @@ board by board for desktop, tablet and phone.
 
 Some controls in the design need backend work first. They appear
 **disabled and tagged** "Soon" or "Needs API", never faked:
-- pin, mute and archive;
 - message info, copy link and saved messages;
 - shared media;
 - notification and privacy settings.

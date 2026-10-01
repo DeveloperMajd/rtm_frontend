@@ -145,9 +145,9 @@
 }
 
 // Search · Mute · Pin — tiles, all "Soon" for now.
-.soon-actions {
+// The info panel's quick actions: Search, Mute, Pin, Archive.
+.conversation-actions {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
   gap: 0.4rem;
 
   &__btn {
@@ -155,19 +155,29 @@
     flex-direction: column;
     align-items: center;
     gap: 0.35rem;
+    min-width: 0;
     padding: 0.7rem 0.25rem 0.6rem;
     border: 1px solid var(--c-line-2);
     border-radius: var(--r-control);
     background-color: var(--c-raised);
-    color: var(--c-fg-3);
+    color: var(--c-fg-2);
     font: inherit;
-    cursor: not-allowed;
+    cursor: pointer;
+
+    &:hover {
+      background-color: var(--c-raised-2);
+      color: var(--c-fg);
+    }
+
+    // Muted, or pinned: in the accent, as its label says.
+    &.is-on {
+      border-color: var(--c-line-accent);
+      background-color: var(--c-accent-soft);
+      color: var(--c-accent-text);
+    }
   }
 
   &__label {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.3rem;
     font-size: var(--fs-caption);
   }
 }
