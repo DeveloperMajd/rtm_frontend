@@ -128,7 +128,10 @@ function SettingsPage() {
           <h2 id='notifications' ref={notificationsRef} tabIndex={-1} className='settings-section__title'>
             Notifications
           </h2>
-          <p className='settings-section__hint'>Sounds and desktop alerts. Designed, not wired up yet.</p>
+          <p className='settings-section__hint'>
+            Sounds and desktop alerts. Designed, not wired up yet. To quiet one chat, mute it from its info panel or
+            its row in the list.
+          </p>
           <ul className='setting-rows'>
             <SoonRow
               title='Message sounds'
@@ -140,12 +143,6 @@ function SettingsPage() {
               title='Desktop notifications'
               tag='Soon'
               description='Show an alert when RTM is in the background.'
-              on={false}
-            />
-            <SoonRow
-              title='Mute a conversation'
-              tag='Soon'
-              description='Silence one chat without leaving it, from its info panel.'
               on={false}
             />
           </ul>
@@ -160,7 +157,7 @@ function SettingsPage() {
             <SoonRow
               title='Read receipts'
               tag='Needs API'
-              description='Let people see when you’ve read their messages. The server records read positions; exposing them needs a new endpoint.'
+              description='Let people see when you’ve read their messages. They can for now; choosing not to share it needs a new setting.'
               on={false}
             />
             <SoonRow
