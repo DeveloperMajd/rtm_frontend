@@ -14,6 +14,7 @@ import { applyReadPointer } from '../utils/readReceipts'
 import { isViewing } from '../utils/viewing'
 import useEcho from './useEcho'
 import useAuth from './useAuth'
+import { currentSettings } from './useSettings'
 
 type ConversationsResponse = { data: ConversationType[] }
 
@@ -248,6 +249,9 @@ const useMessages = (conversationId: string, readOnly = false, options: UseMessa
       })
       .listen('ConversationRead', (pointer: ReadPointer) => {
         // Someone read further: "Sent" becomes "Seen" (see useReadPointers).
+        // Not for a viewer who doesn't share their own read state: read
+        // receipts work both ways, as the server's own list of pointers does.
+        if (!currentSettings(queryClient).read_receipts) return
         applyReadPointer(queryClient, conversationId, pointer)
       })
 

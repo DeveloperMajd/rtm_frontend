@@ -1,11 +1,12 @@
 import { useState, type ReactNode } from 'react'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { AxiosError, AxiosHeaders } from 'axios'
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom'
 import { AuthContext, type AuthContextType } from '../hooks/useAuth'
+import { getSettings, updateSettings, type UserSettings } from '../services/api/settings'
 import ProfilePage from './ProfilePage'
 import SettingsPage from './SettingsPage'
 import SettingsLayout from '../layouts/SettingsLayout'
@@ -22,6 +23,17 @@ vi.mock('../services/api/profile', () => ({
 // under test here.
 vi.mock('../hooks/useConversations', () => ({ default: () => ({ conversations: [] }) }))
 vi.mock('../hooks/usePresenceHeartbeat', () => ({ default: () => {} }))
+vi.mock('../hooks/useUserChannel', () => ({ default: () => {} }))
+vi.mock('../services/api/settings', () => ({
+  getSettings: vi.fn().mockResolvedValue({
+    read_receipts: true,
+    last_seen_visibility: 'everyone',
+    typing_indicators: true,
+    message_sounds: false,
+    desktop_notifications: false,
+  }),
+  updateSettings: vi.fn(),
+}))
 vi.mock('../hooks/useConnectionStatus', () => ({ default: () => 'connected' }))
 
 const me = { id: 'u1', name: 'Majd Kalthoum', email: 'majd@example.com', bio: 'Backend by day.' }
@@ -85,13 +97,25 @@ beforeEach(() => {
   document.documentElement.removeAttribute('data-theme')
 })
 
+const defaults: UserSettings = {
+  read_receipts: true,
+  last_seen_visibility: 'everyone',
+  typing_indicators: true,
+  message_sounds: false,
+  desktop_notifications: false,
+}
+
+beforeEach(() => {
+  vi.mocked(updateSettings).mockReset()
+})
+
 describe('Settings shell', () => {
   it('marks the open page in the settings list, and the avatar in the rail', () => {
     renderApp('/profile')
 
     const sections = screen.getByRole('navigation', { name: 'Settings sections' })
     expect(within(sections).getByRole('link', { name: 'Profile' })).toHaveAttribute('aria-current', 'page')
-    expect(within(sections).getByRole('link', { name: /Notifications/ })).toHaveTextContent('Soon')
+    expect(within(sections).getByRole('link', { name: /Notifications/ })).not.toHaveTextContent('Soon')
     expect(screen.getByRole('link', { name: 'Profile and settings' })).toHaveAttribute('aria-current', 'page')
   })
 
@@ -131,22 +155,93 @@ describe('SettingsPage', () => {
     expect(screen.getByRole('button', { name: /^Theme: Dark/ })).toBeInTheDocument()
   })
 
-  it('shows notification and privacy settings as not live yet, each switch saying how things are today', () => {
+  it('shows each notification and privacy setting as it stands', async () => {
+    vi.mocked(getSettings).mockResolvedValueOnce({ ...defaults, read_receipts: false, last_seen_visibility: 'contacts' })
     renderApp('/settings')
 
-    const expectations: [RegExp, boolean][] = [
-      [/Message sounds/, false],
-      [/Desktop notifications/, false],
-      [/Read receipts/, false],
-      [/Show last seen/, true],
-      [/Typing indicators/, true],
-    ]
-    for (const [name, on] of expectations) {
-      const control = screen.getByRole('switch', { name })
-      expect(control).toBeDisabled()
-      expect(control).toHaveAttribute('aria-checked', String(on))
+    await waitFor(() => expect(screen.getByRole('switch', { name: /Read receipts/ })).toHaveAttribute('aria-checked', 'false'))
+    expect(screen.getByRole('switch', { name: /Message sounds/ })).toHaveAttribute('aria-checked', 'false')
+    expect(screen.getByRole('switch', { name: /Typing indicators/ })).toHaveAttribute('aria-checked', 'true')
+    expect(screen.getByRole('radio', { name: 'My contacts' })).toBeChecked()
+    for (const control of screen.getAllByRole('switch')) {
+      if (control.closest('li')?.textContent?.includes('Desktop')) continue
+      expect(control).toBeEnabled()
     }
-    expect(screen.getByRole('switch', { name: /Read receipts/ })).toHaveAccessibleName('Read receipts Needs API')
+  })
+
+  it('saves a change straight away', async () => {
+    const user = userEvent.setup()
+    vi.mocked(updateSettings).mockImplementation(async (changes) => ({ ...defaults, ...changes }))
+    renderApp('/settings')
+    await screen.findByRole('radio', { name: 'Everyone', checked: true })
+
+    await user.click(screen.getByRole('switch', { name: /Typing indicators/ }))
+    expect(updateSettings).toHaveBeenLastCalledWith({ typing_indicators: false })
+    expect(screen.getByRole('switch', { name: /Typing indicators/ })).toHaveAttribute('aria-checked', 'false')
+
+    await user.click(screen.getByRole('radio', { name: 'Nobody' }))
+    expect(updateSettings).toHaveBeenLastCalledWith({ last_seen_visibility: 'nobody' })
+    expect(screen.getByRole('radio', { name: 'Nobody' })).toBeChecked()
+  })
+
+  it('goes back when the server refuses', async () => {
+    const user = userEvent.setup()
+    vi.mocked(updateSettings).mockRejectedValue(new Error('Network Error'))
+    renderApp('/settings')
+    const receipts = await screen.findByRole('switch', { name: /Read receipts/ })
+
+    await user.click(receipts)
+
+    await waitFor(() => expect(receipts).toHaveAttribute('aria-checked', 'true'))
+  })
+
+  describe('desktop notifications', () => {
+    const original = Object.getOwnPropertyDescriptor(window, 'Notification')
+
+    const stubNotification = (permission: NotificationPermission, answer: NotificationPermission = permission) => {
+      const requestPermission = vi.fn().mockResolvedValue(answer)
+      Object.defineProperty(window, 'Notification', {
+        configurable: true,
+        value: Object.assign(function Notification() {}, { permission, requestPermission }),
+      })
+      return requestPermission
+    }
+
+    afterEach(() => {
+      if (original) Object.defineProperty(window, 'Notification', original)
+      else delete (window as { Notification?: unknown }).Notification
+    })
+
+    it('says so where the browser has none', async () => {
+      renderApp('/settings')
+
+      expect(await screen.findByText('This browser doesn’t offer desktop notifications.')).toBeInTheDocument()
+      expect(screen.getByRole('switch', { name: /Desktop notifications/ })).toBeDisabled()
+    })
+
+    it('asks the browser first, and turns on once it’s allowed', async () => {
+      const user = userEvent.setup()
+      const ask = stubNotification('default', 'granted')
+      vi.mocked(updateSettings).mockImplementation(async (changes) => ({ ...defaults, ...changes }))
+      renderApp('/settings')
+
+      await user.click(await screen.findByRole('switch', { name: /Desktop notifications/ }))
+
+      expect(ask).toHaveBeenCalled()
+      await waitFor(() => expect(updateSettings).toHaveBeenLastCalledWith({ desktop_notifications: true }))
+    })
+
+    it('stays off, and says where to change it, when the browser says no', async () => {
+      const user = userEvent.setup()
+      stubNotification('default', 'denied')
+      renderApp('/settings')
+
+      await user.click(await screen.findByRole('switch', { name: /Desktop notifications/ }))
+
+      expect(await screen.findByText(/Blocked in this browser/)).toBeInTheDocument()
+      expect(updateSettings).not.toHaveBeenCalled()
+      expect(screen.getByRole('switch', { name: /Desktop notifications/ })).toHaveAttribute('aria-checked', 'false')
+    })
   })
 
   it('takes focus to a section linked from the settings list', () => {

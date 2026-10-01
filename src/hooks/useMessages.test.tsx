@@ -7,6 +7,7 @@ import { AuthContext, type AuthContextType } from './useAuth'
 import { getMessagesPage, type MessagesPageParam } from '../services/api/messages'
 import { markConversationAsRead, type ReadPointer } from '../services/api/conversations'
 import { readPointersKey } from '../utils/readReceipts'
+import { DEFAULT_SETTINGS, settingsKey } from './useSettings'
 import type { MessageType } from '../utils/baseTypes'
 import type { MessagesPage } from '../utils/messagePages'
 
@@ -282,4 +283,18 @@ describe('useMessages — marking as read', () => {
       { user_id: 'jo', last_read_message_id: 'm1', last_read_at: '2026-09-30T10:00:00Z' },
     ])
   })
+})
+
+// Read receipts work both ways (Settings "Read receipts").
+it('ignores others’ reads while the viewer doesn’t share their own', async () => {
+  serve({ latest: { data: [msg('m1')], meta: { has_more: false, next_before_id: null } } })
+  const pointers: ReadPointer[] = [{ user_id: 'jo', last_read_message_id: null, last_read_at: null }]
+  client.setQueryData(readPointersKey('c1'), pointers)
+  client.setQueryData(settingsKey, { ...DEFAULT_SETTINGS, read_receipts: false })
+  renderHook(() => useMessages('c1'), { wrapper })
+  await waitFor(() => expect(echo.handlers.ConversationRead).toBeDefined())
+
+  await broadcast('ConversationRead', { user_id: 'jo', last_read_message_id: 'm1', last_read_at: '2026-09-30T10:00:00Z' })
+
+  expect(client.getQueryData<ReadPointer[]>(readPointersKey('c1'))).toEqual(pointers)
 })

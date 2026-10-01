@@ -2,7 +2,6 @@ import { Link, Outlet, useLocation } from 'react-router-dom'
 import toast from 'react-hot-toast'
 import useAuth from '../hooks/useAuth'
 import Avatar from '../components/ui/Avatar'
-import Badge from '../components/ui/Badge'
 import Icon from '../components/ui/Icon'
 import type { IconName } from '../components/ui/icons'
 import { THEME_LABELS, useThemePref } from '../utils/theme'
@@ -11,8 +10,6 @@ type Section = {
   to: string
   label: string
   icon: IconName
-  /** Its controls are shown but not live yet. */
-  soon?: boolean
   isCurrent: (pathname: string, hash: string) => boolean
 }
 
@@ -31,14 +28,12 @@ const SECTIONS: Section[] = [
     to: '/settings#notifications',
     label: 'Notifications',
     icon: 'bell',
-    soon: true,
     isCurrent: (p, h) => p === '/settings' && h === '#notifications',
   },
   {
     to: '/settings#privacy',
     label: 'Privacy',
     icon: 'lock',
-    soon: true,
     isCurrent: (p, h) => p === '/settings' && h === '#privacy',
   },
 ]
@@ -97,12 +92,6 @@ function SettingsLayout() {
                 >
                   <Icon name={section.icon} size={18} />
                   <span className='settings-nav__label'>{section.label}</span>
-                  {section.soon && (
-                    <>
-                      {' '}
-                      <Badge tone='soon'>Soon</Badge>
-                    </>
-                  )}
                   {section.to === '/settings' && (
                     <span className='settings-nav__value' aria-hidden='true'>
                       {THEME_LABELS[theme]}

@@ -517,8 +517,79 @@
     color: var(--c-fg-3);
   }
 
-  &.is-soon &__title {
+  // Something to know about the setting right now: a browser that has
+  // blocked notifications, say.
+  &__note {
+    margin-top: 4px;
+    font-size: var(--fs-small);
+    line-height: var(--lh-small);
     color: var(--c-fg-2);
+  }
+
+  &__action {
+    padding: 0;
+    border: 0;
+    background: transparent;
+    color: var(--c-accent-text);
+    font: inherit;
+    font-weight: 600;
+    text-decoration: underline;
+    cursor: pointer;
+  }
+
+  // A row whose control is a choice rather than a switch takes its own
+  // line when there isn't room beside the text — rather than squeezing the
+  // text into a column a word wide.
+  &:has(.segmented) {
+    flex-wrap: wrap;
+
+    .setting-row__text {
+      min-width: min(100%, 16rem);
+    }
+  }
+}
+
+// DS-Controls "Segmented": one of a few choices, side by side.
+.segmented {
+  display: inline-flex;
+  flex: none;
+  gap: 2px;
+  padding: 3px;
+  border-radius: 10px;
+  background-color: var(--c-input);
+  box-shadow: inset 0 0 0 1px var(--c-line-2);
+
+  &__option {
+    display: inline-flex;
+    align-items: center;
+    height: 30px;
+    padding: 0 12px;
+    border-radius: 7px;
+    font-size: var(--fs-small);
+    font-weight: 500;
+    color: var(--c-fg-2);
+    cursor: pointer;
+    white-space: nowrap;
+    transition:
+      background-color $dur-fast $ease-out,
+      color $dur-fast $ease-out;
+
+    &:hover {
+      color: var(--c-fg);
+    }
+
+    &.is-on {
+      background-color: var(--c-raised);
+      color: var(--c-fg);
+      box-shadow:
+        0 0 0 1px var(--c-line-2),
+        0 1px 2px rgb(0 0 0 / 0.18);
+    }
+
+    // The radio inside is what has focus; the ring goes on what's seen.
+    &:has(:focus-visible) {
+      @include focus-ring;
+    }
   }
 }
 

@@ -69,7 +69,20 @@ board by board for desktop, tablet and phone.
   or are removed keep their history, read-only and frozen at that point.
 - **Account**: sign-in, registration with a live password-rules checklist,
   password reset, and Google sign-in. The profile page has an avatar
-  upload. Settings covers the theme: Light, Dark, or System (the default).
+  upload.
+- **Settings**:
+  - Theme: Light, Dark, or System (the default).
+  - Notifications, for messages in chats you're not looking at:
+    - a soft tone, made with the Web Audio API, so there's no sound file;
+    - desktop notifications, asked for only from their switch. If the
+      browser has blocked them, the switch says so and where to change it.
+    - Neither goes off for your own messages, group events or muted chats.
+  - Privacy:
+    - read receipts, which work both ways;
+    - who sees when you were last online: everyone, your contacts, or
+      nobody;
+    - typing indicators.
+    - The server enforces all three.
 - **When things go wrong**, nothing typed is lost:
   - Drafts are kept on the device.
   - An expired session asks you to sign in again, then returns you to the
@@ -100,8 +113,7 @@ board by board for desktop, tablet and phone.
 Some controls in the design need backend work first. They appear
 **disabled and tagged** "Soon" or "Needs API", never faked:
 - message info, copy link and saved messages;
-- shared media;
-- notification and privacy settings.
+- shared media.
 
 ## Project structure
 

@@ -1,18 +1,14 @@
-import { useEffect, useRef } from 'react'
-import { useLocation } from 'react-router-dom'
-import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { getAllConversations, type ConversationPreferences } from '../services/api/conversations'
-import type { ConversationType, MessageType } from '../utils/baseTypes'
-import { patchConversationInCache, sortConversations } from '../utils/conversations'
-import useEcho from './useEcho'
-import useAuth from './useAuth'
+import { useQuery } from '@tanstack/react-query'
+import { getAllConversations } from '../services/api/conversations'
+import type { ConversationType } from '../utils/baseTypes'
+import { sortConversations } from '../utils/conversations'
 
+/**
+ * The viewer's conversations, pinned first, then by recent activity. Kept
+ * live by useUserChannel (subscribed once, by AppShell), and polled for
+ * presence, which has no broadcast of its own.
+ */
 const useConversations = () => {
-  const echo = useEcho()
-  const { user } = useAuth()
-  const queryClient = useQueryClient()
-  const location = useLocation()
-
   const { data, isLoading, isFetchedAfterMount, error, refetch } = useQuery({
     queryKey: ['conversations'],
     queryFn: getAllConversations,
@@ -28,52 +24,6 @@ const useConversations = () => {
     // staleTime would suppress the refetch that would have corrected it.
     refetchOnMount: 'always',
   })
-
-  // Tracked via a ref (not an effect dependency) so the channel subscription
-  // below doesn't tear down and reconnect on every navigation.
-  const openConversationIdRef = useRef<string | undefined>(undefined)
-  useEffect(() => {
-    openConversationIdRef.current = location.pathname.match(/^\/conversations\/([^/]+)/)?.[1]
-  }, [location.pathname])
-
-  useEffect(() => {
-    if (!user) return
-
-    const channel = echo
-      .private(`App.Models.User.${user.id}`)
-      .listen('MessageSent', (message: MessageType) => {
-        // The open conversation's own subscription (useMessages) already
-        // owns this entry's cache updates, including the read receipt.
-        // Refetching here too would race with that and could clobber the
-        // just-marked-read unread_count back to a stale non-zero value.
-        if (message.conversation_id === openConversationIdRef.current) return
-
-        void queryClient.invalidateQueries({ queryKey: ['conversations'] })
-      })
-      .listen('ConversationParticipantsUpdated', () => {
-        // Membership changes rarely fire and the payload doesn't carry
-        // every field ConversationType needs (last_message_at, unread_count,
-        // etc.), so refetching is simpler and safer than patching the cache
-        // in place — unlike messages, this isn't latency-sensitive.
-        void queryClient.invalidateQueries({ queryKey: ['conversations'] })
-      })
-      .listen('ConversationDeleted', () => {
-        void queryClient.invalidateQueries({ queryKey: ['conversations'] })
-      })
-      .listen('ConversationPreferencesUpdated', (preferences: { conversation_id: string } & ConversationPreferences) => {
-        // Pinned, muted or archived in another tab or on another device.
-        const { conversation_id, ...rest } = preferences
-        patchConversationInCache(queryClient, conversation_id, rest)
-      })
-
-    return () => {
-      channel.stopListening('MessageSent')
-      channel.stopListening('ConversationParticipantsUpdated')
-      channel.stopListening('ConversationDeleted')
-      channel.stopListening('ConversationPreferencesUpdated')
-      echo.leave(`App.Models.User.${user.id}`)
-    }
-  }, [user, echo, queryClient])
 
   return {
     conversations: data ?? [],

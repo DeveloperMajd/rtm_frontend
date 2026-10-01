@@ -10,6 +10,8 @@ import ThemeToggle from '../components/ui/ThemeToggle'
 import useConversations from '../hooks/useConversations'
 import useAuth from '../hooks/useAuth'
 import usePresenceHeartbeat from '../hooks/usePresenceHeartbeat'
+import useUserChannel from '../hooks/useUserChannel'
+import { useSettings } from '../hooks/useSettings'
 import useConnectionStatus from '../hooks/useConnectionStatus'
 import useVisibleViewport from '../hooks/useVisibleViewport'
 import useOnlineStatus from '../hooks/useOnlineStatus'
@@ -44,6 +46,9 @@ function AppShell() {
   const navigate = useNavigate()
   const location = useLocation()
   usePresenceHeartbeat(true)
+  // The signed-in person's own channel and their settings: once, here.
+  useUserChannel()
+  useSettings()
   useVisibleViewport()
 
   // Echo/Pusher already retries on its own — this only surfaces the state.

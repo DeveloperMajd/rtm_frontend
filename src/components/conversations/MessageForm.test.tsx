@@ -6,6 +6,9 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import MessageForm, { type MessageFormHandle } from './MessageForm'
 import { AuthContext, type AuthContextType } from '../../hooks/useAuth'
 import { sendMessage, updateMessage, uploadAttachment } from '../../services/api/messages'
+import { postTyping } from '../../services/api/conversations'
+import { DEFAULT_SETTINGS, settingsKey } from '../../hooks/useSettings'
+import type { UserSettings } from '../../services/api/settings'
 import { AxiosError, AxiosHeaders } from 'axios'
 import type { MessageType } from '../../utils/baseTypes'
 
@@ -31,10 +34,15 @@ const authValue: AuthContextType = {
   endExpiredSession: vi.fn(),
 }
 
+/** Settings the next render starts with (the defaults when unset). */
+let seededSettings: UserSettings | undefined
+
 const Providers = ({ children }: { children: ReactNode }) => {
-  const [queryClient] = useState(
-    () => new QueryClient({ defaultOptions: { mutations: { retry: false } } }),
-  )
+  const [queryClient] = useState(() => {
+    const client = new QueryClient({ defaultOptions: { mutations: { retry: false } } })
+    if (seededSettings) client.setQueryData(settingsKey, seededSettings)
+    return client
+  })
   return (
     <QueryClientProvider client={queryClient}>
       <AuthContext.Provider value={authValue}>{children}</AuthContext.Provider>
@@ -85,6 +93,30 @@ const textbox = () => screen.getByRole('textbox', { name: 'Message' })
 beforeEach(() => {
   vi.mocked(sendMessage).mockReset()
   vi.mocked(updateMessage).mockReset()
+  vi.mocked(postTyping).mockClear()
+  seededSettings = undefined
+})
+
+describe('MessageForm — typing indicator', () => {
+  it('lets the conversation know the viewer is typing', async () => {
+    const user = userEvent.setup()
+    renderForm()
+
+    await user.type(textbox(), 'hi')
+
+    expect(postTyping).toHaveBeenCalledWith('c1')
+  })
+
+  // Settings "Typing indicators": off means not shown typing at all.
+  it('sends nothing when the viewer has typing indicators off', async () => {
+    const user = userEvent.setup()
+    seededSettings = { ...DEFAULT_SETTINGS, typing_indicators: false }
+    renderForm()
+
+    await user.type(textbox(), 'hi')
+
+    expect(postTyping).not.toHaveBeenCalled()
+  })
 })
 
 describe('MessageForm — reply', () => {

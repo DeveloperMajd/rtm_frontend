@@ -1,10 +1,13 @@
-import { useEffect, useId, useRef } from 'react'
+import { useEffect, useId, useRef, useState, type ReactNode } from 'react'
 import { useLocation } from 'react-router-dom'
-import Badge from '../components/ui/Badge'
 import Icon from '../components/ui/Icon'
 import Switch from '../components/ui/Switch'
+import Segmented from '../components/ui/Segmented'
 import { setTheme, useThemePref, type ThemePref } from '../utils/theme'
 import SettingsPageHeader from '../components/settings/SettingsPageHeader'
+import { DEFAULT_SETTINGS, useSettings, useUpdateSettings } from '../hooks/useSettings'
+import type { LastSeenVisibility } from '../services/api/settings'
+import { notificationPermission, playMessageTone, unlockAudio } from '../utils/alerts'
 
 const THEMES: { value: ThemePref; label: string }[] = [
   { value: 'dark', label: 'Dark' },
@@ -46,44 +49,112 @@ const ThemePicker = () => {
   )
 }
 
-type SoonRowProps = {
+/** One setting: what it's called and what it does, and its control —
+ * given the ids that label and describe it. */
+const SettingRow = ({
+  title,
+  description,
+  note,
+  control,
+}: {
   title: string
-  tag: 'Soon' | 'Needs API'
   description: string
-  /** What's true today, which the disabled switch shows. */
-  on: boolean
-}
-
-const SoonRow = ({ title, tag, description, on }: SoonRowProps) => {
+  /** Something to know about this setting right now (a browser's refusal). */
+  note?: ReactNode
+  control: (ids: { labelledBy: string; describedBy: string }) => ReactNode
+}) => {
   const titleId = useId()
   const descriptionId = useId()
 
   return (
-    <li className='setting-row is-soon'>
+    <li className='setting-row'>
       <div className='setting-row__text'>
         <span className='setting-row__title' id={titleId}>
-          {title}{' '}
-          <Badge tone={tag === 'Soon' ? 'soon' : 'needs-api'}>{tag}</Badge>
+          {title}
         </span>
         <span className='setting-row__description' id={descriptionId}>
           {description}
         </span>
+        {note && <span className='setting-row__note'>{note}</span>}
       </div>
-      <Switch checked={on} disabled labelledBy={titleId} describedBy={descriptionId} />
+      {control({ labelledBy: titleId, describedBy: descriptionId })}
     </li>
   )
 }
 
+const LAST_SEEN: { value: LastSeenVisibility; label: string }[] = [
+  { value: 'everyone', label: 'Everyone' },
+  { value: 'contacts', label: 'My contacts' },
+  { value: 'nobody', label: 'Nobody' },
+]
+
 /**
- * Settings-1440: Appearance (live), then Notifications and Privacy, which
- * are laid out in full but not wired up yet — each row disabled, tagged,
- * and its switch showing how the app behaves today (nothing plays a sound;
- * last seen and typing are visible to others; read receipts aren't).
+ * Desktop notifications need this browser's permission as well as the
+ * setting, which follows the person between devices. It's only ever asked
+ * for here, from turning the switch on — never out of the blue. Refused, the
+ * switch stays off and says where to change the browser's mind; set on
+ * another device but not allowed in this browser yet, it offers to ask.
+ */
+const DesktopNotificationsRow = ({ on, onChange }: { on: boolean; onChange: (on: boolean) => void }) => {
+  const [permission, setPermission] = useState(notificationPermission)
+
+  const ask = async (): Promise<NotificationPermission> => {
+    const answer = await Notification.requestPermission()
+    setPermission(answer)
+    return answer
+  }
+
+  const toggle = async (next: boolean) => {
+    if (!next) return onChange(false)
+    if (permission === 'unsupported' || permission === 'denied') return
+    if ((permission === 'granted' ? 'granted' : await ask()) === 'granted') onChange(true)
+  }
+
+  let note: ReactNode = null
+  if (permission === 'unsupported') {
+    note = 'This browser doesn’t offer desktop notifications.'
+  } else if (permission === 'denied') {
+    note = 'Blocked in this browser. Allow notifications for this site in the browser’s settings, then turn this on.'
+  } else if (on && permission === 'default') {
+    note = (
+      <>
+        Not allowed in this browser yet.{' '}
+        <button type='button' className='setting-row__action' onClick={() => void ask()}>
+          Allow
+        </button>
+      </>
+    )
+  }
+
+  return (
+    <SettingRow
+      title='Desktop notifications'
+      description='Show an alert, with who wrote and what they said, when RTM is in the background.'
+      note={note}
+      control={(ids) => (
+        <Switch
+          checked={on && permission !== 'denied' && permission !== 'unsupported'}
+          disabled={permission === 'unsupported'}
+          onChange={(next) => void toggle(next)}
+          {...ids}
+        />
+      )}
+    />
+  )
+}
+
+/**
+ * Settings-1440: Appearance, then Notifications and Privacy. The privacy
+ * settings are enforced by the server, wherever what they hide would leave
+ * it; the notification ones follow the person between devices, and this
+ * browser acts on them (see useUserChannel).
  */
 function SettingsPage() {
   const { hash } = useLocation()
   const notificationsRef = useRef<HTMLHeadingElement>(null)
   const privacyRef = useRef<HTMLHeadingElement>(null)
+  const { data: settings = DEFAULT_SETTINGS } = useSettings()
+  const update = useUpdateSettings()
 
   // The Notifications / Privacy links in the settings list land here with a
   // hash: bring that section into view and move focus to its heading.
@@ -129,21 +200,32 @@ function SettingsPage() {
             Notifications
           </h2>
           <p className='settings-section__hint'>
-            Sounds and desktop alerts. Designed, not wired up yet. To quiet one chat, mute it from its info panel or
-            its row in the list.
+            For messages in chats you’re not looking at. To quiet one chat, mute it from its info panel or its row
+            in the list.
           </p>
           <ul className='setting-rows'>
-            <SoonRow
+            <SettingRow
               title='Message sounds'
-              tag='Soon'
-              description='Play a soft tone for new messages in open chats.'
-              on={false}
+              description='Play a soft tone when a message arrives.'
+              control={(ids) => (
+                <Switch
+                  checked={settings.message_sounds}
+                  onChange={(on) => {
+                    // Turned on by a click, which is what lets a page make
+                    // sound at all — so play it once, to hear what it is.
+                    if (on) {
+                      unlockAudio()
+                      playMessageTone()
+                    }
+                    update({ message_sounds: on })
+                  }}
+                  {...ids}
+                />
+              )}
             />
-            <SoonRow
-              title='Desktop notifications'
-              tag='Soon'
-              description='Show an alert when RTM is in the background.'
-              on={false}
+            <DesktopNotificationsRow
+              on={settings.desktop_notifications}
+              onChange={(on) => update({ desktop_notifications: on })}
             />
           </ul>
         </section>
@@ -152,25 +234,33 @@ function SettingsPage() {
           <h2 id='privacy' ref={privacyRef} tabIndex={-1} className='settings-section__title'>
             Privacy
           </h2>
-          <p className='settings-section__hint'>What people can see about you. These can’t be changed yet.</p>
+          <p className='settings-section__hint'>Control what people can see about you.</p>
           <ul className='setting-rows'>
-            <SoonRow
+            <SettingRow
               title='Read receipts'
-              tag='Needs API'
-              description='Let people see when you’ve read their messages. They can for now; choosing not to share it needs a new setting.'
-              on={false}
+              description='Let people see when you’ve read their messages. Turn it off and you won’t see when they’ve read yours either.'
+              control={(ids) => (
+                <Switch checked={settings.read_receipts} onChange={(on) => update({ read_receipts: on })} {...ids} />
+              )}
             />
-            <SoonRow
+            <SettingRow
               title='Show last seen'
-              tag='Soon'
-              description='Choose who can see when you were last online. Today, everyone you chat with can.'
-              on
+              description='Choose who can see when you were last online. Whether you’re online right now still shows.'
+              control={(ids) => (
+                <Segmented
+                  value={settings.last_seen_visibility}
+                  options={LAST_SEEN}
+                  onChange={(value) => update({ last_seen_visibility: value })}
+                  {...ids}
+                />
+              )}
             />
-            <SoonRow
+            <SettingRow
               title='Typing indicators'
-              tag='Soon'
-              description='Let people see when you’re typing. Today, they always can.'
-              on
+              description='Let people see when you’re typing. You’ll still see when they are.'
+              control={(ids) => (
+                <Switch checked={settings.typing_indicators} onChange={(on) => update({ typing_indicators: on })} {...ids} />
+              )}
             />
           </ul>
         </section>

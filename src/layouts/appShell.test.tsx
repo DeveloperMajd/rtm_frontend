@@ -28,6 +28,17 @@ vi.mock('../hooks/useConversations', () => ({
   default: () => ({ conversations, isLoading: false, error: null, isReady: true, retry: vi.fn() }),
 }))
 vi.mock('../hooks/usePresenceHeartbeat', () => ({ default: () => {} }))
+vi.mock('../hooks/useUserChannel', () => ({ default: () => {} }))
+vi.mock('../services/api/settings', () => ({
+  getSettings: vi.fn().mockResolvedValue({
+    read_receipts: true,
+    last_seen_visibility: 'everyone',
+    typing_indicators: true,
+    message_sounds: false,
+    desktop_notifications: false,
+  }),
+  updateSettings: vi.fn(),
+}))
 vi.mock('../hooks/useConnectionStatus', () => ({ default: () => connection }))
 vi.mock('../services/api/contacts', () => ({
   getContacts: vi.fn().mockResolvedValue([]),

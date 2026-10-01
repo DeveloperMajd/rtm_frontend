@@ -4,6 +4,7 @@ import toast from 'react-hot-toast'
 import { isAxiosError } from 'axios'
 import { sendMessage, updateMessage, uploadAttachment } from '../../services/api/messages'
 import { postTyping } from '../../services/api/conversations'
+import { currentSettings } from '../../hooks/useSettings'
 import { appendMessageToCache, messagesKey, replaceMessageInCache } from '../../utils/messagePages'
 import { loadDraft, saveDraft } from '../../utils/drafts'
 import {
@@ -339,8 +340,10 @@ const MessageForm = ({
     // Nothing left to have failed to send.
     if (!e.target.value.trim()) setSendProblem(null)
 
-    // Rewording an existing message isn't "typing" a new one.
-    if (!editing && !typingThrottle.current) {
+    // Rewording an existing message isn't "typing" a new one. And someone
+    // who has turned typing indicators off isn't shown typing: no ping at
+    // all (the server would drop it anyway).
+    if (!editing && !typingThrottle.current && currentSettings(queryClient).typing_indicators) {
       void postTyping(conversationId)
       typingThrottle.current = setTimeout(() => {
         typingThrottle.current = null
