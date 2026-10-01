@@ -6,7 +6,11 @@
 .app-shell {
   @include visible-viewport;
   display: flex;
-  overflow: hidden;
+  // Clipped rather than hidden: `hidden` still lets scripts and the browser
+  // scroll it (scrollIntoView, focusing something out of view), and a
+  // shifted shell leaves a gap at the bottom of the screen. A clipped one
+  // can't be scrolled at all.
+  overflow: clip;
   background-color: var(--c-stage);
   max-width: 1600px;
   margin-inline: auto;

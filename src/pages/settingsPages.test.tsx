@@ -249,6 +249,18 @@ describe('SettingsPage', () => {
 
     expect(screen.getByRole('heading', { name: 'Privacy' })).toHaveFocus()
   })
+
+  // scrollIntoView scrolls every scrollable ancestor — the app shell
+  // included, which then sat shifted up with a gap beneath it.
+  it('scrolls only the page to the section, never what’s around it', () => {
+    const scrollIntoView = vi.fn()
+    Element.prototype.scrollIntoView = scrollIntoView
+    renderApp('/settings#notifications')
+
+    expect(screen.getByRole('heading', { name: 'Notifications' })).toHaveFocus()
+    expect(scrollIntoView).not.toHaveBeenCalled()
+    delete (Element.prototype as Partial<Element>).scrollIntoView
+  })
 })
 
 describe('ProfilePage', () => {

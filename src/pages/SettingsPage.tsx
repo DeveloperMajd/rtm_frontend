@@ -82,6 +82,9 @@ const SettingRow = ({
   )
 }
 
+/** Room left above a section's heading when a link scrolls to it. */
+const SECTION_GAP_PX = 24
+
 const LAST_SEEN: { value: LastSeenVisibility; label: string }[] = [
   { value: 'everyone', label: 'Everyone' },
   { value: 'contacts', label: 'My contacts' },
@@ -158,12 +161,20 @@ function SettingsPage() {
 
   // The Notifications / Privacy links in the settings list land here with a
   // hash: bring that section into view and move focus to its heading.
+  //
+  // Scrolled within the page's own scroller, and nothing else.
+  // scrollIntoView scrolls every ancestor that can be scrolled at all, which
+  // included the app shell — it hides its overflow so that it never moves,
+  // and it was left shifted up with a gap underneath.
   useEffect(() => {
     const target =
       hash === '#notifications' ? notificationsRef.current : hash === '#privacy' ? privacyRef.current : null
     if (!target) return
     target.focus({ preventScroll: true })
-    target.scrollIntoView?.({ block: 'start' })
+    const scroller = target.closest<HTMLElement>('.settings-page__body')
+    if (scroller) {
+      scroller.scrollTop += target.getBoundingClientRect().top - scroller.getBoundingClientRect().top - SECTION_GAP_PX
+    }
   }, [hash])
 
   return (
