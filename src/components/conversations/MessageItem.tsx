@@ -1,111 +1,236 @@
-import { useState } from 'react'
-import { useMutation } from '@tanstack/react-query'
+import { Fragment, useId, useRef, useState, type ReactNode } from 'react'
+import { useMutation, useQueryClient } from '@tanstack/react-query'
 import toast from 'react-hot-toast'
 import { format } from 'date-fns'
-import { mdiDelete, mdiPencil, mdiReply } from '@mdi/js'
 import type { MessageType } from '../../utils/baseTypes'
-import { updateMessage, deleteMessage } from '../../services/api/messages'
+import type { Receipt } from '../../utils/readReceipts'
+import { deleteMessage } from '../../services/api/messages'
+import { markMessageDeletedInCache, messagesKey } from '../../utils/messagePages'
+import { copyText } from '../../utils/clipboard'
+import { highlightSegments } from '../../utils/searchText'
 import useAuth from '../../hooks/useAuth'
+import useMessageReactions from '../../hooks/useMessageReactions'
+import useMessageGestures from '../../hooks/useMessageGestures'
+import type { AnchorRect } from '../../hooks/useAnchoredPopover'
 import Avatar from '../ui/Avatar'
 import Icon from '../ui/Icon'
+import ConfirmDialog from '../ui/ConfirmDialog'
+import ActionToast from '../ui/ActionToast'
+import MessageAttachments from './MessageAttachments'
+import Lightbox from './Lightbox'
 import MessageReactions from './MessageReactions'
-import ReactionTrigger from './ReactionTrigger'
-import MessageAttachment from './MessageAttachment'
+import MessageToolbar from './MessageToolbar'
+import MessageMenu from './MessageMenu'
+import MessageActionSheet from './MessageActionSheet'
+import ReactionPicker from './ReactionPicker'
+import ReadReceipt from './ReadReceipt'
 
 type MessageItemProps = {
   message: MessageType
   onReply: (message: MessageType) => void
+  onEdit: (message: MessageType) => void
   grouped?: boolean
   readOnly?: boolean
+  /** The viewer's newest message carries its read state
+   * (Study-Read-State: "read state lives on your last message"). */
+  receipt?: Receipt
+  /** Follows the reply's quote to the message it quotes. */
+  onJumpTo?: (messageId: string) => void
+  /** Words to mark in the text — a search of this conversation. */
+  highlightTerms?: string[]
+  /** The search match being shown (a ring until the search moves on). */
+  isCurrentMatch?: boolean
 }
 
-const MessageItem = ({ message, onReply, grouped = false, readOnly = false }: MessageItemProps) => {
+/** Which popover is open, and — for the reaction picker — which button
+ * opened it, so focus can go back to that one. */
+type OpenPopover = 'menu' | 'react-toolbar' | 'react-row' | null
+
+const MessageItem = ({
+  message,
+  onReply,
+  onEdit,
+  grouped = false,
+  readOnly = false,
+  receipt,
+  onJumpTo,
+  highlightTerms,
+  isCurrentMatch = false,
+}: MessageItemProps) => {
   const { user } = useAuth()
-  const [isEditing, setIsEditing] = useState(false)
-  const [editBody, setEditBody] = useState(message.body)
+  const queryClient = useQueryClient()
+  const { grouped: reactionGroups, toggleReaction } = useMessageReactions(message.id, message.reactions)
+  const [openPopover, setOpenPopover] = useState<OpenPopover>(null)
+  const [isConfirmingDelete, setIsConfirmingDelete] = useState(false)
+  const [isSheetOpen, setIsSheetOpen] = useState(false)
+  const menuId = useId()
 
-  const { mutate: saveEdit, isPending: isSaving } = useMutation({
-    mutationFn: (body: string) => updateMessage(message.id, body),
-    onSuccess: () => setIsEditing(false),
-    onError: () => toast.error('Failed to update message. Please try again.'),
-  })
-
-  const { mutate: removeMessage, isPending: isDeleting } = useMutation({
-    mutationFn: () => deleteMessage(message.id),
-    onError: () => toast.error('Failed to delete message. Please try again.'),
-  })
+  const contentRef = useRef<HTMLDivElement>(null)
+  const bubbleRef = useRef<HTMLDivElement>(null)
+  const toolbarRef = useRef<HTMLDivElement>(null)
+  const reactButtonRef = useRef<HTMLButtonElement>(null)
+  const moreButtonRef = useRef<HTMLButtonElement>(null)
+  const addReactionButtonRef = useRef<HTMLButtonElement>(null)
 
   const isOwn = message.sender?.id === user?.id
   const isDeleted = Boolean(message.deleted_at)
+  const canSwipeToReply = !isDeleted && !readOnly
+
+  // Touch screens: hold for the actions sheet, pull right to reply.
+  const gestures = useMessageGestures({
+    targetRef: contentRef,
+    onLongPress: isDeleted ? undefined : () => setIsSheetOpen(true),
+    onSwipe: canSwipeToReply ? () => onReply(message) : undefined,
+  })
+
+  const attachments = message.attachments ?? []
+  const images = attachments.filter((a) => a.is_image)
+  const [viewerIndex, setViewerIndex] = useState<number | null>(null)
+
+  // Attachment links are signed for 30 minutes when the page of messages is
+  // fetched. Refetching the conversation is what re-signs them.
+  const refreshLinks = () => {
+    void queryClient.invalidateQueries({ queryKey: messagesKey(message.conversation_id) })
+  }
+
+  const { mutate: removeMessage, isPending: isDeleting } = useMutation({
+    mutationFn: () => deleteMessage(message.id),
+    onSuccess: () => {
+      markMessageDeletedInCache(queryClient, message.conversation_id, message.id)
+      setIsConfirmingDelete(false)
+    },
+    onError: () => {
+      setIsConfirmingDelete(false)
+      toast.error(
+        (t) => (
+          <ActionToast
+            title='Couldn’t delete the message'
+            body='It’s still there. Try again.'
+            actionLabel='Retry'
+            onAction={() => {
+              toast.dismiss(t.id)
+              removeMessage()
+            }}
+          />
+        ),
+        { id: `delete-failed-${message.id}` },
+      )
+    },
+  })
+
+  const handleCopy = () => {
+    copyText(message.body)
+      .then(() => toast.success('Message text copied'))
+      .catch(() => toast.error('Couldn’t copy the text. Please try again.'))
+  }
+
+  const closePopover = () => setOpenPopover(null)
+  const togglePopover = (popover: Exclude<OpenPopover, null>) =>
+    setOpenPopover((current) => (current === popover ? null : popover))
+
+  // The picker lines up with the bubble's outer edge and grows toward the
+  // middle of the conversation, so it never runs off the screen edge the
+  // bubble is pushed against.
+  const pickerAlign = isOwn ? 'end' : 'start'
+
+  /** Beside the toolbar horizontally, below the whole message (bubble and
+   * reactions) vertically — or above the toolbar when there's no room. */
+  const menuAnchor = (): AnchorRect | null => {
+    const toolbar = toolbarRef.current?.getBoundingClientRect()
+    const content = contentRef.current?.getBoundingClientRect()
+    if (!toolbar || !content) return null
+    return { top: toolbar.top, bottom: content.bottom, left: toolbar.left, right: toolbar.right }
+  }
+
+  const pickerAnchorFromToolbar = (): AnchorRect | null => {
+    const toolbar = toolbarRef.current?.getBoundingClientRect()
+    const bubble = bubbleRef.current?.getBoundingClientRect()
+    const content = contentRef.current?.getBoundingClientRect()
+    if (!toolbar || !bubble || !content) return null
+    return { top: toolbar.top, bottom: content.bottom, left: bubble.left, right: bubble.right }
+  }
+
+  const pickerAnchorFromRow = (): AnchorRect | null =>
+    addReactionButtonRef.current?.getBoundingClientRect() ?? null
+
+  const isPickerOpen = openPopover === 'react-toolbar' || openPopover === 'react-row'
+  const myReactions = new Set(
+    Object.entries(reactionGroups)
+      .filter(([, group]) => group.some((r) => r.user.id === user?.id))
+      .map(([reaction]) => reaction),
+  )
+
+  const rowClass = [
+    'msg-row',
+    isOwn ? 'is-own' : 'is-other',
+    grouped ? 'is-grouped' : '',
+    // Keeps the toolbar showing while its menu or picker is open — focus
+    // and the pointer have both moved into a popover outside the row.
+    openPopover ? 'is-active' : '',
+    isCurrentMatch ? 'is-current-match' : '',
+  ]
+    .filter(Boolean)
+    .join(' ')
 
   return (
-    <li className={`msg-row ${isOwn ? 'is-own' : 'is-other'}${grouped ? ' is-grouped' : ''}`}>
+    <li className={rowClass} data-message-id={message.id}>
       <div className='msg-row__avatar-slot'>
         {!isOwn && !grouped && (
           <Avatar name={message.sender?.name ?? '?'} src={message.sender?.avatar_url} size='xs' />
         )}
       </div>
 
-      <div className='msg-row__content'>
-        <div className={`bubble${isDeleted ? ' is-deleted' : ''}`}>
+      <div ref={contentRef} className='msg-row__content' {...gestures}>
+        {canSwipeToReply && (
+          <span className='msg-row__swipe-hint' aria-hidden='true'>
+            <Icon name='reply' size={16} />
+          </span>
+        )}
+        <div ref={bubbleRef} className={`bubble${isDeleted ? ' is-deleted' : ''}`}>
           {!isOwn && !grouped && (
             <span className='bubble__sender'>{message.sender?.name ?? 'Unknown'}</span>
           )}
 
-          {message.reply_to && (
-            <span className='bubble__reply'>
-              {message.reply_to.deleted_at
-                ? 'Original message deleted'
-                : `${message.reply_to.sender?.name ?? 'Unknown'}: ${message.reply_to.body}`}
-            </span>
+          {message.reply_to && !isDeleted && (
+            <ReplyQuote
+              replyTo={message.reply_to}
+              viewerId={user?.id}
+              onJump={onJumpTo}
+            />
+          )}
+
+          {/* Media first, the text beneath it as its caption
+              (Attach-Messages). */}
+          {!isDeleted && attachments.length > 0 && (
+            <MessageAttachments
+              attachments={attachments}
+              onOpenImage={setViewerIndex}
+              onRefreshLinks={refreshLinks}
+            />
           )}
 
           {isDeleted ? (
-            <span>This message was deleted</span>
-          ) : isEditing ? (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
-              <textarea
-                className='textarea'
-                value={editBody}
-                onChange={(e) => setEditBody(e.target.value)}
-                rows={2}
-                autoFocus
-              />
-              <div style={{ display: 'flex', gap: '0.4rem' }}>
-                <button
-                  type='button'
-                  className='btn primary'
-                  onClick={() => saveEdit(editBody)}
-                  disabled={isSaving || !editBody.trim()}
-                >
-                  {isSaving ? 'Saving…' : 'Save'}
-                </button>
-                <button
-                  type='button'
-                  className='btn ghost'
-                  onClick={() => {
-                    setIsEditing(false)
-                    setEditBody(message.body)
-                  }}
-                >
-                  Cancel
-                </button>
-              </div>
-            </div>
+            <span className='bubble__deleted'>
+              <Icon name='ban' size={14} />
+              This message was deleted
+            </span>
           ) : (
-            message.body && <span>{message.body}</span>
-          )}
-
-          {!isDeleted && message.attachments && message.attachments.length > 0 && (
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.4rem' }}>
-              {message.attachments.map((attachment) => (
-                <MessageAttachment key={attachment.id} attachment={attachment} />
-              ))}
-            </div>
-          )}
-
-          {!isDeleted && !readOnly && !isEditing && (
-            <ReactionTrigger messageId={message.id} reactions={message.reactions} isOwn={isOwn} />
+            message.body && (
+              <span className='bubble__body'>
+                {highlightTerms && highlightTerms.length > 0
+                  ? highlightSegments(message.body, highlightTerms).map((segment, i) =>
+                      segment.match ? (
+                        <mark key={i} className='bubble__mark'>
+                          {segment.text}
+                        </mark>
+                      ) : (
+                        <Fragment key={i}>{segment.text}</Fragment>
+                      ),
+                    )
+                  : message.body}
+                {message.edited_at && <span className='bubble__edited'>edited</span>}
+              </span>
+            )
           )}
 
           {/* Every message shows its own send time, even tightly grouped
@@ -114,36 +239,171 @@ const MessageItem = ({ message, onReply, grouped = false, readOnly = false }: Me
               Only the sender name/avatar are suppressed when grouped. */}
           <span className='bubble__meta'>
             <time dateTime={message.created_at}>{format(new Date(message.created_at), 'HH:mm')}</time>
-            {message.edited_at && !isDeleted ? ' · edited' : ''}
+            {receipt && !isDeleted && (
+              <>
+                <span aria-hidden='true'> · </span>
+                <ReadReceipt receipt={receipt} />
+              </>
+            )}
           </span>
 
-          {!readOnly && !isDeleted && !isEditing && (
-            <div className='bubble__actions'>
-              <button type='button' onClick={() => onReply(message)} aria-label='Reply'>
-                <Icon path={mdiReply} size={16} />
-              </button>
-              {isOwn && (
-                <>
-                  <button type='button' onClick={() => setIsEditing(true)} aria-label='Edit'>
-                    <Icon path={mdiPencil} size={16} />
-                  </button>
-                  <button
-                    type='button'
-                    onClick={() => removeMessage()}
-                    disabled={isDeleting}
-                    aria-label='Delete'
-                  >
-                    <Icon path={mdiDelete} size={16} />
-                  </button>
-                </>
-              )}
-            </div>
+          {!isDeleted && (
+            <MessageToolbar
+              readOnly={readOnly}
+              isReacting={openPopover === 'react-toolbar'}
+              isMenuOpen={openPopover === 'menu'}
+              menuId={menuId}
+              toolbarRef={toolbarRef}
+              reactButtonRef={reactButtonRef}
+              moreButtonRef={moreButtonRef}
+              onReact={() => togglePopover('react-toolbar')}
+              onReply={() => onReply(message)}
+              onMore={() => togglePopover('menu')}
+            />
           )}
         </div>
 
-        {!isDeleted && <MessageReactions messageId={message.id} reactions={message.reactions} />}
+        {!isDeleted && (
+          <MessageReactions
+            grouped={reactionGroups}
+            viewerId={user?.id}
+            readOnly={readOnly}
+            onToggle={(reaction, reacted) => toggleReaction({ reaction, reacted })}
+            onAdd={() => togglePopover('react-row')}
+            addButtonRef={addReactionButtonRef}
+            isAdding={openPopover === 'react-row'}
+          />
+        )}
       </div>
+
+      {!isDeleted && (
+        <>
+          <MessageMenu
+            open={openPopover === 'menu'}
+            id={menuId}
+            isOwn={isOwn}
+            readOnly={readOnly}
+            hasText={Boolean(message.body)}
+            triggerRef={moreButtonRef}
+            getAnchorRect={menuAnchor}
+            // Hangs from the toolbar back across the bubble
+            // (Study-Toolbar-Menu), whichever corner the toolbar is on.
+            align={isOwn ? 'start' : 'end'}
+            onClose={closePopover}
+            onReply={() => onReply(message)}
+            onCopy={handleCopy}
+            onReact={() => setOpenPopover('react-toolbar')}
+            onEdit={() => onEdit(message)}
+            onDelete={() => setIsConfirmingDelete(true)}
+          />
+
+          <MessageActionSheet
+            open={isSheetOpen}
+            onClose={() => setIsSheetOpen(false)}
+            message={message}
+            isOwn={isOwn}
+            readOnly={readOnly}
+            mine={myReactions}
+            onToggleReaction={(reaction, reacted) => toggleReaction({ reaction, reacted })}
+            onReply={() => onReply(message)}
+            onCopy={handleCopy}
+            onEdit={() => onEdit(message)}
+            onDelete={() => setIsConfirmingDelete(true)}
+          />
+
+          <ReactionPicker
+            open={isPickerOpen}
+            mine={myReactions}
+            onToggle={(reaction, reacted) => toggleReaction({ reaction, reacted })}
+            triggerRef={openPopover === 'react-row' ? addReactionButtonRef : reactButtonRef}
+            getAnchorRect={openPopover === 'react-row' ? pickerAnchorFromRow : pickerAnchorFromToolbar}
+            align={pickerAlign}
+            onClose={closePopover}
+          />
+        </>
+      )}
+
+      {viewerIndex !== null && images[viewerIndex] && (
+        <Lightbox
+          images={images}
+          index={viewerIndex}
+          onIndexChange={setViewerIndex}
+          onClose={() => setViewerIndex(null)}
+          sender={message.sender}
+          sentAt={message.created_at}
+          onRefreshLinks={refreshLinks}
+        />
+      )}
+
+      {isOwn && (
+        <ConfirmDialog
+          open={isConfirmingDelete}
+          title='Delete this message?'
+          message='It will show as deleted for everyone in the conversation. This can’t be undone.'
+          confirmLabel='Delete'
+          loading={isDeleting}
+          onConfirm={() => removeMessage()}
+          onCancel={() => setIsConfirmingDelete(false)}
+        />
+      )}
     </li>
+  )
+}
+
+/**
+ * The message a reply quotes, inside the reply's own bubble. Copes with a
+ * deleted original and with one that was only attachments. Following it
+ * jumps to the original (Study-Reply "Jump to original") — a deleted one
+ * too, which is still there as its placeholder.
+ */
+const ReplyQuote = ({
+  replyTo,
+  viewerId,
+  onJump,
+}: {
+  replyTo: NonNullable<MessageType['reply_to']>
+  viewerId: string | undefined
+  onJump?: (messageId: string) => void
+}) => {
+  const author =
+    replyTo.sender?.id === viewerId ? 'You' : (replyTo.sender?.name ?? 'Unknown')
+  const attachments = replyTo.attachments_count ?? 0
+
+  let text: ReactNode = null
+  if (replyTo.deleted_at) {
+    text = <em>Original message deleted</em>
+  } else if (replyTo.body) {
+    text = replyTo.body
+  } else if (attachments > 0) {
+    text = (
+      <>
+        <Icon name='clip' size={12} />
+        {attachments === 1 ? 'Attachment' : `${attachments} attachments`}
+      </>
+    )
+  }
+
+  const content = (
+    <>
+      <span className='bubble__quote-author'>
+        <Icon name='reply' size={12} />
+        {author}
+      </span>
+      {text && <span className='bubble__quote-text'>{text}</span>}
+    </>
+  )
+
+  return onJump ? (
+    <button
+      type='button'
+      className='bubble__quote'
+      aria-label={`Jump to original message from ${author === 'You' ? 'you' : author}`}
+      onClick={() => onJump(replyTo.id)}
+    >
+      {content}
+    </button>
+  ) : (
+    <span className='bubble__quote'>{content}</span>
   )
 }
 

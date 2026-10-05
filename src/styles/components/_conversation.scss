@@ -1,98 +1,554 @@
 @use '../abstracts/mixins' as *;
 @use '../abstracts/tokens' as *;
 
-// Echo/Reverb connection state — auto-reconnect already happens on its own,
-// this just tells the user it's happening instead of failing silently.
-.connection-banner {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  z-index: $z-toast;
-  padding: 0.4rem;
-  text-align: center;
-  font-size: 0.78rem;
-  font-weight: 600;
-  background-color: var(--c-surface-2);
-  color: var(--c-muted);
-  border-bottom: 1px solid var(--c-line);
-
-  &.is-failed {
-    background-color: var(--c-danger);
-    color: var(--c-on-primary);
-    border-bottom-color: transparent;
-  }
-}
-
+// The signed-in app, sized to what's visible — the whole screen, or the
+// part above a phone's on-screen keyboard (see useVisibleViewport).
 .app-shell {
-  height: 100dvh;
+  @include visible-viewport;
   display: flex;
-  overflow: hidden;
-  background-color: var(--c-bg);
+  // Clipped rather than hidden: `hidden` still lets scripts and the browser
+  // scroll it (scrollIntoView, focusing something out of view), and a
+  // shifted shell leaves a gap at the bottom of the screen. A clipped one
+  // can't be scrolled at all.
+  overflow: clip;
+  background-color: var(--c-stage);
   max-width: 1600px;
   margin-inline: auto;
 
   @include from($bp-lg) {
     border-inline: 1px solid var(--c-line);
   }
+
+  // A phone shows one screen at a time, with the tab bar under the two
+  // top-level ones (Mobile-430-Chats, Profile-Mobile). `data-view` is set
+  // from the route by AppShell.
+  @include until($bp-md) {
+    flex-direction: column;
+
+    &[data-view='room'] .rail,
+    &[data-view='settings'] .rail,
+    &[data-view='list'] .main-content,
+    &[data-view='room'] .list-pane,
+    &[data-view='settings-hub'] .settings-main,
+    &[data-view='settings'] .settings-nav {
+      display: none;
+    }
+  }
 }
 
-.sidebar {
+// ---------------------------------------------------------------------
+// The primary navigation. From 768px, the icon rail down the left edge
+// (Tablet-768-Split, Main); on a phone the same buttons, labelled, make
+// the tab bar along the bottom (Mobile-430-Chats).
+// ---------------------------------------------------------------------
+
+.rail {
   display: flex;
-  flex-direction: column;
-  width: 100%;
-  border-right: 1px solid var(--c-line);
-  background-color: var(--c-surface);
 
   @include from($bp-md) {
-    width: 22rem;
-    flex: 0 0 22rem;
+    flex-direction: column;
+    align-items: center;
+    width: 60px;
+    flex: 0 0 60px;
+    height: 100%;
+    padding: 14px 0;
+    gap: 6px;
+    background-color: var(--c-rail);
+    border-right: 1px solid var(--c-line);
+  }
+
+  @include until($bp-md) {
+    // Last on screen, though first in the page — the landmark order stays
+    // navigation, then content.
+    order: 1;
+    flex: none;
+    padding: 0 6px;
+    background-color: var(--c-list);
+    border-top: 1px solid var(--c-line);
+  }
+
+  &__brand {
+    margin-bottom: 14px;
+  }
+
+  &__nav-btn {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex: none;
+    border: 0;
+    background: transparent;
+    color: var(--c-fg-3);
+    cursor: pointer;
+    transition:
+      background-color $dur-fast $ease-out,
+      color $dur-fast $ease-out;
+
+    @include from($bp-md) {
+      width: 36px;
+      height: 36px;
+      border-radius: var(--r-control);
+
+      &:hover {
+        background-color: var(--c-raised-2);
+        color: var(--c-fg);
+      }
+
+      &[aria-current='page'] {
+        background-color: var(--c-accent-soft);
+        color: var(--c-accent);
+      }
+    }
+
+    // A tab: icon over label, the current one lit with a short bar along
+    // its top edge.
+    @include until($bp-md) {
+      flex: 1;
+      flex-direction: column;
+      gap: 4px;
+      height: 56px;
+
+      &[aria-current='page'] {
+        color: var(--c-accent);
+
+        &::before {
+          content: '';
+          position: absolute;
+          top: 0;
+          left: 50%;
+          width: 28px;
+          height: 2px;
+          margin-left: -14px;
+          border-radius: 2px;
+          background-color: var(--c-accent);
+          box-shadow: 0 0 12px var(--c-accent-glow);
+        }
+
+        .rail__label {
+          font-weight: 600;
+        }
+      }
+    }
+  }
+
+  &__icon {
+    position: relative;
+    display: inline-flex;
+
+    // One height for the icons and the avatar, so the labels line up.
+    @include until($bp-md) {
+      align-items: center;
+      height: 26px;
+    }
+  }
+
+  &__label {
+    font-size: 11px;
+    line-height: 12px;
+    font-weight: 500;
+    letter-spacing: 0.005em;
+  }
+
+  // The rail marks unread with a dot…
+  &__dot {
+    position: absolute;
+    top: -3px;
+    right: -4px;
+    width: 7px;
+    height: 7px;
+    border-radius: 999px;
+    background-color: var(--c-accent);
+    box-shadow: 0 0 0 2px var(--c-rail);
+  }
+
+  // …the tab bar with the count.
+  &__count {
+    position: absolute;
+    top: -6px;
+    left: 14px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 17px;
+    height: 17px;
+    padding: 0 4px;
+    border-radius: var(--r-full);
+    background-color: var(--c-accent-solid);
+    color: #fff;
+    font-size: 10.5px;
+    font-weight: 700;
+    line-height: 1;
+    box-shadow: 0 0 0 2px var(--c-list);
+  }
+
+  &__spacer {
+    flex: 1;
+  }
+
+  &__signal {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 32px;
+  }
+
+  &__avatar {
+    display: inline-flex;
+    margin-top: 6px;
+    border-radius: 999px;
+
+    // In Settings: the avatar is where you are (Profile-1440).
+    &[aria-current='page'] {
+      box-shadow:
+        0 0 0 2px var(--c-rail),
+        0 0 0 4px var(--c-accent);
+    }
+  }
+
+  &__me[aria-current='page'] .avatar__clip {
+    box-shadow:
+      0 0 0 2px var(--c-list),
+      0 0 0 3.5px var(--c-accent);
+  }
+
+  // Rail only.
+  @include until($bp-md) {
+    &__brand,
+    &__spacer,
+    &__signal,
+    &__theme,
+    &__avatar,
+    &__dot {
+      display: none;
+    }
+  }
+
+  // Tab bar only.
+  @include from($bp-md) {
+    &__label,
+    &__count,
+    &__me {
+      display: none;
+    }
+  }
+}
+
+.signal-bars {
+  display: inline-flex;
+  align-items: flex-end;
+  gap: 2px;
+  height: 14px;
+
+  i {
+    display: block;
+    width: 2px;
+    border-radius: 1px;
+    background-color: var(--c-line-3);
+
+    &:nth-child(1) {
+      height: 42%;
+    }
+    &:nth-child(2) {
+      height: 70%;
+    }
+    &:nth-child(3) {
+      height: 100%;
+    }
+
+    &.is-lit {
+      background-color: var(--c-accent);
+    }
+  }
+
+  &.is-connecting i.is-lit,
+  &.is-reconnecting i.is-lit {
+    animation: signal-bars-pulse 1.2s ease-in-out infinite;
+  }
+}
+
+@keyframes signal-bars-pulse {
+  50% {
+    opacity: 0.4;
+  }
+}
+
+// The conversation list: the whole screen on a phone; from 768px a column
+// beside the room, widening with the screen (288 → 320 → 340px, as the
+// 768, 1280 and 1440 boards draw it).
+.list-pane {
+  display: flex;
+  flex-direction: column;
+  background-color: var(--c-list);
+
+  @include until($bp-md) {
+    flex: 1;
+    min-height: 0;
+  }
+
+  @include from($bp-md) {
+    width: 288px;
+    flex: 0 0 288px;
+    height: 100%;
+    border-right: 1px solid var(--c-line);
+  }
+
+  @include from($bp-xl) {
+    width: 320px;
+    flex-basis: 320px;
+  }
+
+  @include from($bp-2xl) {
+    width: 340px;
+    flex-basis: 340px;
   }
 
   &__header {
     display: flex;
     align-items: center;
-    justify-content: space-between;
-    gap: 0.75rem;
-    padding: 0.6rem 0.85rem;
-    min-height: 3.5rem;
-    border-bottom: 1px solid var(--c-line);
+    gap: 10px;
+    height: 60px;
+    flex: none;
+    padding: 0 10px 0 16px;
+
+    // A phone's large title (Mobile-430-Chats).
+    @include until($bp-md) {
+      height: auto;
+      min-height: 60px;
+      padding: 6px 8px 8px 20px;
+    }
   }
 
-  &__identity {
+  &__heading {
     display: flex;
     align-items: center;
-    gap: 0.6rem;
+    gap: 10px;
     min-width: 0;
-    color: inherit;
+    margin-right: auto;
+  }
 
-    span {
-      @include truncate;
-      font-weight: 600;
-      font-size: 0.9rem;
+  &__title {
+    margin: 0;
+    font-size: var(--fs-heading);
+    line-height: var(--lh-heading);
+    font-weight: 650;
+    letter-spacing: -0.015em;
+
+    @include until($bp-md) {
+      font-size: 30px;
+      line-height: 36px;
+      font-weight: 700;
+      letter-spacing: -0.03em;
+    }
+  }
+
+  // "Live" — or how the connection is doing when it isn't. Phone only; the
+  // rail carries it from 768px.
+  &__live {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    height: 22px;
+    padding: 0 8px;
+    border-radius: 7px;
+    background-color: var(--c-accent-soft);
+    box-shadow: inset 0 0 0 1px var(--c-line-accent);
+    color: var(--c-accent);
+    font-family: var(--f-mono);
+    font-size: 10.5px;
+    letter-spacing: 0.07em;
+    text-transform: uppercase;
+
+    .signal-bars {
+      height: 10px;
+
+      i.is-lit {
+        background-color: currentColor;
+      }
+    }
+
+    &.is-connecting,
+    &.is-reconnecting {
+      background-color: var(--c-warn-soft);
+      box-shadow: inset 0 0 0 1px var(--c-warn-line);
+      color: var(--c-warn);
+    }
+
+    &.is-offline {
+      background-color: var(--c-danger-soft);
+      box-shadow: inset 0 0 0 1px var(--c-danger-line);
+      color: var(--c-danger);
+    }
+
+    @include from($bp-md) {
+      display: none;
+    }
+  }
+
+  &__icon-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    flex: none;
+    border: 0;
+    border-radius: var(--r-btn-sm);
+    background: transparent;
+    color: var(--c-fg-3);
+    cursor: pointer;
+
+    &:hover {
+      background-color: var(--c-raised-2);
+      color: var(--c-fg);
+    }
+
+    @include until($bp-md) {
+      width: 44px;
+      height: 44px;
+      border-radius: 50%;
+
+      &:not(.is-always) {
+        display: none;
+      }
+    }
+  }
+
+  // A phone's "New conversation" button: a quiet accent tint, the same
+  // family as the Live tag beside the title, rather than a solid disc.
+  &__new {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 36px;
+    height: 36px;
+    flex: none;
+    margin-right: 6px;
+    border: 0;
+    border-radius: 10px;
+    background-color: var(--c-accent-soft);
+    color: var(--c-accent);
+    box-shadow: inset 0 0 0 1px var(--c-line-accent);
+    cursor: pointer;
+    transition: background-color $dur-fast $ease-out;
+
+    &:hover,
+    &:active {
+      background-color: var(--c-accent-soft-2);
+    }
+
+    @include from($bp-md) {
+      display: none;
+    }
+  }
+
+  &__search {
+    padding: 0 12px 10px;
+    flex: none;
+
+    @include until($bp-md) {
+      padding: 0 16px 10px;
+    }
+  }
+
+  &__filters {
+    display: flex;
+    gap: 6px;
+    padding: 0 12px 10px;
+    flex: none;
+    overflow-x: auto;
+
+    // Not while Archived is showing.
+    &[hidden] {
+      display: none;
+    }
+
+    @include until($bp-md) {
+      gap: 8px;
+      padding: 0 16px 12px;
     }
   }
 
   &__list {
     flex: 1;
-    overflow-y: auto;
+    min-height: 0;
     @include custom-scrollbar;
-  }
-
-  &__footer {
-    padding: 0.75rem 1rem;
-    border-top: 1px solid var(--c-line);
   }
 }
 
-// On mobile the room takes the whole screen; the sidebar hides when a
-// conversation is open. Driven by a `data-view` attribute on `.app-shell`.
-@include until($bp-md) {
-  .app-shell[data-view='room'] .sidebar {
-    display: none;
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.3rem 0.65rem;
+  flex: none;
+  border: 1px solid var(--c-line-2);
+  border-radius: var(--r-full);
+  background: transparent;
+  color: var(--c-fg-2);
+  font-size: var(--fs-caption);
+  line-height: var(--lh-caption);
+  white-space: nowrap;
+  cursor: pointer;
+  transition:
+    background-color $dur-fast $ease-out,
+    color $dur-fast $ease-out,
+    border-color $dur-fast $ease-out;
+
+  &:hover {
+    background-color: var(--c-raised-2);
   }
-  .app-shell[data-view='list'] .room {
-    display: none;
+
+  &[aria-pressed='true'] {
+    background-color: var(--c-accent-soft);
+    color: var(--c-accent-text);
+    border-color: var(--c-line-accent);
+  }
+
+  &__count {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 1.1rem;
+    height: 1.1rem;
+    padding: 0 0.3rem;
+    border-radius: var(--r-full);
+    background-color: var(--c-accent);
+    color: var(--c-on-accent);
+    font-size: 0.65rem;
+    font-weight: 700;
+  }
+}
+
+// The <li> wrapping a row's link plus its (sibling, not nested — see
+// Conversations.tsx) Pin/Mute/Archive quick actions.
+.conversation-item-row {
+  position: relative;
+
+  &:hover,
+  &:focus-within {
+    background-color: var(--c-raised-2);
+  }
+
+  &:hover .conversation-item__quick-actions,
+  &:focus-within .conversation-item__quick-actions {
+    opacity: 1;
+    pointer-events: auto;
+  }
+
+  // A tap leaves :hover stuck on touch screens — the row is opening, not
+  // asking for its actions. The keyboard still reveals them.
+  @include touch {
+    &:hover .conversation-item__quick-actions,
+    &:focus-within .conversation-item__quick-actions {
+      opacity: 0;
+      pointer-events: none;
+    }
+
+    &:has(:focus-visible) .conversation-item__quick-actions {
+      opacity: 1;
+      pointer-events: auto;
+    }
   }
 }
 
@@ -112,7 +568,7 @@
   transition: background-color 120ms ease;
 
   &:hover {
-    background-color: var(--c-surface-2);
+    background-color: var(--c-raised-2);
   }
 
   &:disabled {
@@ -120,12 +576,35 @@
     cursor: default;
   }
 
+  // A thin selection line + soft glow, not a filled block (DS-Surfaces).
   &.is-active {
-    background-color: color-mix(in oklab, var(--c-primary) 10%, transparent);
+    background-color: var(--c-accent-soft);
+    box-shadow: inset 3px 0 0 var(--c-accent);
   }
 
+  // A group the viewer has left reads as set aside — the avatar faded, the
+  // name quieter. Not by fading the whole row: its text would drop below
+  // AA contrast.
   &.is-left {
-    opacity: 0.62;
+    .avatar {
+      opacity: 0.55;
+    }
+
+    .conversation-item__title {
+      color: var(--c-fg-2);
+      font-weight: 500;
+    }
+  }
+
+  // A phone's roomier rows (Mobile-430-Chats).
+  @include until($bp-md) {
+    gap: 14px;
+    min-height: 72px;
+    padding: 10px 16px 10px 20px;
+
+    .avatar {
+      --size: 48px;
+    }
   }
 
   &__body {
@@ -147,29 +626,213 @@
     @include truncate;
     font-weight: 600;
     font-size: 0.9rem;
+
+    @include until($bp-md) {
+      font-size: 16px;
+      line-height: 22px;
+    }
   }
 
   &__time {
     flex: 0 0 auto;
     font-size: 0.7rem;
-    color: var(--c-muted);
+    color: var(--c-fg-2);
   }
 
   &__preview {
     @include truncate;
     font-size: 0.8rem;
-    color: var(--c-muted);
+    color: var(--c-fg-2);
+
+    @include until($bp-md) {
+      font-size: 14.5px;
+      line-height: 20px;
+    }
+  }
+
+  // Unread state: the preview line reads as real content, not a muted hint.
+  &.has-unread &__preview {
+    color: var(--c-fg);
+    font-weight: 600;
+  }
+}
+
+// Pin/Mute/Archive — see Conversations.tsx's QuickActions. Overlays the
+// timestamp's own slot (same top-right corner) rather than reserving
+// permanent width for controls that are disabled today.
+// Hidden by opacity, not visibility: a hidden element can't take focus,
+// and focus has to land here when a row moves under it (see Conversations).
+// Nothing hidden can be clicked, though: pointer-events go with it.
+.conversation-item__quick-actions {
+  position: absolute;
+  top: 0.6rem;
+  right: 1rem;
+  display: flex;
+  gap: 0.15rem;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity $dur-fast $ease-out;
+}
+
+.conversation-item__action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border: 0;
+  border-radius: var(--r-btn-sm);
+  background-color: var(--c-list);
+  color: var(--c-fg-2);
+  cursor: pointer;
+
+  &:hover {
+    background-color: var(--c-raised-2);
+    color: var(--c-fg);
+  }
+
+  // Pinned, or muted: the action is on, in the accent.
+  &[aria-pressed='true'] {
+    color: var(--c-accent-text);
+  }
+}
+
+// A pinned or muted conversation's mark, beside its title and time.
+.conversation-item__flag {
+  display: inline-flex;
+  flex: none;
+  color: var(--c-fg-3);
+}
+
+// "Pinned" above the pinned conversations, "Chats" above the rest.
+.list-section {
+  margin: 0;
+  padding: 10px 16px 4px;
+  font-family: var(--f-mono);
+  font-size: var(--fs-meta);
+  font-weight: 500;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--c-fg-2);
+}
+
+// The way into Archived, under the main list.
+.archived-entry {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  width: 100%;
+  padding: 0.7rem 1rem;
+  border: 0;
+  background: transparent;
+  color: var(--c-fg-2);
+  font: inherit;
+  font-size: var(--fs-body);
+  text-align: left;
+  cursor: pointer;
+
+  &:hover {
+    background-color: var(--c-raised-2);
+    color: var(--c-fg);
+  }
+
+  &:focus-visible {
+    outline-offset: -2px;
+  }
+
+  &__icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 2.5rem;
+    color: var(--c-fg-3);
+  }
+
+  &__label {
+    flex: 1;
+  }
+
+  &__count {
+    font-family: var(--f-mono);
+    font-size: var(--fs-caption);
+    color: var(--c-fg-3);
+  }
+}
+
+// Archived's own header, in the list's place: back, and the title.
+.list-archived-head {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 2px 12px 8px;
+
+  &__back {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    border: 0;
+    border-radius: var(--r-btn-sm);
+    background: transparent;
+    color: var(--c-fg-2);
+    cursor: pointer;
+
+    &:hover {
+      background-color: var(--c-raised-2);
+      color: var(--c-fg);
+    }
+  }
+
+  &__title {
+    margin: 0;
+    font-size: var(--fs-body);
+    font-weight: 600;
   }
 }
 
 // Contacts tab row: a clickable person + a remove affordance.
+// Contacts (Contacts-1440): filter + Add contact, one row per contact with
+// Message / Remove revealed on hover or focus, and a count at the foot.
+.contacts {
+  display: flex;
+  flex-direction: column;
+  min-height: 100%;
+
+  &__tools {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    padding: 0.75rem 12px 0.5rem;
+  }
+
+  &__list {
+    flex: 1;
+    margin: 0;
+    padding: 0 0.35rem;
+    list-style: none;
+  }
+
+  &__footer {
+    margin: 0;
+    padding: 0.75rem 1rem;
+    border-top: 1px solid var(--c-line);
+    font-family: var(--f-mono);
+    font-size: var(--fs-meta);
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--c-fg-3);
+  }
+}
+
 .contact-row {
   display: flex;
   align-items: center;
-  border-bottom: 1px solid color-mix(in oklab, var(--c-line) 60%, transparent);
+  border-radius: var(--r-control);
 
-  &:hover {
-    background-color: var(--c-surface-2);
+  &:hover,
+  &:focus-within {
+    background-color: var(--c-raised-2);
   }
 
   &__open {
@@ -178,7 +841,7 @@
     gap: 0.75rem;
     flex: 1;
     min-width: 0;
-    padding: 0.6rem 0.5rem 0.6rem 1rem;
+    padding: 0.55rem 0.5rem 0.55rem 0.65rem;
     border: 0;
     background: transparent;
     color: inherit;
@@ -187,37 +850,108 @@
     cursor: pointer;
   }
 
-  &__remove {
-    margin-right: 0.5rem;
+  &__text {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+  }
+
+  &__name {
+    font-size: var(--fs-body);
+    font-weight: 550;
+    @include truncate;
+  }
+
+  &__meta {
+    font-size: var(--fs-caption);
+    color: var(--c-fg-3);
+
+    &.is-online {
+      color: var(--c-accent-text);
+    }
+  }
+
+  &__actions {
+    display: flex;
+    gap: 2px;
+    padding-right: 0.4rem;
+    opacity: 0;
+
+    .contact-row:hover &,
+    .contact-row:focus-within & {
+      opacity: 1;
+    }
+
+    // Nothing to hover with on a touch screen: always there.
+    @include touch {
+      opacity: 1;
+    }
+  }
+
+  &__action {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 1.9rem;
+    height: 1.9rem;
+    padding: 0;
+    border: 0;
+    border-radius: var(--r-btn-sm);
+    background: transparent;
+    color: var(--c-fg-2);
+    cursor: pointer;
+
+    &:hover {
+      background-color: var(--c-raised);
+      color: var(--c-fg);
+    }
+
+    @include touch {
+      width: 40px;
+      height: 40px;
+    }
   }
 }
 
 // Wraps the routed room / empty-state so there's a `<main>` landmark for the
-// skip link to jump to; it takes over the flex slot `.room` used to occupy
-// directly under `.app-shell`, so the visible layout is unchanged.
+// skip link to jump to.
 .main-content {
   flex: 1;
   display: flex;
   min-width: 0;
+  min-height: 0;
 }
 
 .room {
+  // The anchor for the "Drop to attach" overlay, which covers the pane.
+  position: relative;
   flex: 1;
   display: flex;
   flex-direction: column;
   min-width: 0;
-  background-color: var(--c-bg);
+  background-color: var(--c-stage);
 
-  &--empty {
+  // Nothing open yet (StartScreen) — beside the list from 768px only.
+  &--start {
     align-items: center;
     justify-content: center;
-    gap: 0.85rem;
-    color: var(--c-muted);
-    font-size: 0.9rem;
+    padding: 2rem;
+    overflow-y: auto;
 
     @include until($bp-md) {
       display: none;
     }
+  }
+
+  // A conversation that isn't there any more.
+  &--unavailable {
+    justify-content: center;
+  }
+
+  // A state filling the message area (empty, failed to open).
+  &__state {
+    justify-content: center;
+    min-height: 100%;
   }
 
   &__header {
@@ -225,12 +959,48 @@
     align-items: center;
     gap: 0.65rem;
     padding: 0.6rem 1rem;
-    min-height: 3.5rem;
+    height: 60px;
+    flex: none;
     border-bottom: 1px solid var(--c-line);
-    background-color: var(--c-surface);
+    // The conversation stage's own tone, matching the list-pane header —
+    // not --c-list (aliased to the list/sidebar tone, wrong here).
+    background-color: var(--c-stage);
+
+    @include until($bp-md) {
+      gap: 10px;
+      padding: 0 8px;
+    }
+
+    // Touch-sized icon buttons (Mobile-430-Chat-Group: 40px).
+    @include touch {
+      .btn.icon {
+        width: 40px;
+        height: 40px;
+      }
+    }
   }
 
+  // "‹ 2" — back to the list, with what's unread elsewhere.
   &__back {
+    display: inline-flex;
+    align-items: center;
+    gap: 2px;
+    height: 44px;
+    min-width: 44px;
+    margin-left: -4px;
+    padding: 0 8px 0 4px;
+    border: 0;
+    border-radius: var(--r-control);
+    background: transparent;
+    color: var(--c-fg-2);
+    cursor: pointer;
+
+    &:hover,
+    &:active {
+      background-color: var(--c-raised-2);
+      color: var(--c-fg);
+    }
+
     @include from($bp-md) {
       display: none;
     }
@@ -241,25 +1011,190 @@
     font-size: 0.95rem;
   }
 
+  // Wraps the scroller without scrolling itself, so .new-messages-pill can
+  // be anchored to the visible area. Anchoring it inside the scroller
+  // instead made it travel with the content and drift out of sight.
+  &__stage {
+    position: relative;
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+  }
+
   &__scroll {
     flex: 1;
+    min-height: 0;
     overflow-y: auto;
+    // A message pulled sideways to reply mustn't scroll the list sideways.
+    overflow-x: hidden;
     padding: 1rem;
     @include custom-scrollbar;
   }
 
   &__composer {
     border-top: 1px solid var(--c-line);
-    background-color: var(--c-surface);
+    background-color: var(--c-stage);
     padding: 0.75rem 1rem;
+
+    @include until($bp-md) {
+      padding: 6px 12px 10px;
+    }
   }
 
+  // Holds the read-only card (see .locked-card) for a group the viewer is
+  // no longer in.
   &__locked {
-    padding: 0.85rem 1rem;
-    text-align: center;
-    font-size: 0.82rem;
-    color: var(--c-muted);
-    background-color: var(--c-surface-2);
+    padding: 0.75rem 1rem 1rem;
     border-top: 1px solid var(--c-line);
+    background-color: var(--c-stage);
+  }
+}
+
+// StartScreen's "Jump anywhere with ⌘K".
+.start-hint {
+  margin: 18px 0 0;
+  font-family: var(--f-mono);
+  font-size: var(--fs-meta);
+  color: var(--c-fg-3);
+
+  kbd {
+    padding: 1px 5px;
+    border: 1px solid var(--c-line-2);
+    border-radius: 5px;
+    background-color: var(--c-raised-2);
+    font-family: inherit;
+  }
+
+  @include touch {
+    display: none;
+  }
+}
+
+// Desktop-1440-FirstRun: a welcome and three first steps.
+.welcome {
+  width: 100%;
+  max-width: 760px;
+
+  &__eyebrow {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    margin: 0 0 10px;
+    font-family: var(--f-mono);
+    font-size: 12px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--c-accent-text);
+  }
+
+  &__title {
+    margin: 0;
+    font-size: var(--fs-display);
+    line-height: var(--lh-display);
+    font-weight: 650;
+    letter-spacing: -0.025em;
+
+    @include until($bp-lg) {
+      font-size: var(--fs-title);
+      line-height: var(--lh-title);
+    }
+  }
+
+  &__text {
+    max-width: 520px;
+    margin: 8px 0 0;
+    font-size: 15px;
+    line-height: 24px;
+    color: var(--c-fg-2);
+  }
+
+  &__steps {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 14px;
+    margin: 30px 0 0;
+    padding: 0;
+    list-style: none;
+
+    @include until($bp-lg) {
+      grid-template-columns: minmax(0, 1fr);
+    }
+  }
+
+  &__step {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    padding: 22px;
+    border-radius: 16px;
+    background-color: var(--c-raised);
+    box-shadow: inset 0 0 0 1px var(--c-line);
+  }
+
+  &__step-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 40px;
+    height: 40px;
+    border-radius: 11px;
+    background-color: var(--c-accent-soft);
+    color: var(--c-accent);
+  }
+
+  &__step-title {
+    margin: 0;
+    font-size: 15px;
+    font-weight: 600;
+  }
+
+  &__step-text {
+    margin: 3px 0 0;
+    font-size: 13.5px;
+    line-height: 20px;
+    color: var(--c-fg-2);
+  }
+
+  &__step-action {
+    margin-top: auto;
+  }
+}
+
+// ConnectionStrip (States-Connection): one line under the room header.
+.conn-strip {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: none;
+  padding: 7px 16px;
+  border-bottom: 1px solid var(--c-line);
+  font-size: var(--fs-caption);
+  line-height: var(--lh-caption);
+  color: var(--c-fg-2);
+  background-color: var(--c-raised-2);
+
+  .signal-bars {
+    height: 11px;
+
+    i.is-lit {
+      background-color: currentColor;
+    }
+  }
+
+  &.is-connecting,
+  &.is-reconnecting {
+    background-color: var(--c-warn-soft);
+    color: var(--c-warn);
+  }
+
+  &.is-failed {
+    background-color: var(--c-danger-soft);
+    color: var(--c-danger);
+  }
+
+  &.is-back {
+    background-color: var(--c-success-soft);
+    color: var(--c-success);
   }
 }

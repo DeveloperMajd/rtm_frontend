@@ -45,8 +45,38 @@ const postTyping = async (conversationId: string): Promise<void> => {
   await api.post(`/conversations/${conversationId}/typing`)
 }
 
-const markConversationAsRead = async (conversationId: string): Promise<void> => {
-  await api.post(`/conversations/${conversationId}/read`)
+/** Moves the viewer's read pointer up to `messageId` — or to the newest
+ * message, without one. The server never moves it backwards. */
+const markConversationAsRead = async (conversationId: string, messageId?: string): Promise<void> => {
+  await api.post(`/conversations/${conversationId}/read`, messageId ? { message_id: messageId } : undefined)
+}
+
+export type ConversationPreferences = Pick<ConversationType, 'pinned_at' | 'muted_at' | 'archived_at'>
+
+/** Pins, mutes or archives a conversation for the viewer, or undoes it.
+ * Resolves with all three as they now stand: archiving also unpins, and
+ * pinning also unarchives. */
+const updateConversationPreferences = async (
+  conversationId: string,
+  changes: { pinned?: boolean; muted?: boolean; archived?: boolean },
+): Promise<ConversationPreferences> => {
+  const response = await api.patch<{ data: ConversationPreferences }>(
+    `/conversations/${conversationId}/preferences`,
+    changes,
+  )
+  return response.data.data
+}
+
+/** How far someone still in the conversation has read. */
+export type ReadPointer = {
+  user_id: string
+  last_read_message_id: string | null
+  last_read_at: string | null
+}
+
+const getReadPointers = async (conversationId: string): Promise<ReadPointer[]> => {
+  const response = await api.get<{ data: ReadPointer[] }>(`/conversations/${conversationId}/reads`)
+  return response.data.data
 }
 
 const addParticipant = async (conversationId: string, userId: string): Promise<void> => {
@@ -84,6 +114,8 @@ export {
   renameConversation,
   postTyping,
   markConversationAsRead,
+  getReadPointers,
+  updateConversationPreferences,
   addParticipant,
   kickParticipant,
   leaveConversation,

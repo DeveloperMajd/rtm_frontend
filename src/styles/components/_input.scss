@@ -9,17 +9,125 @@
   &__label {
     font-size: 0.8rem;
     font-weight: 550;
-    color: var(--c-muted);
+    color: var(--c-fg-2);
   }
 
   &__hint {
     font-size: 0.75rem;
-    color: var(--c-muted);
+    color: var(--c-fg-2);
   }
 
   &__error {
-    font-size: 0.78rem;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: var(--fs-caption);
+    line-height: var(--lh-caption);
     color: var(--c-danger);
+
+    svg {
+      flex: none;
+    }
+  }
+
+  // The label with something opposite it: "Forgot password?", a count.
+  &__label-row {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 0.75rem;
+  }
+
+  &__counter {
+    font-family: var(--f-mono);
+    font-size: var(--fs-meta);
+    color: var(--c-fg-3);
+
+    &.is-near {
+      color: var(--c-warn);
+    }
+    &.is-over {
+      color: var(--c-danger);
+    }
+  }
+}
+
+// An input with a button inside its box — the password field's show/hide.
+// Looks like `.input`; the focus ring moves out to the box, since focus can
+// be on either the field or the button.
+.input-shell {
+  display: flex;
+  align-items: center;
+  background-color: var(--c-input);
+  border: 1px solid var(--c-line-2);
+  border-radius: var(--r-control);
+  transition: border-color $dur-fast $ease-out;
+
+  &:has(.input-shell__input:focus-visible) {
+    outline: 2px solid var(--c-focus);
+    outline-offset: 2px;
+    border-color: var(--c-focus);
+  }
+
+  &:has(.input-shell__input[aria-invalid='true']) {
+    border-color: var(--c-danger);
+  }
+
+  &.is-disabled {
+    opacity: 0.6;
+  }
+
+  &__input {
+    flex: 1;
+    min-width: 0;
+    padding: 0.55rem 0.75rem;
+    border: 0;
+    background: transparent;
+    color: var(--c-fg);
+    font: inherit;
+    font-size: 0.9rem;
+
+    &:focus {
+      outline: none;
+    }
+  }
+
+  &__action {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 2rem;
+    height: 2rem;
+    margin-right: 0.25rem;
+    flex: none;
+    border: 0;
+    border-radius: var(--r-btn-sm);
+    background: transparent;
+    color: var(--c-fg-3);
+    cursor: pointer;
+
+    &:hover:not(:disabled) {
+      background-color: var(--c-raised-2);
+      color: var(--c-fg);
+    }
+  }
+}
+
+// A search field with its magnifier inside the box.
+.input-with-icon {
+  position: relative;
+  display: flex;
+  align-items: center;
+
+  svg {
+    position: absolute;
+    left: 0.7rem;
+    color: var(--c-fg-3);
+    pointer-events: none;
+  }
+
+  .input {
+    padding-left: 2.1rem;
   }
 }
 
@@ -27,28 +135,37 @@
 .textarea {
   width: 100%;
   padding: 0.55rem 0.75rem;
-  background-color: var(--c-surface);
+  background-color: var(--c-input);
   color: var(--c-fg);
-  border: 1px solid var(--c-line);
-  border-radius: var(--radius-DEFAULT);
+  border: 1px solid var(--c-line-2);
+  border-radius: var(--r-control);
   font-size: 0.9rem;
   transition:
     border-color $dur-fast $ease-out,
     box-shadow $dur-fast $ease-out;
 
   &::placeholder {
-    color: color-mix(in oklab, var(--c-muted) 80%, transparent);
+    color: color-mix(in oklab, var(--c-fg-2) 80%, transparent);
   }
 
+  // The same 2px ring + 2px offset as every other focusable control
+  // (DS-Accessibility: "Focus is always visible … same in both themes") —
+  // previously a bespoke glow here, inconsistent with the rest of the app.
   &:focus-visible {
-    outline: none;
-    border-color: var(--c-primary);
-    box-shadow: 0 0 0 3px color-mix(in oklab, var(--c-primary) 25%, transparent);
+    outline: 2px solid var(--c-focus);
+    outline-offset: 2px;
+    border-color: var(--c-focus);
   }
 
   &:disabled {
     opacity: 0.6;
     cursor: not-allowed;
+  }
+
+  // A value shown for reference that can't be edited (Profile's email).
+  &[readonly] {
+    background-color: var(--c-raised-2);
+    color: var(--c-fg-2);
   }
 
   &[aria-invalid='true'] {
@@ -59,4 +176,13 @@
 .textarea {
   resize: vertical;
   min-height: 2.5rem;
+}
+
+// iOS zooms the page into any field smaller than 16px when it takes focus.
+@include touch {
+  .input,
+  .textarea,
+  .input-shell__input {
+    font-size: 16px;
+  }
 }

@@ -1,11 +1,11 @@
 .skeleton {
-  --sk-base: color-mix(in oklab, var(--c-line) 70%, var(--c-surface));
-  --sk-shine: color-mix(in oklab, var(--c-line) 30%, var(--c-surface));
+  --sk-base: color-mix(in oklab, var(--c-line) 70%, var(--c-list));
+  --sk-shine: color-mix(in oklab, var(--c-line) 30%, var(--c-list));
 
   position: relative;
   overflow: hidden;
   background-color: var(--sk-base);
-  border-radius: var(--radius-sm);
+  border-radius: var(--r-btn-sm);
 
   &::after {
     content: '';
@@ -18,7 +18,8 @@
       var(--sk-shine),
       transparent
     );
-    animation: skeleton-shimmer 1.4s ease-in-out infinite;
+    // Signal's motion spec: "Skeleton shimmer 1.7 s loop".
+    animation: skeleton-shimmer 1.7s ease-in-out infinite;
   }
 
   &--text {
@@ -32,6 +33,56 @@
 
   &--circle {
     border-radius: 999px;
+  }
+}
+
+// MessagesSkeleton: sits at the foot of the conversation, where the newest
+// messages will land.
+.msg-skeleton {
+  justify-content: flex-end;
+  min-height: 100%;
+  gap: 10px;
+  padding-bottom: 0.5rem;
+
+  &__row {
+    display: flex;
+
+    &.is-own {
+      justify-content: flex-end;
+    }
+  }
+
+  &__bubble {
+    display: block;
+    height: 38px;
+    max-width: 30rem;
+    border-radius: var(--r-bubble);
+  }
+}
+
+// Until a conversation has its first scroll position, its messages are
+// laid out but not shown, and the skeleton covers them (Messages,
+// useStickToBottom).
+.room__scroll:not([data-positioned]) {
+  > .message-list:not(.msg-skeleton),
+  > .message-list__loading-older,
+  > .message-list__older-failed,
+  > .message-list__loading-newer {
+    visibility: hidden;
+  }
+}
+
+.msg-cover {
+  display: none;
+  position: absolute;
+  inset: 0;
+  padding: 1rem;
+  overflow: hidden;
+  background-color: var(--c-stage);
+
+  .room__scroll:not([data-positioned]) + & {
+    display: flex;
+    flex-direction: column;
   }
 }
 

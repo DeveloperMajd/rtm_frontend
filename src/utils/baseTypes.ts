@@ -56,6 +56,15 @@ export type ConversationType = {
   }[]
   participants_count?: number
   unread_count?: number
+  /** The exact message the viewer has read up to — what unread_count is
+   * derived from, and what the unread divider is anchored to. Null when the
+   * viewer has never read this conversation (or has left it). */
+  last_read_message_id?: string | null
+  /** The viewer's own pin, mute and archive: when each was switched on, or
+   * null when it's off. Nobody else sees them. */
+  pinned_at?: string | null
+  muted_at?: string | null
+  archived_at?: string | null
   created_at: string
   updated_at: string
 }
@@ -119,6 +128,9 @@ export type MessageType = {
   reply_to?: {
     id: string
     body: string
+    /** Lets a quote of an attachment-only message say so, rather than
+     * showing an empty line. */
+    attachments_count?: number
     deleted_at?: string
     sender: {
       id: string

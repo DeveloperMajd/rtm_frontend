@@ -1,14 +1,24 @@
-import { Link } from 'react-router-dom'
+import { Link, useLocation } from 'react-router-dom'
+import Icon from '../components/ui/Icon'
+import PageError from '../components/ui/PageError'
 
 const NotFoundPage = () => {
+  const { pathname } = useLocation()
+
   return (
-    <main className='empty-state' style={{ minHeight: '100dvh', justifyContent: 'center' }}>
-      <p style={{ fontSize: '2rem', fontWeight: 700, color: 'var(--c-fg)' }}>404</p>
-      <p>That page doesn&rsquo;t exist.</p>
-      <Link to='/conversations' className='btn primary'>
-        Back to chats
-      </Link>
-    </main>
+    <PageError
+      code='404'
+      title='This page doesn’t exist'
+      footnote={`${window.location.host}${pathname}`}
+      actions={
+        <Link to='/conversations' className='btn primary'>
+          <Icon name='arrowLeft' size={16} />
+          Back to chats
+        </Link>
+      }
+    >
+      The link may be out of date, or the page has moved.
+    </PageError>
   )
 }
 

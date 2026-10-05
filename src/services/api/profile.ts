@@ -17,10 +17,12 @@ export const updateProfile = async (payload: ProfilePayload): Promise<UserType> 
 export const uploadAvatar = async (
   file: File,
   onProgress?: (percent: number) => void,
+  signal?: AbortSignal,
 ): Promise<UserType> => {
   const form = new FormData()
   form.append('avatar', file)
   const { data } = await api.post<{ data: UserType }>('/profile/avatar', form, {
+    signal,
     onUploadProgress: (e: AxiosProgressEvent) => {
       if (onProgress && e.total) onProgress(Math.round((e.loaded / e.total) * 100))
     },

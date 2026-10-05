@@ -1,0 +1,798 @@
+@use '../abstracts/mixins' as *;
+@use '../abstracts/tokens' as *;
+
+// Profile-1440 / Settings-1440-Light: the settings list in the list pane's
+// place, the open page beside it. On a phone (Profile-Mobile) they're two
+// screens: the list at /me, a page at a time over it — AppShell's
+// `data-view` decides which shows.
+
+.settings-nav {
+  display: flex;
+  flex-direction: column;
+  background-color: var(--c-list);
+
+  @include until($bp-md) {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+  }
+
+  @include from($bp-md) {
+    width: 300px;
+    flex: 0 0 300px;
+    height: 100%;
+    border-right: 1px solid var(--c-line);
+  }
+
+  &__header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    height: 60px;
+    flex: none;
+    padding: 0 16px;
+    border-bottom: 1px solid var(--c-line);
+
+    @include until($bp-md) {
+      height: auto;
+      min-height: 60px;
+      padding: 6px 20px 8px;
+      border-bottom: 0;
+    }
+  }
+
+  &__title {
+    margin: 0;
+    font-size: var(--fs-heading);
+    line-height: var(--lh-heading);
+    font-weight: 650;
+    letter-spacing: -0.015em;
+
+    // A phone's large title, as on Chats.
+    @include until($bp-md) {
+      font-size: 30px;
+      line-height: 36px;
+      font-weight: 700;
+      letter-spacing: -0.03em;
+    }
+  }
+
+  // Who's signed in, at the top of a phone's settings list. From 768px the
+  // rail's avatar says it.
+  &__identity {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    margin: 4px 16px 12px;
+    padding: 14px;
+    border-radius: 14px;
+    background-color: var(--c-raised);
+    box-shadow: inset 0 0 0 1px var(--c-line);
+
+    @include from($bp-md) {
+      display: none;
+    }
+  }
+
+  &__who {
+    min-width: 0;
+  }
+
+  &__name {
+    margin: 0;
+    font-size: 17px;
+    line-height: 22px;
+    font-weight: 650;
+    @include truncate;
+  }
+
+  &__email {
+    margin: 0;
+    font-size: var(--fs-small);
+    color: var(--c-fg-2);
+    @include truncate;
+  }
+
+  &__bio {
+    margin: 4px 0 0;
+    font-size: var(--fs-small);
+    line-height: var(--lh-small);
+    color: var(--c-fg-3);
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+
+  &__list {
+    margin: 0;
+    padding: 8px 0;
+    list-style: none;
+  }
+
+  &__item {
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    height: 48px;
+    padding: 0 14px 0 16px;
+    color: var(--c-fg);
+    font-size: var(--fs-body);
+    font-weight: 500;
+
+    > svg {
+      flex: none;
+      color: var(--c-fg-2);
+    }
+
+    &:hover {
+      background-color: var(--c-raised-2);
+    }
+
+    // The selected page: a lifted row with the accent line at its edge.
+    &[aria-current='page'] {
+      background-color: var(--c-raised);
+
+      &::before {
+        content: '';
+        position: absolute;
+        left: 0;
+        top: 8px;
+        bottom: 8px;
+        width: 2px;
+        border-radius: 0 2px 2px 0;
+        background-color: var(--c-accent);
+      }
+
+      > svg {
+        color: var(--c-accent);
+      }
+    }
+
+    .badge {
+      margin-left: auto;
+    }
+
+    // A phone's list rows: taller, with the current theme and a chevron
+    // saying each opens a page of its own.
+    @include until($bp-md) {
+      height: 52px;
+      padding: 0 16px 0 20px;
+      font-size: 15px;
+
+      // Nothing is "open" beside the list on a phone.
+      &[aria-current='page'] {
+        background-color: transparent;
+
+        &::before {
+          content: none;
+        }
+
+        > svg {
+          color: var(--c-fg-2);
+        }
+      }
+    }
+  }
+
+  &__label {
+    flex: 1;
+    min-width: 0;
+  }
+
+  &__value {
+    font-family: var(--f-mono);
+    font-size: var(--fs-meta);
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--c-fg-3);
+  }
+
+  &__chevron {
+    flex: none;
+    color: var(--c-fg-3);
+  }
+
+  @include from($bp-md) {
+    &__value,
+    &__chevron {
+      display: none;
+    }
+  }
+
+  &__footer {
+    margin-top: auto;
+    padding: 8px 0;
+    border-top: 1px solid var(--c-line);
+  }
+
+  &__signout {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    width: 100%;
+    height: 48px;
+    padding: 0 16px;
+
+    @include until($bp-md) {
+      height: 52px;
+      padding: 0 20px;
+      font-size: 15px;
+    }
+
+    border: 0;
+    background: transparent;
+    color: var(--c-danger);
+    font: inherit;
+    font-size: var(--fs-body);
+    font-weight: 500;
+    cursor: pointer;
+
+    &:hover {
+      background-color: var(--c-danger-soft);
+    }
+  }
+}
+
+.settings-main {
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  background-color: var(--c-stage);
+
+  // /me from 768px: the list with nothing chosen yet.
+  &__empty {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 0.85rem;
+    color: var(--c-fg-3);
+    font-size: var(--fs-body);
+
+    p {
+      margin: 0;
+    }
+  }
+}
+
+.settings-page {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+
+  &__header {
+    display: flex;
+    align-items: center;
+    height: 60px;
+    flex: none;
+    padding: 0 40px;
+    border-bottom: 1px solid var(--c-line);
+
+    @include until($bp-md) {
+      gap: 6px;
+      padding: 0 12px 0 8px;
+    }
+  }
+
+  // Back to the settings list — a phone's only way back.
+  &__back {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 40px;
+    height: 40px;
+    border-radius: var(--r-control);
+    color: var(--c-fg-2);
+
+    &:hover,
+    &:active {
+      background-color: var(--c-raised-2);
+      color: var(--c-fg);
+    }
+
+    @include from($bp-md) {
+      display: none;
+    }
+  }
+
+  &__title {
+    margin: 0;
+    font-size: 15px;
+    line-height: 20px;
+    font-weight: 650;
+  }
+
+  &__body {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    padding: 40px 56px 0;
+    @include custom-scrollbar;
+
+    > * {
+      max-width: 700px;
+    }
+
+    @include until($bp-md) {
+      padding: 24px 20px 0;
+    }
+  }
+}
+
+.settings-section {
+  margin-bottom: 40px;
+
+  &__title {
+    margin: 0;
+    font-size: 15px;
+    line-height: 20px;
+    font-weight: 650;
+
+    &:focus {
+      outline: none;
+    }
+  }
+
+  &__hint {
+    margin: 4px 0 16px;
+    font-size: 13.5px;
+    line-height: 20px;
+    color: var(--c-fg-2);
+  }
+}
+
+// ---- Appearance ----
+
+.theme-picker {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+
+  @include until($bp-sm) {
+    grid-template-columns: 1fr;
+  }
+}
+
+.theme-card {
+  --pv-rail: #08090d;
+  --pv-stage: #111219;
+  --pv-line: #1d2030;
+  --pv-bubble: rgb(108 77 255 / 0.55);
+
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 8px 8px 12px;
+  border-radius: 14px;
+  background-color: var(--c-raised);
+  box-shadow: inset 0 0 0 1px var(--c-line-2);
+  cursor: pointer;
+
+  &:hover {
+    box-shadow: inset 0 0 0 1px var(--c-line-3);
+  }
+
+  &:has(input:checked) {
+    box-shadow: inset 0 0 0 2px var(--c-accent);
+  }
+
+  &:has(input:focus-visible) {
+    outline: 2px solid var(--c-focus);
+    outline-offset: 2px;
+  }
+
+  &.is-light {
+    --pv-rail: #e8eaf1;
+    --pv-stage: #fbfbfd;
+    --pv-line: #e3e5ee;
+    --pv-bubble: rgb(91 61 245 / 0.25);
+  }
+
+  // Half and half — whichever the device prefers.
+  &.is-system {
+    --pv-rail: linear-gradient(180deg, #08090d 50%, #e8eaf1 50%);
+    --pv-stage: linear-gradient(90deg, #111219 50%, #fbfbfd 50%);
+    --pv-line: #8a8ea3;
+    --pv-bubble: rgb(108 77 255 / 0.45);
+  }
+
+  &__preview {
+    display: flex;
+    height: 84px;
+    border-radius: 8px;
+    overflow: hidden;
+    box-shadow: inset 0 0 0 1px var(--c-line);
+  }
+
+  &__rail {
+    width: 20%;
+    background: var(--pv-rail);
+  }
+
+  &__stage {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 10px;
+    background: var(--pv-stage);
+  }
+
+  &__line {
+    width: 55%;
+    height: 8px;
+    border-radius: 4px;
+    background-color: var(--pv-line);
+  }
+
+  &__bubble {
+    align-self: flex-end;
+    width: 45%;
+    height: 10px;
+    border-radius: 5px;
+    background-color: var(--pv-bubble);
+  }
+
+  &__label {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 0 4px;
+    font-size: 13.5px;
+    font-weight: 550;
+
+    svg {
+      color: var(--c-accent);
+    }
+  }
+}
+
+.motion-note {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  border-radius: var(--r-control);
+  background-color: var(--c-raised-2);
+  box-shadow: inset 0 0 0 1px var(--c-line-2);
+
+  > svg {
+    color: var(--c-fg-3);
+  }
+
+  &__label {
+    font-size: var(--fs-body);
+  }
+
+  &__value {
+    margin-left: auto;
+    font-family: var(--f-mono);
+    font-size: var(--fs-meta);
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--c-fg-3);
+  }
+}
+
+.setting-rows {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.setting-row {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 14px 0;
+  border-bottom: 1px solid var(--c-line);
+
+  &__text {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+
+  &__title {
+    display: inline-flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 8px;
+    font-size: var(--fs-body);
+    font-weight: 550;
+    color: var(--c-fg);
+  }
+
+  &__description {
+    font-size: var(--fs-small);
+    line-height: var(--lh-small);
+    color: var(--c-fg-3);
+  }
+
+  // Something to know about the setting right now: a browser that has
+  // blocked notifications, say.
+  &__note {
+    margin-top: 4px;
+    font-size: var(--fs-small);
+    line-height: var(--lh-small);
+    color: var(--c-fg-2);
+  }
+
+  &__action {
+    padding: 0;
+    border: 0;
+    background: transparent;
+    color: var(--c-accent-text);
+    font: inherit;
+    font-weight: 600;
+    text-decoration: underline;
+    cursor: pointer;
+  }
+
+  // A row whose control is a choice rather than a switch takes its own
+  // line when there isn't room beside the text — rather than squeezing the
+  // text into a column a word wide.
+  &:has(.segmented) {
+    flex-wrap: wrap;
+
+    .setting-row__text {
+      min-width: min(100%, 16rem);
+    }
+  }
+}
+
+// DS-Controls "Segmented": one of a few choices, side by side.
+.segmented {
+  display: inline-flex;
+  flex: none;
+  gap: 2px;
+  padding: 3px;
+  border-radius: 10px;
+  background-color: var(--c-input);
+  box-shadow: inset 0 0 0 1px var(--c-line-2);
+
+  &__option {
+    display: inline-flex;
+    align-items: center;
+    height: 30px;
+    padding: 0 12px;
+    border-radius: 7px;
+    font-size: var(--fs-small);
+    font-weight: 500;
+    color: var(--c-fg-2);
+    cursor: pointer;
+    white-space: nowrap;
+    transition:
+      background-color $dur-fast $ease-out,
+      color $dur-fast $ease-out;
+
+    &:hover {
+      color: var(--c-fg);
+    }
+
+    &.is-on {
+      background-color: var(--c-raised);
+      color: var(--c-fg);
+      box-shadow:
+        0 0 0 1px var(--c-line-2),
+        0 1px 2px rgb(0 0 0 / 0.18);
+    }
+
+    // The radio inside is what has focus; the ring goes on what's seen.
+    &:has(:focus-visible) {
+      @include focus-ring;
+    }
+  }
+}
+
+// DS-Controls "Switch".
+.switch {
+  position: relative;
+  flex: none;
+  width: 36px;
+  height: 20px;
+  padding: 0;
+  border: 0;
+  border-radius: 999px;
+  background-color: var(--c-line-3);
+  cursor: pointer;
+  transition: background-color $dur-fast $ease-out;
+
+  &[aria-checked='true'] {
+    background-color: var(--c-accent-solid);
+  }
+
+  &:disabled {
+    opacity: 0.55;
+    cursor: not-allowed;
+  }
+
+  &__thumb {
+    position: absolute;
+    top: 2px;
+    left: 2px;
+    width: 16px;
+    height: 16px;
+    border-radius: 999px;
+    background-color: #fff;
+    box-shadow: 0 1px 2px rgb(0 0 0 / 0.25);
+    transition: transform $dur-fast $ease-out;
+  }
+
+  &[aria-checked='true'] &__thumb {
+    transform: translateX(16px);
+  }
+}
+
+// ---- Profile ----
+
+.avatar-editor {
+  display: flex;
+  align-items: center;
+  gap: 22px;
+  padding-bottom: 24px;
+  margin-bottom: 24px;
+  border-bottom: 1px solid var(--c-line);
+
+  &__photo {
+    position: relative;
+    flex: none;
+    padding: 0;
+    border: 0;
+    border-radius: 999px;
+    background: transparent;
+    cursor: pointer;
+
+    &:disabled {
+      cursor: progress;
+    }
+
+    // The ring that fills as the photo uploads.
+    &.is-uploading::after {
+      content: '';
+      position: absolute;
+      inset: -5px;
+      border-radius: 999px;
+      background: conic-gradient(var(--c-accent) var(--progress), var(--c-line-2) 0);
+      mask: radial-gradient(farthest-side, transparent calc(100% - 3px), #000 calc(100% - 3px));
+    }
+  }
+
+  // Hover or focus: "Change" over the photo.
+  &__overlay {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    border-radius: 999px;
+    background-color: rgb(0 0 0 / 0.5);
+    color: #fff;
+    font-size: 12px;
+    font-weight: 600;
+    opacity: 0;
+    transition: opacity $dur-fast $ease-out;
+
+    .avatar-editor__photo:hover:not(:disabled) &,
+    .avatar-editor__photo:focus-visible & {
+      opacity: 1;
+    }
+  }
+
+  &__side {
+    min-width: 0;
+  }
+
+  &__title {
+    margin: 0 0 10px;
+    font-size: var(--fs-title);
+    line-height: var(--lh-title);
+    font-weight: 650;
+    letter-spacing: -0.02em;
+  }
+
+  &__actions {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  &__progress {
+    font-size: var(--fs-body);
+    font-weight: 600;
+  }
+
+  &__hint {
+    margin: 10px 0 0;
+    font-family: var(--f-mono);
+    font-size: var(--fs-meta);
+    color: var(--c-fg-3);
+  }
+
+  &__problem {
+    display: flex;
+    align-items: flex-start;
+    gap: 6px;
+    margin: 10px 0 0;
+    font-size: var(--fs-caption);
+    line-height: var(--lh-caption);
+    color: var(--c-danger);
+
+    svg {
+      flex: none;
+      margin-top: 1px;
+    }
+  }
+}
+
+.profile-form {
+  display: flex;
+  flex-direction: column;
+
+  &__fields {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    min-width: 0;
+    margin: 0;
+    padding: 0;
+    border: 0;
+  }
+
+  &__end {
+    display: flex;
+    justify-content: flex-end;
+    margin-top: 20px;
+  }
+
+  & + .settings-section {
+    margin-top: 40px;
+  }
+}
+
+// Stays in view at the foot of the page while the details form is on
+// screen, saying whether there's anything to save.
+.save-bar {
+  position: sticky;
+  bottom: 0;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 28px;
+  padding: 14px 0;
+  border-top: 1px solid var(--c-line);
+  background-color: var(--c-stage);
+
+  &__status {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    font-size: var(--fs-small);
+    color: var(--c-warn);
+  }
+
+  &__dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 999px;
+    background-color: currentColor;
+  }
+
+  &__actions {
+    display: flex;
+    gap: 8px;
+    margin-left: auto;
+  }
+}

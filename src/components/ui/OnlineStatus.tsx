@@ -16,7 +16,7 @@ const OnlineStatus = ({ isOnline, lastSeenAt, showLabel = false }: OnlineStatusP
         height: '0.5rem',
         borderRadius: '999px',
         flex: '0 0 auto',
-        backgroundColor: isOnline ? 'var(--c-online)' : 'var(--c-muted)',
+        backgroundColor: isOnline ? 'var(--c-accent)' : 'var(--c-fg-2)',
       }}
     />
   )
@@ -36,7 +36,7 @@ const OnlineStatus = ({ isOnline, lastSeenAt, showLabel = false }: OnlineStatusP
         alignItems: 'center',
         gap: '0.35rem',
         fontSize: '0.75rem',
-        color: 'var(--c-muted)',
+        color: 'var(--c-fg-2)',
       }}
     >
       {dot}

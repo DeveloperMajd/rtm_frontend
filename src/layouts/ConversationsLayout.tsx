@@ -1,186 +1,199 @@
-import { useEffect, useRef, useState } from 'react'
-import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom'
-import { Toaster } from 'react-hot-toast'
-import type { ConnectionStatus } from 'laravel-echo'
-import { mdiLogout } from '@mdi/js'
-import Conversations from '../components/conversations/Conversations'
+import { useState } from 'react'
+import { Outlet, useLocation, useNavigate } from 'react-router-dom'
+import Conversations, { type ConversationFilter } from '../components/conversations/Conversations'
 import Contacts from '../components/conversations/Contacts'
 import GroupModal from '../components/conversations/GroupModal'
-import MessageSearch from '../components/conversations/MessageSearch'
-import Button from '../components/ui/Button'
-import Avatar from '../components/ui/Avatar'
-import BrandMark from '../components/ui/BrandMark'
-import Icon from '../components/ui/Icon'
-import ThemeToggle from '../components/ui/ThemeToggle'
-import useConversations from '../hooks/useConversations'
+import AddContactModal from '../components/conversations/AddContactModal'
+import SearchTrigger from '../components/conversations/SearchTrigger'
+import BottomSheet, { SheetAction } from '../components/ui/BottomSheet'
+import StartScreen from '../components/conversations/StartScreen'
 import useAuth from '../hooks/useAuth'
-import usePresenceHeartbeat from '../hooks/usePresenceHeartbeat'
-import useConnectionStatus from '../hooks/useConnectionStatus'
+import Icon from '../components/ui/Icon'
+import SignalBars from '../components/ui/SignalBars'
+import useConversations from '../hooks/useConversations'
+import { unreadTotal } from '../utils/conversations'
+import { LIVE_LABEL } from '../utils/connection'
+import { useAppShell } from './appShellContext'
 
-type Tab = 'chats' | 'contacts'
+const FILTERS: { key: ConversationFilter; label: string }[] = [
+  { key: 'all', label: 'All' },
+  { key: 'unread', label: 'Unread' },
+  { key: 'groups', label: 'Groups' },
+  { key: 'direct', label: 'Direct' },
+]
 
-const TAB_ORDER: Tab[] = ['chats', 'contacts']
-
-const CONNECTION_LABEL: Record<ConnectionStatus, string> = {
-  connected: '',
-  connecting: 'Connecting…',
-  reconnecting: 'Reconnecting…',
-  disconnected: 'Reconnecting…',
-  failed: "Connection lost — retrying…",
-}
-
+/** The Chats screen: the conversation (or contact) list beside the open
+ * room — or, on a phone, one or the other. The navigation, search and
+ * connection state around it are AppShell's. */
 function ConversationsLayout() {
-  const [activeTab, setActiveTab] = useState<Tab>('chats')
+  const shell = useAppShell()
+  const { activeTab, setActiveTab, openSearch, signal, connection } = shell
+  const [filter, setFilter] = useState<ConversationFilter>('all')
+  // The archived conversations, in the list's place (no filters there).
+  const [listView, setListView] = useState<'chats' | 'archived'>('chats')
+  const [isNewOpen, setIsNewOpen] = useState(false)
   const [isGroupModalOpen, setIsGroupModalOpen] = useState(false)
-  const { conversations, isLoading, error } = useConversations()
-  const { logout, user } = useAuth()
+  const [isAddContactOpen, setIsAddContactOpen] = useState(false)
+  const { conversations, isLoading, error, retry, isReady } = useConversations()
+  const { user } = useAuth()
   const navigate = useNavigate()
   const location = useLocation()
-  usePresenceHeartbeat(true)
 
-  // Echo/Pusher already retries on its own — this only surfaces the state.
-  // Debounced so a sub-400ms blip (a normal reconnect) never flashes a banner;
-  // clearing the banner goes through the same timer (at 0ms) so every branch
-  // sets state from the timeout callback rather than the effect body itself.
-  const rawConnectionStatus = useConnectionStatus()
-  const [connectionStatus, setConnectionStatus] = useState<ConnectionStatus>('connected')
-  useEffect(() => {
-    const delay = rawConnectionStatus === 'connected' ? 0 : 400
-    const timeout = setTimeout(() => setConnectionStatus(rawConnectionStatus), delay)
-    return () => clearTimeout(timeout)
-  }, [rawConnectionStatus])
-
-  // On mobile: show the list, or the open room — never both.
   const roomOpen = /^\/conversations\/[^/]+/.test(location.pathname)
-
-  // WAI-ARIA tabs pattern: arrow keys move focus and switch tabs together
-  // (automatic activation, matching the existing click behaviour); Home/End
-  // jump to the first/last tab. Only the active tab is in the Tab order.
-  const tabButtonRefs = useRef<Record<Tab, HTMLButtonElement | null>>({
-    chats: null,
-    contacts: null,
-  })
-
-  const handleTabKeyDown = (e: React.KeyboardEvent<HTMLButtonElement>) => {
-    if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(e.key)) return
-    e.preventDefault()
-
-    const currentIndex = TAB_ORDER.indexOf(activeTab)
-    const nextIndex =
-      e.key === 'Home'
-        ? 0
-        : e.key === 'End'
-          ? TAB_ORDER.length - 1
-          : (currentIndex + (e.key === 'ArrowRight' ? 1 : -1) + TAB_ORDER.length) % TAB_ORDER.length
-
-    const nextTab = TAB_ORDER[nextIndex]
-    setActiveTab(nextTab)
-    tabButtonRefs.current[nextTab]?.focus()
-  }
-
-  const handleLogout = async () => {
-    await logout()
-    navigate('/login', { replace: true })
-  }
+  const unreadCount = unreadTotal(conversations)
 
   return (
-    <div className='app-shell' data-view={roomOpen ? 'room' : 'list'}>
-      <a href='#main-content' className='skip-link'>
-        Skip to conversation
-      </a>
-
-      {connectionStatus !== 'connected' && (
-        <div className={`connection-banner${connectionStatus === 'failed' ? ' is-failed' : ''}`} role='status'>
-          {CONNECTION_LABEL[connectionStatus]}
-        </div>
-      )}
-
-      <Toaster position='top-right' toastOptions={{ className: 'rtm-toast' }} />
-
-      <aside className='sidebar'>
-        <header className='sidebar__header'>
-          <BrandMark size={26} />
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
-            <ThemeToggle compact />
-            <Link to='/profile' aria-label='Your profile'>
-              <Avatar name={user?.name ?? '?'} src={user?.avatar_url} size='sm' />
-            </Link>
-            <Button variant='ghost' icon aria-label='Log out' onClick={() => void handleLogout()}>
-              <Icon path={mdiLogout} />
-            </Button>
+    <>
+      <section
+        id='chat-list'
+        tabIndex={-1}
+        className='list-pane'
+        aria-label={activeTab === 'chats' ? 'Conversations' : 'Contacts'}
+      >
+        <header className='list-pane__header'>
+          <div className='list-pane__heading'>
+            <h1 className='list-pane__title'>{activeTab === 'chats' ? 'Chats' : 'Contacts'}</h1>
+            {activeTab === 'chats' && (
+              // Phone only: the rail shows the connection from 768px.
+              <span className={`list-pane__live is-${signal}`}>
+                <SignalBars state={signal} />
+                {LIVE_LABEL[connection]}
+              </span>
+            )}
           </div>
+          {activeTab === 'chats' ? (
+            <>
+              <button
+                type='button'
+                className='list-pane__icon-btn'
+                aria-label='New group'
+                onClick={() => setIsGroupModalOpen(true)}
+              >
+                <Icon name='plus' />
+              </button>
+              {/* Phone: one button for both ways to start a conversation
+                  (Mobile-NewChat-Flow), in a sheet. */}
+              <button
+                type='button'
+                className='list-pane__new'
+                aria-label='New conversation'
+                aria-haspopup='dialog'
+                onClick={() => setIsNewOpen(true)}
+              >
+                <Icon name='plus' />
+              </button>
+            </>
+          ) : (
+            <button
+              type='button'
+              className='list-pane__icon-btn is-always'
+              aria-label='Add contact'
+              onClick={() => setIsAddContactOpen(true)}
+            >
+              <Icon name='userPlus' />
+            </button>
+          )}
         </header>
 
-        <MessageSearch />
+        {activeTab === 'chats' && (
+          <>
+            <div className='list-pane__search'>
+              <SearchTrigger onOpen={openSearch} />
+            </div>
+            <div className='list-pane__filters' role='group' aria-label='Filter conversations' hidden={listView === 'archived'}>
+              {FILTERS.map(({ key, label }) => (
+                <button
+                  key={key}
+                  type='button'
+                  className='chip'
+                  aria-pressed={filter === key}
+                  onClick={() => setFilter(key)}
+                >
+                  {label}
+                  {key === 'unread' && unreadCount > 0 && <span className='chip__count'>{unreadCount}</span>}
+                </button>
+              ))}
+            </div>
+          </>
+        )}
 
-        <div className='tabs' role='tablist' aria-label='Conversations and contacts'>
-          <button
-            ref={(el) => {
-              tabButtonRefs.current.chats = el
-            }}
-            type='button'
-            role='tab'
-            id='tab-chats'
-            aria-selected={activeTab === 'chats'}
-            aria-controls='panel-chats'
-            tabIndex={activeTab === 'chats' ? 0 : -1}
-            className='tabs__tab'
-            onClick={() => setActiveTab('chats')}
-            onKeyDown={handleTabKeyDown}
-          >
-            Chats
-          </button>
-          <button
-            ref={(el) => {
-              tabButtonRefs.current.contacts = el
-            }}
-            type='button'
-            role='tab'
-            id='tab-contacts'
-            aria-selected={activeTab === 'contacts'}
-            aria-controls='panel-contacts'
-            tabIndex={activeTab === 'contacts' ? 0 : -1}
-            className='tabs__tab'
-            onClick={() => setActiveTab('contacts')}
-            onKeyDown={handleTabKeyDown}
-          >
-            Contacts
-          </button>
-        </div>
-
-        <div
-          className='sidebar__list scroll-y'
-          role='tabpanel'
-          id={activeTab === 'chats' ? 'panel-chats' : 'panel-contacts'}
-          aria-labelledby={activeTab === 'chats' ? 'tab-chats' : 'tab-contacts'}
-        >
+        <div className='list-pane__list scroll-y'>
           {activeTab === 'chats' ? (
-            <Conversations conversations={conversations} isLoading={isLoading} error={error} />
+            <Conversations
+              conversations={conversations}
+              isLoading={isLoading}
+              error={error}
+              filter={filter}
+              view={listView}
+              onShowArchived={() => setListView('archived')}
+              onShowChats={() => setListView('chats')}
+              onShowAll={() => setFilter('all')}
+              onAddContact={() => setIsAddContactOpen(true)}
+              onNewGroup={() => setIsGroupModalOpen(true)}
+              onRetry={retry}
+            />
           ) : (
-            <Contacts onConversationOpened={() => setActiveTab('chats')} />
+            <Contacts onConversationOpened={() => setActiveTab('chats')} onAddContact={() => setIsAddContactOpen(true)} />
           )}
         </div>
-
-        <footer className='sidebar__footer'>
-          <Button variant='primary' block onClick={() => setIsGroupModalOpen(true)}>
-            + New group
-          </Button>
-        </footer>
-      </aside>
+      </section>
 
       <main id='main-content' className='main-content' tabIndex={-1}>
-        <Outlet />
+        {/* The room reads the connection state from here, too. */}
+        <Outlet context={shell} />
 
         {!roomOpen && (
-          <div className='room room--empty'>
-            <BrandMark size={44} withWordmark={false} />
-            <p>Select a conversation to start chatting</p>
-          </div>
+          <StartScreen
+            isNewAccount={isReady && !error && conversations.length === 0}
+            firstName={user?.name.split(' ')[0] ?? ''}
+            onNewConversation={() => setIsNewOpen(true)}
+            onAddContact={() => setIsAddContactOpen(true)}
+            onNewGroup={() => setIsGroupModalOpen(true)}
+            onSearch={openSearch}
+          />
         )}
       </main>
 
-      <GroupModal open={isGroupModalOpen} onClose={() => setIsGroupModalOpen(false)} />
-    </div>
+      <BottomSheet open={isNewOpen} onClose={() => setIsNewOpen(false)} title='New conversation'>
+        <div className='sheet-actions'>
+          <SheetAction
+            icon='userPlus'
+            label='Add contact'
+            hint='Find someone by name or email'
+            onSelect={() => {
+              setIsNewOpen(false)
+              setIsAddContactOpen(true)
+            }}
+          />
+          <SheetAction
+            icon='users'
+            label='New group'
+            hint='A name and the people to include'
+            onSelect={() => {
+              setIsNewOpen(false)
+              setIsGroupModalOpen(true)
+            }}
+          />
+        </div>
+      </BottomSheet>
+
+      <GroupModal
+        open={isGroupModalOpen}
+        onClose={() => setIsGroupModalOpen(false)}
+        onAddContact={() => {
+          setActiveTab('contacts')
+          setIsAddContactOpen(true)
+        }}
+      />
+      <AddContactModal
+        open={isAddContactOpen}
+        onClose={() => setIsAddContactOpen(false)}
+        onAdded={(conversationId) => {
+          navigate(`/conversations/${conversationId}`)
+          setActiveTab('chats')
+        }}
+      />
+    </>
   )
 }
 

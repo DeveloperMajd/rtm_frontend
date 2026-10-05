@@ -1,11 +1,13 @@
 @use '../abstracts/mixins' as *;
+@use '../abstracts/tokens' as *;
 
 .message-list {
   list-style: none;
   margin: 0 auto;
   padding: 0;
   width: 100%;
-  max-width: 48rem;
+  // DS-Type-Space: "Chat column stays 720 max" at 1440+.
+  max-width: 45rem;
   display: flex;
   flex-direction: column;
   gap: 0.1rem;
@@ -20,10 +22,180 @@
   span {
     padding: 0.15rem 0.7rem;
     border-radius: 999px;
-    background-color: var(--c-surface-2);
-    color: var(--c-muted);
+    background-color: var(--c-raised-2);
+    color: var(--c-fg-2);
     font-size: 0.72rem;
     font-weight: 600;
+  }
+}
+
+// The unread divider — placed once at the boundary a conversation had when
+// it was opened (see useUnreadSnapshot); a line either side keeps it
+// legible without a full-width band. Signal's accent, not a neutral tone,
+// since it marks something to act on rather than just orient by.
+.msg-divider {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin: 1rem 0 0.75rem;
+
+  &::before,
+  &::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+  }
+
+  &--unread {
+    &::before,
+    &::after {
+      background-color: var(--c-line-accent);
+    }
+  }
+
+  &__label {
+    color: var(--c-accent);
+    font-size: 0.72rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+
+  &__count {
+    font-family: var(--f-mono);
+    font-size: 0.68rem;
+    color: var(--c-accent);
+    background-color: var(--c-accent-soft);
+    padding: 0.05rem 0.4rem;
+    border-radius: var(--r-full);
+  }
+}
+
+.message-list__loading-older {
+  display: flex;
+  justify-content: center;
+  padding: 0.5rem 0 0.75rem;
+}
+
+// States-Errors "Older history failed": one row where the history stops.
+.message-list__older-failed {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  margin: 0 auto 0.75rem;
+  font-size: var(--fs-caption);
+  color: var(--c-fg-2);
+
+  svg {
+    color: var(--c-danger);
+  }
+
+  button {
+    padding: 2px 4px;
+    border: 0;
+    border-radius: var(--r-tag);
+    background: transparent;
+    color: var(--c-accent-text);
+    font: inherit;
+    font-weight: 600;
+    cursor: pointer;
+
+    &:hover {
+      text-decoration: underline;
+    }
+  }
+}
+
+.message-list__loading-newer {
+  display: flex;
+  justify-content: center;
+  padding: 0.75rem 0 0.5rem;
+}
+
+// The same row, where a jump's window stops short of the newest messages.
+.message-list__newer-failed {
+  margin: 0.75rem auto 0;
+}
+
+// DS-Signal-Motion "Jump highlight": the message a jump lands on wears an
+// accent halo for 1.6 s, fading out (useJumpHighlight sets data-flash for
+// that long). Under reduced motion the halo simply stays for the same time.
+.msg-row[data-flash] .bubble {
+  animation: jump-flash 1.6s $ease-out 1;
+}
+
+// The search match being shown keeps the halo, unfaded, until the search
+// moves on or closes (Search-InConversation).
+.msg-row.is-current-match .bubble {
+  box-shadow:
+    0 0 0 2px var(--c-accent),
+    0 0 0 7px var(--c-accent-soft);
+}
+
+// …without the jump's fade, which would carry the ring away and then snap
+// it back when the animation ended.
+.msg-row.is-current-match[data-flash] .bubble {
+  animation: none;
+}
+
+// Focus lands on the row itself; its ring is drawn inside it, as the list
+// clips anything outside.
+.msg-row:focus-visible {
+  outline-offset: -2px;
+}
+
+@keyframes jump-flash {
+  0% {
+    box-shadow:
+      0 0 0 2px var(--c-accent),
+      0 0 0 8px var(--c-accent-soft-2);
+  }
+
+  100% {
+    box-shadow:
+      0 0 0 2px transparent,
+      0 0 0 8px transparent;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .msg-row[data-flash] .bubble {
+    animation: none;
+    box-shadow:
+      0 0 0 2px var(--c-accent),
+      0 0 0 7px var(--c-accent-soft);
+  }
+}
+
+// "N new messages" — offers to jump back down after a message arrives
+// while the viewer is reading older history (see useStickToBottom).
+// Anchored to `.room__stage`, which wraps the scroller without scrolling
+// itself — NOT to `.room__scroll`. An absolutely positioned child of a
+// scrolling element is placed against that element's unscrolled origin and
+// then travels with the content, which put this off-screen except when
+// scrolled to the very top.
+.new-messages-pill {
+  position: absolute;
+  bottom: 1rem;
+  left: 50%;
+  transform: translateX(-50%);
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.4rem 0.85rem;
+  border: 1px solid var(--c-line-2);
+  border-radius: var(--r-full);
+  background-color: var(--c-raised);
+  color: var(--c-fg);
+  font-size: var(--fs-small);
+  font-weight: 600;
+  box-shadow: var(--shadow-e2);
+  cursor: pointer;
+  z-index: $z-sticky;
+
+  &:hover {
+    background-color: var(--c-raised-2);
   }
 }
 
@@ -61,10 +233,41 @@
   // so pills render as a separate row under the bubble rather than beside
   // it in `.msg-row`'s own flex row.
   &__content {
+    position: relative;
     display: flex;
     flex-direction: column;
     align-items: flex-start;
     min-width: 0;
+
+    // Touch: a finger held on a message opens its actions and a pull to
+    // the right replies (useMessageGestures). Vertical drags still scroll;
+    // the text isn't selected and no system menu opens under the finger.
+    @include touch {
+      touch-action: pan-y pinch-zoom;
+      -webkit-touch-callout: none;
+      -webkit-user-select: none;
+      user-select: none;
+      transition: transform $dur $ease-out;
+    }
+  }
+
+  // The reply arrow the pull uncovers, just behind the message; it grows
+  // in as the pull nears the point where letting go replies.
+  &__swipe-hint {
+    position: absolute;
+    top: 50%;
+    right: calc(100% + 8px);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    border-radius: 999px;
+    background-color: var(--c-accent-soft);
+    color: var(--c-accent);
+    opacity: var(--swipe, 0);
+    transform: translateY(-50%) scale(calc(0.6 + var(--swipe, 0) * 0.4));
+    pointer-events: none;
   }
 }
 
@@ -83,33 +286,37 @@
   // the circularity entirely while capping the bubble about as tightly.
   max-width: min(82vw, 30rem);
   padding: 0.55rem;
-  border-radius: var(--radius-lg);
-  background-color: var(--c-bubble-other);
-  color: var(--c-bubble-other-fg);
+  // DS-Type-Space radius scale: "Bubble, menu: 12".
+  border-radius: var(--r-bubble);
+  background-color: var(--c-in);
+  color: var(--c-fg);
   font-size: 0.88rem;
   line-height: 1.4;
   white-space: pre-wrap;
   overflow-wrap: anywhere;
   box-shadow: var(--shadow-e1);
+  --meta-fg: var(--c-fg-2);
 
+  // DS-Message-Anatomy "Corner logic": only the joined side tightens, to 4px.
   .is-own & {
-    background-color: var(--c-bubble-own);
-    color: var(--c-bubble-own-fg);
-    border-bottom-right-radius: var(--radius-sm);
+    --meta-fg: var(--c-out-fg-2);
+    background-color: var(--c-out);
+    color: var(--c-out-fg);
+    border-bottom-right-radius: 4px;
   }
 
   .is-other & {
-    border-bottom-left-radius: var(--radius-sm);
+    border-bottom-left-radius: 4px;
   }
 
   .is-grouped.is-other & {
-    border-bottom-left-radius: var(--radius-lg);
-    border-top-left-radius: var(--radius-sm);
+    border-bottom-left-radius: var(--r-bubble);
+    border-top-left-radius: 4px;
   }
 
   .is-grouped.is-own & {
-    border-bottom-right-radius: var(--radius-lg);
-    border-top-right-radius: var(--radius-sm);
+    border-bottom-right-radius: var(--r-bubble);
+    border-top-right-radius: 4px;
   }
 
   &__sender {
@@ -117,229 +324,504 @@
     font-size: 0.72rem;
     font-weight: 700;
     margin-bottom: 0.1rem;
-    color: var(--c-primary);
+    color: var(--c-accent);
   }
 
-  &__reply {
-    display: block;
-    padding: 0.3rem 0.5rem;
-    margin-bottom: 0.3rem;
-    border-left: 3px solid currentColor;
-    border-radius: var(--radius-sm);
-    background-color: color-mix(in oklab, currentColor 8%, transparent);
-    font-size: 0.78rem;
-    opacity: 0.85;
+  // DS-Message-Anatomy "Reply quote": a tonal block inside the bubble that
+  // copes with deleted and attachment-only originals. Tinted from the
+  // bubble's own text colour, so it reads on incoming and outgoing alike.
+  &__quote {
+    display: flex;
+    flex-direction: column;
+    gap: 0.1rem;
+    margin-bottom: 0.4rem;
+    padding: 0.35rem 0.6rem;
+    border-radius: var(--r-btn-sm);
+    background-color: color-mix(in oklab, currentColor 9%, transparent);
+    font-size: var(--fs-caption);
+    line-height: var(--lh-caption);
   }
 
+  // Following the quote jumps to the original (Study-Reply): a button, as
+  // wide as the bubble, that darkens a touch under the pointer.
+  button#{&}__quote {
+    width: 100%;
+    min-width: min(11rem, 100%);
+    border: 0;
+    color: inherit;
+    font-family: inherit;
+    text-align: left;
+    cursor: pointer;
+    transition: background-color $dur-fast $ease-out;
+
+    &:hover {
+      background-color: color-mix(in oklab, currentColor 14%, transparent);
+    }
+  }
+
+  &__quote-author {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+    font-weight: 600;
+
+    svg {
+      opacity: 0.7;
+    }
+  }
+
+  &__quote-text {
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    opacity: 0.8;
+
+    svg {
+      display: inline;
+      vertical-align: -2px;
+      margin-right: 0.25rem;
+    }
+  }
+
+  // A searched-for word (Search-InConversation). Tinted to read on
+  // incoming and outgoing bubbles alike, in either theme.
+  &__mark {
+    margin: 0 -1px;
+    padding: 0 2px;
+    border-radius: 3px;
+    background-color: var(--c-mark-bg);
+    color: var(--c-mark-fg);
+  }
+
+  // "edited" sits inside the bubble, after the text, in mono.
+  &__edited {
+    margin-left: 0.4rem;
+    font-family: var(--f-mono);
+    font-size: var(--fs-meta);
+    color: var(--meta-fg);
+    white-space: nowrap;
+  }
+
+  // Media sits tight to the bubble edge (Attach-Messages): pull the grid
+  // out into most of the bubble's padding, leaving a thin frame.
+  &__attachments {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+    margin: -0.3rem -0.3rem 0.4rem;
+  }
+
+  // The time (and "edited") in each bubble's own quieter text colour —
+  // not by fading the text, which on a deleted message's clear bubble fell
+  // below AA contrast.
   &__meta {
     display: block;
     margin-top: 0.15rem;
-    font-size: 0.6rem;
-    opacity: 0.6;
+    font-family: var(--f-mono);
+    font-size: 0.66rem;
+    color: var(--meta-fg);
     text-align: right;
     white-space: nowrap;
   }
 
+  // Deleted placeholder: no fill, a dashed outline, and the toolbar and
+  // reactions gone — it's a marker that something was here, not a message.
   &.is-deleted {
-    font-style: italic;
-    opacity: 0.7;
+    --meta-fg: var(--c-fg-3);
+    background-color: transparent;
+    color: var(--c-fg-3);
+    border: 1px dashed var(--c-line-3);
+    box-shadow: none;
   }
 
-  &__actions {
-    position: absolute;
-    // Floats above the bubble (not inset — an inset toolbar covers the
-    // message text itself on hover for any short/narrow bubble) and always
-    // on the right, own or other: the old per-side placement put it over
-    // the sender name on "other" messages, which are left-aligned too.
-    top: -0.9rem;
-    right: 0.25rem;
-    display: flex;
-    gap: 0.1rem;
-    padding: 0.15rem;
-    border-radius: 999px;
-    background-color: var(--c-surface);
-    border: 1px solid var(--c-line);
-    box-shadow: var(--shadow-e1);
-    opacity: 0;
-    pointer-events: none;
-    transition: opacity 120ms ease;
+  &__deleted {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    font-style: italic;
+  }
+}
 
-    .msg-row:hover &,
-    .msg-row:focus-within & {
-      opacity: 1;
-      pointer-events: auto;
+// Read state on the viewer's newest message (Study-Read-State): the
+// signal-bars motif, one bar lit for Sent, in grey; all three for Seen, in
+// the accent.
+.read-state {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+
+  &__bars {
+    height: 9px;
+    gap: 1.5px;
+
+    i,
+    i.is-lit {
+      width: 2px;
+      background-color: currentColor;
     }
 
-    button {
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      width: 1.6rem;
-      height: 1.6rem;
-      border: 0;
-      border-radius: 999px;
-      background: transparent;
-      color: var(--c-muted);
-      font-size: 0.8rem;
-      line-height: 1;
-      cursor: pointer;
+    i:not(.is-lit) {
+      opacity: 0.3;
+    }
+  }
 
-      &:hover {
-        background: var(--c-surface-2);
-        color: var(--c-fg);
-      }
+  // Seen: three bars, in the accent (Study-Read-State). The text-strength
+  // accent, so it reads on the viewer's own tinted bubble in both themes.
+  &.is-seen {
+    color: var(--c-accent-text);
+  }
 
-      &:disabled {
-        opacity: 0.5;
-        cursor: not-allowed;
-      }
+  // "Seen by N" in a group: a button that lists who has read it.
+  &__button {
+    gap: 0.3rem;
+    margin: -2px -4px;
+    padding: 2px 4px;
+    border: 0;
+    border-radius: var(--r-tag);
+    background: transparent;
+    font: inherit;
+    cursor: pointer;
+
+    &:hover {
+      background-color: color-mix(in oklab, currentColor 12%, transparent);
+    }
+  }
+
+  // The first few readers' faces, overlapping, each cut out of the bubble
+  // behind it by a ring in the bubble's own colour.
+  &__faces {
+    display: inline-flex;
+    padding-left: 5px;
+  }
+
+  // Paired with .avatar so it outranks the avatar's own size classes,
+  // whichever stylesheet comes first.
+  .avatar#{&}__face {
+    --size: 14px;
+    margin-left: -5px;
+    box-shadow: 0 0 0 1.5px var(--c-out);
+  }
+}
+
+// Who has read the viewer's message in a group (Study-Read-State "Seen by").
+.seen-by {
+  min-width: 15rem;
+  max-width: min(20rem, calc(100vw - 16px));
+  padding: 8px 4px 6px;
+
+  &:focus-visible {
+    outline-offset: -2px;
+  }
+
+  &__title {
+    margin: 0;
+    padding: 0 10px 6px;
+    font-family: var(--f-mono);
+    font-size: var(--fs-meta);
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--c-fg-2);
+  }
+
+  &__list {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  &__row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-height: 40px;
+    padding: 0 10px;
+    font-size: var(--fs-body);
+  }
+
+  &__name {
+    flex: 1;
+    min-width: 0;
+    @include truncate;
+  }
+
+  &__status {
+    flex: none;
+    font-family: var(--f-mono);
+    font-size: var(--fs-meta);
+    color: var(--c-fg-2);
+  }
+
+  // Not yet: quieter, by colour rather than opacity, so it keeps its
+  // contrast.
+  &__row.is-not-yet &__name {
+    color: var(--c-fg-2);
+  }
+}
+
+// Hover toolbar — React · Reply · More, 3 × 28px (Study-Toolbar-Menu). It
+// fades in without moving anything, and stays shown while its menu or
+// picker is open (`.is-active`), since focus and the pointer have moved
+// into a popover outside the row by then.
+//
+// It sits just outside the bubble on the side facing the middle of the
+// conversation, top-aligned — not on the bubble's top corner as the design
+// draws it. The design can put it there because its mid-run bubbles carry
+// no timestamp; here every bubble keeps its own time (see MessageItem), and
+// a corner toolbar lifted over a run covered the time of the message above.
+.msg-toolbar {
+  position: absolute;
+  top: 0;
+  z-index: 3;
+  display: flex;
+  gap: 2px;
+  padding: 2px;
+  border: 1px solid var(--c-line-2);
+  border-radius: var(--r-control);
+  background-color: var(--c-raised);
+  box-shadow: var(--shadow-e2);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity $dur-fast $ease-out;
+
+  .is-other & {
+    left: calc(100% + 0.4rem);
+  }
+
+  .is-own & {
+    right: calc(100% + 0.4rem);
+  }
+
+  .msg-row:hover &,
+  .msg-row:focus-within &,
+  .msg-row.is-active & {
+    opacity: 1;
+    pointer-events: auto;
+  }
+
+  // The toolbar's own surface decides these colours, not the bubble it
+  // happens to sit on (outgoing bubbles set their own text colour).
+  &__btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    padding: 0;
+    border: 0;
+    border-radius: var(--r-btn-sm);
+    background: transparent;
+    color: var(--c-fg-2);
+    cursor: pointer;
+
+    &:hover:not(:disabled) {
+      background-color: var(--c-raised-2);
+      color: var(--c-fg);
+    }
+
+    &[aria-expanded='true'] {
+      background-color: var(--c-accent-soft);
+      color: var(--c-accent);
+    }
+
+    &:disabled {
+      opacity: 0.4;
+      cursor: not-allowed;
     }
   }
 }
 
-// Already-placed reaction pills — rendered below the bubble (a sibling of
-// it in `.msg-row__content`, not inside its padding). Margin on both sides
-// so they read as clearly belonging to *this* message: enough gap above to
-// separate them from the bubble they're reacting to, and enough below to
-// separate them from the next message row (which has very little margin of
-// its own when grouped — 0.12rem — so the pills need to supply the rest).
+// Touch screens: a tap leaves :hover stuck, and the long press is the way
+// to a message's actions — the toolbar shows only for a keyboard.
+@include touch {
+  .msg-row:hover .msg-toolbar,
+  .msg-row:focus-within .msg-toolbar {
+    opacity: 0;
+    pointer-events: none;
+  }
+
+  .msg-row:has(:focus-visible) .msg-toolbar,
+  .msg-row.is-active .msg-toolbar {
+    opacity: 1;
+    pointer-events: auto;
+  }
+}
+
+// Reaction pills under the bubble (Study-Reactions): emoji plus a mono
+// count; yours outlined in the accent. The add button at the end of the row
+// shows with the toolbar. Margin on both sides so the row reads as
+// belonging to *this* message, not the next one (whose own top margin is
+// tiny when grouped).
 .reactions {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   gap: 0.25rem;
-  margin-top: 0.45rem;
-  margin-bottom: 0.4rem;
+  margin-top: 0.3rem;
+  margin-bottom: 0.3rem;
 
   &__pill {
     display: inline-flex;
     align-items: center;
-    gap: 0.2rem;
-    padding: 0.05rem 0.4rem;
-    border-radius: 999px;
-    border: 1px solid var(--c-line);
-    background-color: var(--c-surface);
+    gap: 0.25rem;
+    height: 22px;
+    padding: 0 0.45rem;
+    border: 1px solid var(--c-line-2);
+    border-radius: var(--r-full);
+    background-color: var(--c-raised);
     color: var(--c-fg);
-    font-size: 0.72rem;
+    font-size: 0.8rem;
+    line-height: 1;
     cursor: pointer;
+    transition:
+      background-color $dur-fast $ease-out,
+      border-color $dur-fast $ease-out;
+
+    &:hover:not(.is-static) {
+      background-color: var(--c-raised-2);
+    }
 
     &.is-mine {
-      border-color: var(--c-primary);
-      background-color: color-mix(in oklab, var(--c-primary) 14%, transparent);
+      border-color: var(--c-line-accent);
+      background-color: var(--c-accent-soft);
+
+      .reactions__count {
+        color: var(--c-accent-text);
+      }
     }
-  }
-}
 
-// The add-reaction affordance — floats outside the bubble (left for an own
-// message, right for an other's, i.e. always toward the center of the
-// column rather than the screen edge, WhatsApp-style), positioned against
-// the bubble itself (`.bubble` is `position: relative`) so its vertical
-// center tracks the bubble alone, independent of the reaction pills'
-// height below it.
-.reaction-trigger {
-  position: absolute;
-  top: 50%;
-  transform: translateY(-50%);
-  z-index: 3;
+    // A read-only group: visible, not tappable.
+    &.is-static {
+      cursor: default;
+      opacity: 0.75;
+    }
 
-  &.is-own {
-    left: -2rem;
-
-    .reaction-trigger__picker {
-      left: 0;
+    // Added after the message rendered: pops in once (220ms). The global
+    // reduced-motion rule flattens this to an instant change.
+    &.is-new {
+      animation: reaction-pop 220ms $ease-out;
     }
   }
 
-  &.is-other {
-    right: -2rem;
-
-    .reaction-trigger__picker {
-      right: 0;
-    }
+  &__count {
+    font-family: var(--f-mono);
+    font-size: var(--fs-meta);
+    color: var(--c-fg-2);
   }
 
   &__add {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    width: 1.5rem;
-    height: 1.5rem;
-    border: 1px solid var(--c-line);
-    border-radius: 999px;
-    // A visible surface + border (matching .reactions__pill) rather than a
-    // transparent background — otherwise the icon reads as near-invisible
-    // against a dark "own" bubble or a busy image attachment.
-    background-color: var(--c-surface);
-    color: var(--c-muted);
+    width: 22px;
+    height: 22px;
     padding: 0;
+    border: 1px solid var(--c-line-2);
+    border-radius: var(--r-full);
+    background-color: var(--c-raised);
+    color: var(--c-fg-2);
     cursor: pointer;
     opacity: 0;
-    box-shadow: var(--shadow-e1);
-    transition:
-      opacity 120ms ease,
-      background-color 120ms ease,
-      color 120ms ease;
+    transition: opacity $dur-fast $ease-out;
 
     .msg-row:hover &,
-    .msg-row:focus-within & {
+    .msg-row:focus-within &,
+    .msg-row.is-active &,
+    &[aria-expanded='true'] {
       opacity: 1;
     }
 
     &:hover {
-      background-color: var(--c-surface-2);
+      background-color: var(--c-raised-2);
       color: var(--c-fg);
     }
-  }
 
-  &__picker {
-    position: absolute;
-    bottom: calc(100% + 4px);
-    display: flex;
-    gap: 0.15rem;
-    padding: 0.25rem;
-    background-color: var(--c-surface);
-    border: 1px solid var(--c-line);
-    border-radius: 999px;
-    box-shadow: var(--shadow-e2);
-    z-index: 5;
+    // As with the toolbar: the long-press sheet has the reactions.
+    @include touch {
+      .msg-row:hover &,
+      .msg-row:focus-within & {
+        opacity: 0;
+        pointer-events: none;
+      }
 
-    button {
-      display: inline-flex;
-      align-items: center;
-      border: 0;
-      background: transparent;
-      font-size: 1rem;
-      line-height: 1;
-      padding: 0.15rem;
-      border-radius: 999px;
-      cursor: pointer;
-
-      &:hover {
-        background-color: var(--c-surface-2);
+      .msg-row:has(:focus-visible) &,
+      .msg-row.is-active &,
+      &[aria-expanded='true'] {
+        opacity: 1;
+        pointer-events: auto;
       }
     }
   }
 }
 
-.attachment {
-  margin-top: 0.35rem;
-
-  &__image {
-    max-width: 15rem;
-    max-height: 15rem;
-    border-radius: var(--radius-DEFAULT);
-    border: 1px solid var(--c-line);
+@keyframes reaction-pop {
+  0% {
+    transform: scale(0.6);
+    opacity: 0;
   }
+  70% {
+    transform: scale(1.12);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(1);
+  }
+}
 
-  &__file {
+// The six-emoji picker, portaled and positioned by useAnchoredPopover.
+.reaction-picker {
+  position: fixed;
+  top: 0;
+  left: 0;
+  z-index: $z-overlay;
+  display: flex;
+  gap: 2px;
+  padding: 4px;
+  border: 1px solid var(--c-line-2);
+  border-radius: var(--r-bubble);
+  background-color: var(--c-overlay);
+  box-shadow: var(--shadow-e3);
+  animation: popover-in $dur-fast $ease-out;
+
+  &__item {
     display: inline-flex;
     align-items: center;
-    gap: 0.5rem;
-    padding: 0.4rem 0.6rem;
-    border: 1px solid var(--c-line);
-    border-radius: var(--radius-DEFAULT);
-    background-color: var(--c-surface);
-    font-size: 0.8rem;
+    justify-content: center;
+    width: 36px;
+    height: 36px;
+    padding: 0;
+    border: 0;
+    border-radius: var(--r-btn-sm);
+    background: transparent;
+    font-size: 1.25rem;
+    line-height: 1;
+    cursor: pointer;
+
+    span {
+      transition: transform $dur-fast $ease-out;
+    }
+
+    &:hover,
+    &:focus-visible {
+      background-color: var(--c-raised-2);
+
+      span {
+        transform: scale(1.14);
+      }
+    }
+
+    // Yours: violet-outlined.
+    &.is-mine {
+      background-color: var(--c-accent-soft);
+      box-shadow: inset 0 0 0 1.5px var(--c-accent);
+    }
+  }
+}
+
+@keyframes popover-in {
+  from {
+    opacity: 0;
+    transform: translateY(-2px) scale(0.98);
   }
 }
 
@@ -348,7 +830,7 @@
   padding: 0.15rem 1rem;
   font-size: 0.76rem;
   font-style: italic;
-  color: var(--c-muted);
+  color: var(--c-fg-2);
 }
 
 .composer-form {
@@ -356,84 +838,294 @@
   flex-direction: column;
 }
 
+// One framed box (Study-Reply, Study-Edit-Delete): an optional banner on
+// top — Replying to … in the accent, Editing message in amber — joined to
+// the input row below it. The frame, not the textarea, shows focus, so the
+// banner and the text read as one control.
 .composer {
   display: flex;
-  align-items: flex-end;
-  gap: 0.5rem;
+  flex-direction: column;
+  border: 1px solid var(--c-line-2);
+  border-radius: var(--r-composer);
+  background-color: var(--c-raised);
+  overflow: hidden;
+  transition:
+    border-color $dur-fast $ease-out,
+    box-shadow $dur-fast $ease-out;
+
+  &:focus-within {
+    border-color: var(--c-accent);
+    box-shadow: 0 0 0 3px var(--c-accent-soft);
+  }
+
+  // A phone's pill-shaped composer (Mobile-430-Chat-Group).
+  @include until($bp-md) {
+    border-radius: 22px;
+  }
+
+  &__row {
+    display: flex;
+    align-items: flex-end;
+    gap: 0.25rem;
+    padding: 0.3rem;
+  }
+
+  &__icon-btn {
+    display: inline-flex;
+    flex: none;
+    align-items: center;
+    justify-content: center;
+    width: 2.25rem;
+    height: 2.25rem;
+    padding: 0;
+    border: 0;
+    border-radius: var(--r-btn-sm);
+    background: transparent;
+    color: var(--c-fg-2);
+    cursor: pointer;
+
+    &:hover:not(:disabled) {
+      background-color: var(--c-raised-2);
+      color: var(--c-fg);
+    }
+
+    &:disabled {
+      opacity: 0.4;
+      cursor: not-allowed;
+    }
+
+    @include touch {
+      width: 40px;
+      height: 40px;
+    }
+  }
 
   &__text {
     flex: 1;
-    max-height: 8rem;
+    min-width: 0;
     min-height: 2.25rem;
+    max-height: 8rem;
+    padding: 0.5rem 0.25rem;
+    border: 0;
+    background: transparent;
+    color: var(--c-fg);
+    font: inherit;
+    font-size: 0.9rem;
+    line-height: 1.4;
     resize: none;
-    border-radius: var(--radius-lg);
+
+    &::placeholder {
+      color: var(--c-fg-3);
+    }
+
+    // The frame above carries the focus ring for the whole control.
+    &:focus-visible {
+      outline: none;
+    }
+
+    // 16px keeps iOS from zooming in on focus.
+    @include touch {
+      font-size: 16px;
+    }
   }
 
-  &__reply-chip {
+  &__send {
+    flex: none;
+
+    @include touch {
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+    }
+  }
+
+  &__banner {
     display: flex;
     align-items: center;
-    justify-content: space-between;
-    gap: 0.5rem;
-    margin-bottom: 0.5rem;
-    padding: 0.35rem 0.6rem;
-    border-left: 3px solid var(--c-primary);
-    border-radius: var(--radius-sm);
-    background-color: color-mix(in oklab, var(--c-primary) 10%, transparent);
-    font-size: 0.78rem;
-    color: var(--c-muted);
+    gap: 0.6rem;
+    padding: 0.45rem 0.5rem 0.45rem 0.75rem;
+    border-bottom: 1px solid var(--c-line);
+    font-size: var(--fs-caption);
+    line-height: var(--lh-caption);
 
-    button {
-      display: inline-flex;
-      align-items: center;
-      flex: 0 0 auto;
-      border: 0;
-      background: transparent;
-      color: var(--c-muted);
-      cursor: pointer;
+    &.is-reply {
+      background-color: var(--c-accent-soft);
 
-      &:hover {
+      .composer__banner-icon {
+        color: var(--c-accent);
+      }
+
+      strong {
+        color: var(--c-accent-text);
+        font-weight: 600;
+      }
+    }
+
+    &.is-edit {
+      background-color: color-mix(in oklab, var(--c-warn) 12%, transparent);
+      border-bottom-color: color-mix(in oklab, var(--c-warn) 40%, transparent);
+
+      .composer__banner-icon {
+        color: var(--c-warn);
+      }
+
+      .composer__banner-title {
         color: var(--c-fg);
+        font-weight: 600;
       }
     }
   }
 
-  &__uploads {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.4rem;
-    margin-bottom: 0.5rem;
+  &__banner-icon {
+    flex: none;
   }
-}
 
-.upload-chip {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.4rem;
-  max-width: 12rem;
-  padding: 0.25rem 0.4rem 0.25rem 0.25rem;
-  border: 1px solid var(--c-line);
-  border-radius: var(--radius-DEFAULT);
-  background-color: var(--c-surface-2);
-  font-size: 0.72rem;
-
-  img {
-    width: 1.75rem;
-    height: 1.75rem;
-    border-radius: var(--radius-sm);
+  &__banner-thumb {
+    flex: none;
+    width: 2rem;
+    height: 2rem;
+    border-radius: var(--r-tag);
     object-fit: cover;
   }
 
-  button {
+  &__banner-text {
+    display: flex;
+    flex: 1;
+    flex-direction: column;
+    min-width: 0;
+  }
+
+  &__banner-title {
+    color: var(--c-fg-2);
+  }
+
+  &__banner-quote {
+    color: var(--c-fg-2);
+    @include truncate;
+  }
+
+  &__banner-hint {
+    flex: none;
+    font-family: var(--f-mono);
+    font-size: var(--fs-meta);
+    color: var(--c-fg-3);
+
+    kbd {
+      margin-right: 0.2rem;
+      padding: 0 0.3rem;
+      border: 1px solid var(--c-line-2);
+      border-radius: 4px;
+      background-color: var(--c-raised);
+      font-family: inherit;
+    }
+  }
+
+  &__banner-close {
     display: inline-flex;
+    flex: none;
     align-items: center;
+    justify-content: center;
+    width: 1.5rem;
+    height: 1.5rem;
+    padding: 0;
     border: 0;
+    border-radius: var(--r-btn-sm);
     background: transparent;
-    color: var(--c-muted);
+    color: var(--c-fg-2);
     cursor: pointer;
 
     &:hover {
+      background-color: var(--c-raised-2);
       color: var(--c-fg);
     }
+  }
+
+  &__hint {
+    margin: 0.3rem 0 0;
+    text-align: center;
+    font-family: var(--f-mono);
+    font-size: var(--fs-meta);
+    line-height: var(--lh-meta);
+    color: var(--c-fg-3);
+
+    kbd {
+      font-family: inherit;
+    }
+
+    // Keyboard shortcuts mean nothing on a touch screen.
+    @include touch {
+      display: none;
+    }
+
+    // With files in the tray: the accepted types on the left, "Limit
+    // reached" on the right.
+    &.is-split {
+      display: flex;
+      justify-content: space-between;
+      gap: 1rem;
+      text-align: left;
+    }
+  }
+
+  // Under the composer when sending can't happen or didn't: offline, or a
+  // failed / throttled send (Study-Failed-Offline). Shown on touch screens
+  // too, unlike the keyboard hint it stands in for.
+  &__note {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin: 0.4rem 0 0;
+    font-size: var(--fs-caption);
+    line-height: var(--lh-caption);
+    color: var(--c-fg-2);
+
+    svg {
+      flex: none;
+    }
+
+    &.is-error {
+      color: var(--c-danger);
+    }
+  }
+
+  &__note-action {
+    flex: none;
+    margin-left: auto;
+    padding: 2px 8px;
+    border: 1px solid currentColor;
+    border-radius: var(--r-btn-sm);
+    background: transparent;
+    color: inherit;
+    font: inherit;
+    font-weight: 600;
+    cursor: pointer;
+
+    &:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+  }
+
+  // "10 / 10 · A message holds up to 10 files…" — empty (but present, so
+  // the status is announced when it fills) until the limit is reached.
+  &__limit {
+    margin: 0;
+    font-size: var(--fs-caption);
+    color: var(--c-fg-2);
+
+    &:not(:empty) {
+      margin-top: 0.4rem;
+    }
+  }
+
+  &__limit-count {
+    margin-right: 0.5rem;
+    padding: 0.05rem 0.35rem;
+    border-radius: var(--r-tag);
+    background-color: color-mix(in oklab, var(--c-warn) 14%, transparent);
+    color: var(--c-warn);
+    font-family: var(--f-mono);
+    font-size: var(--fs-meta);
   }
 }
 
@@ -441,4 +1133,76 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+// A long press's sheet (Mobile-430-Message-Sheet): the six reactions, the
+// message it's about, then its actions.
+.message-sheet {
+  &__reactions {
+    display: flex;
+    justify-content: space-between;
+    gap: 2px;
+    margin-bottom: 12px;
+    padding: 4px;
+    border-radius: 14px;
+    background-color: var(--c-raised);
+    box-shadow: inset 0 0 0 1px var(--c-line-2);
+  }
+
+  &__reaction {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 46px;
+    height: 46px;
+    padding: 0;
+    border: 0;
+    border-radius: var(--r-control);
+    background: transparent;
+    font-size: 25px;
+    line-height: 1;
+    cursor: pointer;
+
+    &:active {
+      background-color: var(--c-raised-2);
+    }
+
+    // Yours: violet-outlined, as in the desktop picker.
+    &.is-mine {
+      background-color: var(--c-accent-soft);
+      box-shadow: inset 0 0 0 1.5px var(--c-accent);
+    }
+  }
+
+  &__preview {
+    margin: 0 0 10px;
+    padding: 10px 12px;
+    border-radius: var(--r-bubble);
+    background-color: var(--c-in);
+    color: var(--c-fg);
+
+    &.is-own {
+      background-color: var(--c-out);
+      color: var(--c-out-fg);
+    }
+
+    blockquote {
+      display: -webkit-box;
+      -webkit-line-clamp: 3;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+      margin: 0;
+      font-size: var(--fs-message);
+      line-height: var(--lh-message);
+      white-space: pre-wrap;
+      overflow-wrap: anywhere;
+    }
+
+    figcaption {
+      margin-top: 4px;
+      font-family: var(--f-mono);
+      font-size: var(--fs-meta);
+      opacity: 0.7;
+    }
+  }
 }

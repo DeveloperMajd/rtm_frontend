@@ -23,8 +23,10 @@
     height: 100%;
     border-radius: 999px;
     overflow: hidden;
-    background: linear-gradient(135deg, var(--c-primary), var(--c-primary-hover));
-    color: var(--c-on-primary);
+    // The accent's solid shade, as on a primary button: white initials on the
+    // lighter dark-theme accent would fall under AA.
+    background: linear-gradient(135deg, var(--c-accent-solid), color-mix(in oklab, var(--c-accent-solid) 85%, black));
+    color: var(--c-on-accent);
   }
 
   &__img {
@@ -34,8 +36,8 @@
   }
 
   &--group &__clip {
-    background: var(--c-surface-2);
-    color: var(--c-muted);
+    background: var(--c-raised-2);
+    color: var(--c-fg-2);
   }
 
   &--xs {
@@ -54,6 +56,8 @@
     --size: 6rem;
   }
 
+  // Shape carries the meaning (filled/hollow/half/dashed), colour only
+  // reinforces it — never rely on colour alone (DS-Icons-Avatars).
   &__status {
     position: absolute;
     right: -1px;
@@ -62,12 +66,32 @@
     height: 28%;
     min-width: 8px;
     min-height: 8px;
+    box-sizing: border-box;
     border-radius: 999px;
-    border: 2px solid var(--c-surface);
-    background-color: var(--c-muted);
+    // The surface-coloured shadow (not `border`, which the status ring
+    // itself needs) cuts the dot out from whatever's behind it.
+    box-shadow: 0 0 0 2px var(--c-list);
+    background-color: transparent;
+    border: 1.5px solid var(--c-fg-3);
 
     &.is-online {
-      background-color: var(--c-online);
+      border-color: var(--c-accent);
+      background-color: var(--c-accent);
     }
+
+    &.is-away {
+      background: linear-gradient(90deg, var(--c-accent) 50%, transparent 50%);
+    }
+
+    &.is-connecting {
+      border-style: dashed;
+      animation: avatar-status-connecting 1.2s linear infinite;
+    }
+  }
+}
+
+@keyframes avatar-status-connecting {
+  to {
+    transform: rotate(360deg);
   }
 }

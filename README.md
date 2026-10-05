@@ -13,69 +13,135 @@ for the Laravel API this talks to.
 
 ## Stack
 
-- **React 19** + **TypeScript**, **Vite 8**
-- **TanStack Query v5** — server state, cache invalidation, optimistic UI
-- **React Router v7**
-- **Laravel Echo** + **pusher-js** — talks to the backend's self-hosted
+- **React 19** + **TypeScript** (strict), **Vite 8**
+- **TanStack Query v5** for server state; live events patch its cache
+- **React Router v7** (data router)
+- **Laravel Echo** + **pusher-js**, talking to the backend's self-hosted
   Reverb WebSocket server (Pusher-protocol compatible)
-- **Tailwind CSS v4** (`@theme`) for utilities + a **Sass** token layer
-  (`src/styles/`) for hand-authored component styles — not one or the
-  other; utilities for layout/spacing, Sass partials for anything with
-  real structure (bubbles, modals, the reaction picker)
-- **@mdi/js** — Material Design Icons as raw SVG path data (tree-shaken,
-  only the ~20 icons actually used ship in the bundle), rendered through a
-  one-file `Icon` wrapper — no icon-font, no per-icon npm packages
+- **Sass** for every hand-written style, on design tokens that are CSS
+  custom properties in `src/styles/tailwind.css` (Tailwind v4 is loaded
+  there too, though the components don't lean on utility classes)
+- **Geist** and **Geist Mono**, self-hosted, and a hand-drawn 24px stroke
+  icon set in `src/components/ui/icons.tsx`: no icon font, no UI kit
+- **Vitest** + Testing Library + jsdom for the tests
+
+The interface follows **Signal**, the app's own design system (dark
+"Obsidian" and light "Porcelain" themes with a violet accent), designed
+board by board for desktop, tablet and phone.
 
 ## Feature overview
 
-- Direct + group messaging with live delivery, typing indicators, and
-  read receipts — no polling
-- Message grouping (consecutive messages from the same sender sit tight
-  together, but **every message still shows its own timestamp** — a
-  five-minute-apart pair from the same sender doesn't get visually
-  collapsed into looking simultaneous)
-- Reactions: a WhatsApp-style floating add-button beside the bubble
-  (vertically centered, on the side toward the center of the screen so it
-  never runs off-edge), placed reactions rendered below the bubble
-- Left/kicked group members see their history exactly as it was, frozen,
-  with the composer replaced by an explanatory banner — not just silently
-  removed from the list
-- A profile page with avatar upload, and a password-strength meter with a
-  live rules checklist on registration
-- **Accessibility**: skip-to-content link, `<main>`/landmark structure,
-  a real WAI-ARIA tabs pattern (arrow-key navigation between Chats/
-  Contacts, not just `role` attributes with no keyboard support), a focus
-  trap + Escape-to-close on every modal, `aria-live` announcements for
-  incoming messages and typing, and `prefers-reduced-motion` respected
-  throughout
-- **Responsive**: single-pane mobile layout (list *or* room, never both)
-  driven by a CSS breakpoint + the current route, not JS width polling
-- Light/dark theme via CSS custom properties, following the OS preference
-  by default with a manual override that persists
+- **Messaging**:
+  - Direct and group conversations, delivered live over WebSockets with
+    typing indicators.
+  - Replies, reactions, editing in the composer, and deletion after a
+    confirmation.
+  - Attachments (images and PDFs), with a lightbox for images.
+  - An unread divider where you left off, and older history that loads as
+    you scroll up.
+- **Search**: a ⌘K / Ctrl+K palette with recent searches, results grouped
+  by conversation and the matching words marked. A result opens at the
+  message itself. Inside a conversation, the palette can search just that
+  one.
+- **Search within a conversation**: the magnifier in the conversation's
+  header opens a search bar. It marks the words in the messages and steps
+  through the matches, newest first. Enter or ↑ goes to an older match,
+  Shift+Enter or ↓ to a newer one, and Esc closes the bar.
+- **Pin, mute and archive**, from a chat's row in the list or its info
+  panel:
+  - Pinned chats sit at the top under their own heading.
+  - Muted chats keep their unread count on their row, in grey, but drop out
+    of the badges that add them up.
+  - Archived chats move to Archived, under the list. Archiving shows a
+    toast with Undo, and a new message brings the chat back unless it's
+    muted.
+  - Your other tabs follow along.
+- **Read receipts**: your newest message says "Sent" until it has been
+  read, then "Seen" in a direct conversation or "Seen by N" in a group,
+  which lists who has read it and who hasn't. It updates live.
+  Conversations are marked as read only while you're looking: the tab is
+  visible and the window focused.
+- **Jump to a message**: a reply's quote and a search result both jump to
+  the message, loading the history around it if it isn't on screen, with a
+  brief highlight. From there, history loads both ways as you scroll, and
+  "Jump to latest" goes back to the newest messages.
+- **Groups**: an info panel with members and admin roles. Members who leave
+  or are removed keep their history, read-only and frozen at that point.
+- **Account**: sign-in, registration with a live password-rules checklist,
+  password reset, and Google sign-in. The profile page has an avatar
+  upload.
+- **Settings**:
+  - Theme: Light, Dark, or System (the default).
+  - Notifications, for messages in chats you're not looking at:
+    - a soft tone, made with the Web Audio API, so there's no sound file;
+    - desktop notifications, asked for only from their switch. If the
+      browser has blocked them, the switch says so and where to change it.
+    - Neither goes off for your own messages, group events or muted chats.
+  - Privacy:
+    - read receipts, which work both ways;
+    - who sees when you were last online: everyone, your contacts, or
+      nobody;
+    - typing indicators.
+    - The server enforces all three.
+- **When things go wrong**, nothing typed is lost:
+  - Drafts are kept on the device.
+  - An expired session asks you to sign in again, then returns you to the
+    same chat.
+  - A failed or rate-limited send stays in the composer with Retry.
+  - Offline, sending pauses and the draft waits.
+  - The connection state shows in the conversation, and is announced.
+- **Phones and tablets**:
+  - Up to 768px, one screen at a time, with a bottom tab bar.
+  - From 768px, the rail and list sit beside the conversation.
+  - From 1280px, the info panel docks as a third column.
+  - On touch screens:
+    - a long press on a message opens its actions;
+    - swiping a message right starts a reply;
+    - the paperclip offers the photo library, the camera or a file.
+  - The composer stays above the on-screen keyboard.
+- **Accessibility**:
+  - Landmarks and a skip link.
+  - Keyboard access to every control, including a one-stop toolbar per
+    message.
+  - Focus trapped in dialogs and sheets, and Escape closes them.
+  - Live regions for new messages, typing and connection changes.
+  - Visible focus throughout, and reduced motion respected.
+  - Text contrast checked with axe in both themes.
+
+### Shown, but not built yet
+
+Some controls in the design need backend work first. They appear
+**disabled and tagged** "Soon" or "Needs API", never faked:
+- message info, copy link and saved messages;
+- shared media.
 
 ## Project structure
 
 ```
 src/
-├── components/    # Conversations, ConversationRoom, MessageForm, etc.
-│   ├── conversations/
-│   └── ui/        # Avatar, Modal, Button, Icon — hand-rolled primitives, no UI kit
-├── context/       # AuthContext
-├── hooks/         # useConversations, useMessages, useEcho, useConnectionStatus…
-├── layouts/       # ConversationsLayout (the two-pane shell), RequireAuth
-├── pages/         # LoginPage, RegisterPage, ProfilePage, …
-├── services/api/  # one Axios wrapper per resource (conversations.ts, messages.ts, …)
-├── styles/        # Sass tokens + component partials (see below)
-└── utils/         # baseTypes.ts, systemMessageText.ts, passwordRules.ts
+├── components/
+│   ├── auth/           # sign-in layout, session-expired dialog
+│   ├── conversations/  # list, room, messages, composer, search, info panels
+│   ├── settings/       # settings page header, the /me settings list
+│   └── ui/             # primitives: Button, Modal, BottomSheet, Menu, Avatar, EmptyState…
+├── context/            # AuthContext
+├── hooks/              # useConversations, useMessages, useEcho, gestures, viewport…
+├── layouts/            # AppShell (rail / tab bar), ConversationsLayout, SettingsLayout
+├── pages/              # sign-in pages, profile, settings, 404
+├── services/api/       # one Axios wrapper per resource
+├── styles/             # tokens, Sass partials (see below)
+└── utils/              # pure helpers, each with its own tests
 ```
 
-`src/styles/` is organized as: `abstracts/` (Sass-only tokens — breakpoints,
-z-index, easing — things Tailwind's `@theme` can't express), `base.scss`
-(reset + global rules), and `components/*.scss` (one partial per UI
-pattern). `tailwind.css` is the one plain-CSS file in the tree, out of
-necessity — Sass can't resolve `@import "tailwindcss"`, so the Tailwind
-layer and the color tokens it maps from live there, and everything
-hand-authored lives in Sass.
+`src/styles/` holds:
+- `abstracts/`: Sass-only constants and mixins (breakpoints, z-index,
+  easing, the `touch` media query);
+- `_base.scss`: the reset and global rules;
+- `components/*.scss`: one partial per UI pattern.
+
+`tailwind.css` is the one plain-CSS file, because Sass can't resolve
+`@import "tailwindcss"`. It holds the Tailwind layer and the Signal tokens
+(`--c-*` colours for both themes, `--r-*` radii, `--fs-*` type sizes).
 
 ## Local setup
 
@@ -90,9 +156,11 @@ Requires the backend running locally first (see
 pure API client, there's nothing to mock.
 
 ```bash
-npm run build     # tsc -b && vite build
-npm run lint       # ESLint (hooks rules + fast-refresh compatibility enforced)
-npm run preview    # serve the production build locally
+npm test            # Vitest, once (npm run test:watch to keep it running)
+npm run typecheck   # tsc -b
+npm run lint        # ESLint (hooks rules + fast-refresh compatibility enforced)
+npm run build       # tsc -b && vite build
+npm run preview     # serve the production build locally
 ```
 
 ### Environment reference

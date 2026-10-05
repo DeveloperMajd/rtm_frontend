@@ -1,0 +1,103 @@
+@use '../abstracts/tokens' as *;
+
+// Action menu (components/ui/Menu) — Study-Toolbar-Menu's More menu. Fixed
+// and portaled; useAnchoredPopover writes its top/left before first paint.
+.menu {
+  position: fixed;
+  top: 0;
+  left: 0;
+  z-index: $z-overlay;
+  display: flex;
+  flex-direction: column;
+  min-width: 14.5rem;
+  padding: 4px;
+  border: 1px solid var(--c-line-2);
+  // DS-Type-Space radius scale: "Bubble, menu: 12".
+  border-radius: var(--r-bubble);
+  background-color: var(--c-overlay);
+  color: var(--c-fg);
+  box-shadow: var(--shadow-e3);
+  animation: menu-in $dur-fast $ease-out;
+
+  &__item {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    width: 100%;
+    min-height: 2rem;
+    padding: 0.35rem 0.6rem;
+    border: 0;
+    border-radius: var(--r-btn-sm);
+    background: transparent;
+    color: inherit;
+    font: inherit;
+    font-size: var(--fs-body);
+    line-height: var(--lh-body);
+    text-align: left;
+    cursor: pointer;
+
+    // Pointer and keyboard share one highlight — hovering focuses the item
+    // (see Menu), so :focus covers both.
+    &:focus {
+      background-color: var(--c-raised-2);
+      outline: none;
+    }
+
+    // Keyboard focus still gets the app's ring, on top of the highlight.
+    &:focus-visible {
+      outline: 2px solid var(--c-focus);
+      outline-offset: -2px;
+    }
+
+    &[aria-disabled='true'] {
+      color: var(--c-fg-3);
+      cursor: default;
+
+      .menu__icon {
+        color: inherit;
+      }
+    }
+
+    &.is-danger {
+      color: var(--c-danger);
+
+      .menu__icon {
+        color: inherit;
+      }
+    }
+
+    .badge {
+      margin-left: auto;
+    }
+  }
+
+  &__icon {
+    flex: none;
+    color: var(--c-fg-2);
+  }
+
+  &__label {
+    flex: 1;
+    min-width: 0;
+  }
+
+  &__shortcut {
+    margin-left: auto;
+    font-family: var(--f-mono);
+    font-size: var(--fs-meta);
+    color: var(--c-fg-3);
+  }
+
+  &__separator {
+    height: 1px;
+    margin: 4px -4px;
+    background-color: var(--c-line);
+  }
+}
+
+@keyframes menu-in {
+  from {
+    opacity: 0;
+    transform: translateY(-2px) scale(0.98);
+  }
+}

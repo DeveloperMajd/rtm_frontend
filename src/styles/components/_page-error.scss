@@ -1,0 +1,91 @@
+@use '../abstracts/mixins' as *;
+@use '../abstracts/tokens' as *;
+
+// States-Page-Errors: 404 and 500, on the sign-in screens' grid.
+.page-error {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 100dvh;
+  padding: 5rem 1.5rem 4rem;
+  background-color: var(--c-stage);
+  @include grid-bg;
+
+  // A soft accent glow behind the message.
+  &::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(50% 40% at 50% 55%, var(--c-accent-soft), transparent 70%);
+    pointer-events: none;
+  }
+
+  &__brand {
+    position: absolute;
+    top: 28px;
+    left: 32px;
+
+    @include until($bp-md) {
+      top: 20px;
+      left: 20px;
+    }
+  }
+
+  &__body {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    max-width: 380px;
+    text-align: center;
+  }
+
+  &__code {
+    margin: 0;
+    font-family: var(--f-mono);
+    font-size: 64px;
+    line-height: 64px;
+    font-weight: 500;
+    letter-spacing: -0.04em;
+    color: var(--c-fg-3);
+  }
+
+  &__title {
+    margin: 20px 0 0;
+    font-size: 26px;
+    line-height: 32px;
+    font-weight: 650;
+    letter-spacing: -0.025em;
+  }
+
+  &__text {
+    margin: 8px 0 0;
+    font-size: 14.5px;
+    line-height: 22px;
+    color: var(--c-fg-2);
+    text-wrap: pretty;
+  }
+
+  &__actions {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 10px;
+    margin-top: 22px;
+  }
+
+  &__foot {
+    position: absolute;
+    bottom: 22px;
+    margin: 0;
+    padding: 0 1rem;
+    font-family: var(--f-mono);
+    font-size: 11px;
+    letter-spacing: 0.05em;
+    color: var(--c-fg-3);
+    overflow-wrap: anywhere;
+    text-align: center;
+  }
+}

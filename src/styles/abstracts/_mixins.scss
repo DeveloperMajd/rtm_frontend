@@ -15,11 +15,36 @@
   }
 }
 
-// Consistent keyboard focus treatment.
+// A touch screen with no mouse: there's no hover to reveal things with, and
+// fingers need bigger targets. Decided by the input, not the width — a
+// tablet is wide and still touch.
+@mixin touch {
+  @media (hover: none) and (pointer: coarse) {
+    @content;
+  }
+}
+
+// A full-screen fixed layer sized to the part of the screen the on-screen
+// keyboard leaves (see useVisibleViewport), or the whole screen without it.
+@mixin visible-viewport {
+  position: fixed;
+  inset: var(--app-top, 0px) 0 auto;
+  height: var(--app-height, 100dvh);
+}
+
+// Consistent keyboard focus treatment. The outline follows each element's
+// own corners — it doesn't round anything off that wasn't already.
 @mixin focus-ring($offset: 2px) {
   outline: 2px solid var(--c-focus);
   outline-offset: $offset;
-  border-radius: var(--radius-sm);
+}
+
+// The faint 32px grid behind the sign-in screens and the error pages.
+@mixin grid-bg {
+  background-image:
+    linear-gradient(var(--c-grid) 1px, transparent 1px),
+    linear-gradient(90deg, var(--c-grid) 1px, transparent 1px);
+  background-size: 32px 32px;
 }
 
 @mixin truncate {
