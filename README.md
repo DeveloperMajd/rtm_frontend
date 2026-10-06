@@ -61,6 +61,10 @@ board by board for desktop, tablet and phone.
   which lists who has read it and who hasn't. It updates live.
   Conversations are marked as read only while you're looking: the tab is
   visible and the window focused.
+- **Message info**: the More menu's "Message info" shows when a message was
+  sent and edited and, on your own, who has seen it and who hasn't yet. It
+  updates live, and says so if you've turned your own read receipts off.
+  Anyone who has turned theirs off shows as "Not yet".
 - **Jump to a message**: a reply's quote and a search result both jump to
   the message, loading the history around it if it isn't on screen, with a
   brief highlight. From there, history loads both ways as you scroll, and
@@ -112,7 +116,7 @@ board by board for desktop, tablet and phone.
 
 Some controls in the design need backend work first. They appear
 **disabled and tagged** "Soon" or "Needs API", never faked:
-- message info, copy link and saved messages;
+- copy link and saved messages;
 - shared media.
 
 ## Project structure

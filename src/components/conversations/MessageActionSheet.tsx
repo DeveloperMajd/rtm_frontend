@@ -1,6 +1,7 @@
 import { format } from 'date-fns'
 import BottomSheet, { SheetAction } from '../ui/BottomSheet'
 import { QUICK_REACTIONS, reactionLabel } from '../../utils/reactions'
+import { previewOf } from '../../utils/messagePreview'
 import type { MessageType } from '../../utils/baseTypes'
 
 interface MessageActionSheetProps {
@@ -16,16 +17,8 @@ interface MessageActionSheetProps {
   onReply: () => void
   onCopy: () => void
   onEdit: () => void
+  onInfo: () => void
   onDelete: () => void
-}
-
-/** The message a sheet is about, in a line or two. */
-function previewOf(message: MessageType): string {
-  if (message.body) return message.body
-  const count = message.attachments?.length ?? 0
-  if (count > 1) return `${count} attachments`
-  const first = message.attachments?.[0]
-  return first ? (first.is_image ? 'Photo' : first.original_name) : ''
 }
 
 /**
@@ -45,6 +38,7 @@ const MessageActionSheet = ({
   onReply,
   onCopy,
   onEdit,
+  onInfo,
   onDelete,
 }: MessageActionSheetProps) => {
   // Each choice closes the sheet first, so focus is back in the
@@ -88,7 +82,7 @@ const MessageActionSheet = ({
         {!readOnly && <SheetAction icon='reply' label='Reply' onSelect={choose(onReply)} />}
         <SheetAction icon='copy' label='Copy text' disabled={!message.body} onSelect={choose(onCopy)} />
         {!readOnly && isOwn && <SheetAction icon='pencil' label='Edit' onSelect={choose(onEdit)} />}
-        {!readOnly && <SheetAction icon='info' label='Message info' soon />}
+        {!readOnly && <SheetAction icon='info' label='Message info' onSelect={choose(onInfo)} />}
         {!readOnly && !isOwn && (
           <>
             <SheetAction icon='link' label='Copy link' soon />

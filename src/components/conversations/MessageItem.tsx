@@ -22,6 +22,7 @@ import MessageReactions from './MessageReactions'
 import MessageToolbar from './MessageToolbar'
 import MessageMenu from './MessageMenu'
 import MessageActionSheet from './MessageActionSheet'
+import MessageInfoSheet from './MessageInfoSheet'
 import ReactionPicker from './ReactionPicker'
 import ReadReceipt from './ReadReceipt'
 
@@ -63,6 +64,7 @@ const MessageItem = ({
   const [openPopover, setOpenPopover] = useState<OpenPopover>(null)
   const [isConfirmingDelete, setIsConfirmingDelete] = useState(false)
   const [isSheetOpen, setIsSheetOpen] = useState(false)
+  const [isInfoOpen, setIsInfoOpen] = useState(false)
   const menuId = useId()
 
   const contentRef = useRef<HTMLDivElement>(null)
@@ -294,6 +296,7 @@ const MessageItem = ({
             onCopy={handleCopy}
             onReact={() => setOpenPopover('react-toolbar')}
             onEdit={() => onEdit(message)}
+            onInfo={() => setIsInfoOpen(true)}
             onDelete={() => setIsConfirmingDelete(true)}
           />
 
@@ -308,7 +311,15 @@ const MessageItem = ({
             onReply={() => onReply(message)}
             onCopy={handleCopy}
             onEdit={() => onEdit(message)}
+            onInfo={() => setIsInfoOpen(true)}
             onDelete={() => setIsConfirmingDelete(true)}
+          />
+
+          <MessageInfoSheet
+            open={isInfoOpen}
+            onClose={() => setIsInfoOpen(false)}
+            message={message}
+            isOwn={isOwn}
           />
 
           <ReactionPicker

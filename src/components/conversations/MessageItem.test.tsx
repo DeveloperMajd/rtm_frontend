@@ -3,16 +3,18 @@ import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vite
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import { MemoryRouter } from 'react-router-dom'
 import toast, { Toaster } from 'react-hot-toast'
 import MessageItem from './MessageItem'
 import { AuthContext, type AuthContextType } from '../../hooks/useAuth'
-import { addReaction, deleteMessage } from '../../services/api/messages'
+import { addReaction, deleteMessage, getMessageInfo, type MessageInfo } from '../../services/api/messages'
 import type { MessageType } from '../../utils/baseTypes'
 
 vi.mock('../../services/api/messages', () => ({
   deleteMessage: vi.fn(),
   addReaction: vi.fn(),
   removeReaction: vi.fn(),
+  getMessageInfo: vi.fn(),
 }))
 
 const authValue: AuthContextType = {
@@ -31,14 +33,29 @@ const authValue: AuthContextType = {
 const renderItem = (ui: ReactNode) => {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } })
   return render(
-    <QueryClientProvider client={queryClient}>
-      <AuthContext.Provider value={authValue}>
-        <ul>{ui}</ul>
-        <Toaster />
-      </AuthContext.Provider>
-    </QueryClientProvider>,
+    <MemoryRouter>
+      <QueryClientProvider client={queryClient}>
+        <AuthContext.Provider value={authValue}>
+          <ul>{ui}</ul>
+          <Toaster />
+        </AuthContext.Provider>
+      </QueryClientProvider>
+    </MemoryRouter>,
   )
 }
+
+/** What the server says about a message the viewer sent to Jordan and Sam. */
+const info = (overrides: Partial<MessageInfo> = {}): MessageInfo => ({
+  id: 'm1',
+  sender: { id: 'me', name: 'Me' },
+  sent_at: '2026-01-01T10:00:00Z',
+  edited_at: null,
+  deleted_at: null,
+  read_by: [{ user_id: 'jordan', name: 'Jordan' }],
+  not_read: [{ user_id: 'sam', name: 'Sam' }],
+  receipts_hidden: false,
+  ...overrides,
+})
 
 const message = (overrides: Partial<MessageType> = {}): MessageType => ({
   id: 'm1',
@@ -83,6 +100,7 @@ beforeAll(() => {
 
 beforeEach(() => {
   vi.mocked(deleteMessage).mockReset()
+  vi.mocked(getMessageInfo).mockReset()
 })
 
 afterEach(() => {
@@ -90,7 +108,7 @@ afterEach(() => {
 })
 
 describe('MessageItem', () => {
-  it("offers Reply, Copy text and React on someone else's message, with the unbuilt actions tagged Soon", async () => {
+  it("offers Reply, Copy text, React and Message info on someone else's message, with the unbuilt actions tagged Soon", async () => {
     const user = userEvent.setup()
     renderItem(<MessageItem message={message()} onReply={noop} onEdit={noop} />)
 
@@ -100,11 +118,12 @@ describe('MessageItem', () => {
       expect.stringContaining('Reply'),
       expect.stringContaining('Copy text'),
       'React',
-      'Message infoSoon',
+      'Message info',
       'Copy linkSoon',
       'Save messageSoon',
     ])
-    for (const name of [/Message info/, /Copy link/, /Save message/]) {
+    expect(within(menu).getByRole('menuitem', { name: 'Message info' })).not.toHaveAttribute('aria-disabled', 'true')
+    for (const name of [/Copy link/, /Save message/]) {
       expect(within(menu).getByRole('menuitem', { name })).toHaveAttribute('aria-disabled', 'true')
     }
   })
@@ -119,9 +138,73 @@ describe('MessageItem', () => {
       expect.stringContaining('Reply'),
       expect.stringContaining('Copy text'),
       'Edit',
-      'Message infoSoon',
+      'Message info',
       'Delete',
     ])
+  })
+
+  it('opens Message info from the More menu: the facts straight away, who has seen it from the server', async () => {
+    vi.mocked(getMessageInfo).mockResolvedValue(info())
+    const user = userEvent.setup()
+    renderItem(<MessageItem message={own()} onReply={noop} onEdit={noop} />)
+
+    const menu = await openMore(user)
+    await user.click(within(menu).getByRole('menuitem', { name: 'Message info' }))
+
+    const sheet = screen.getByRole('dialog', { name: 'Message info' })
+    expect(within(sheet).getByText('Deploying the fix now')).toBeInTheDocument()
+    expect(within(sheet).getByText('Sent').closest('div')?.querySelector('time')).toHaveAttribute(
+      'datetime',
+      '2026-01-01T10:00:00Z',
+    )
+
+    expect(await within(sheet).findByText('Seen by · 1 of 2')).toBeInTheDocument()
+    expect(getMessageInfo).toHaveBeenCalledWith('m1')
+    expect(within(sheet).getByText('Jordan').closest('li')).toHaveTextContent('Seen')
+    expect(within(sheet).getByText('Sam').closest('li')).toHaveTextContent('Not yet')
+  })
+
+  it('shows Message info on someone else’s message without asking the server anything', async () => {
+    const user = userEvent.setup()
+    renderItem(<MessageItem message={message()} onReply={noop} onEdit={noop} />)
+
+    const menu = await openMore(user)
+    await user.click(within(menu).getByRole('menuitem', { name: 'Message info' }))
+
+    const sheet = screen.getByRole('dialog', { name: 'Message info' })
+    expect(within(sheet).getByText('Jordan')).toBeInTheDocument()
+    expect(within(sheet).queryByLabelText('Seen by')).not.toBeInTheDocument()
+    expect(getMessageInfo).not.toHaveBeenCalled()
+  })
+
+  it('says when an edited message was edited, beside when it was sent', async () => {
+    vi.mocked(getMessageInfo).mockResolvedValue(info())
+    const user = userEvent.setup()
+    renderItem(<MessageItem message={own({ edited_at: '2026-01-01T10:05:00Z' })} onReply={noop} onEdit={noop} />)
+
+    const menu = await openMore(user)
+    await user.click(within(menu).getByRole('menuitem', { name: 'Message info' }))
+
+    const sheet = screen.getByRole('dialog', { name: 'Message info' })
+    expect(within(sheet).getByText('Edited').closest('div')?.querySelector('time')).toHaveAttribute(
+      'datetime',
+      '2026-01-01T10:05:00Z',
+    )
+    await within(sheet).findByText('Seen by · 1 of 2')
+  })
+
+  it('closes Message info with Escape, and puts focus back on the message’s More button', async () => {
+    vi.mocked(getMessageInfo).mockResolvedValue(info())
+    const user = userEvent.setup()
+    renderItem(<MessageItem message={own()} onReply={noop} onEdit={noop} />)
+
+    const menu = await openMore(user)
+    await user.click(within(menu).getByRole('menuitem', { name: 'Message info' }))
+    await screen.findByText('Seen by · 1 of 2')
+    await user.keyboard('{Escape}')
+
+    expect(screen.queryByRole('dialog', { name: 'Message info' })).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'More actions' })).toHaveFocus()
   })
 
   it('keeps only Copy text in a read-only group, with React and Reply shown but disabled', async () => {
@@ -374,8 +457,25 @@ describe('MessageItem on a touch screen', () => {
     expect(within(sheet).getByRole('button', { name: 'Reply' })).toBeEnabled()
     expect(within(sheet).getByRole('button', { name: 'Copy text' })).toBeEnabled()
     expect(within(sheet).getByRole('button', { name: 'Edit' })).toBeEnabled()
-    expect(within(sheet).getByRole('button', { name: 'Message info Soon' })).toBeDisabled()
+    expect(within(sheet).getByRole('button', { name: 'Message info' })).toBeEnabled()
     expect(within(sheet).getByRole('button', { name: 'Delete' })).toBeEnabled()
+  })
+
+  it('opens Message info from the sheet, in its place', async () => {
+    vi.mocked(getMessageInfo).mockResolvedValue(info())
+    renderItem(<MessageItem message={own()} onReply={noop} onEdit={noop} />)
+    const content = contentOf('Deploying the fix now')
+
+    longPress(content)
+    lift(content)
+    fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Message info' }))
+
+    expect(screen.queryByRole('dialog', { name: 'Message actions' })).not.toBeInTheDocument()
+    expect(screen.getByRole('dialog', { name: 'Message info' })).toBeInTheDocument()
+    await act(async () => {
+      await vi.runAllTimersAsync()
+    })
+    expect(screen.getByText('Seen by · 1 of 2')).toBeInTheDocument()
   })
 
   it('offers the unbuilt Copy link and Save on someone else’s message, disabled, and no Edit or Delete', () => {

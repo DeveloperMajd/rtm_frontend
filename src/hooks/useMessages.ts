@@ -10,7 +10,7 @@ import {
   messagesKey,
   replaceMessageInCache,
 } from '../utils/messagePages'
-import { applyReadPointer } from '../utils/readReceipts'
+import { applyReadPointer, messageInfoKey } from '../utils/readReceipts'
 import { isViewing } from '../utils/viewing'
 import useEcho from './useEcho'
 import useAuth from './useAuth'
@@ -253,6 +253,9 @@ const useMessages = (conversationId: string, readOnly = false, options: UseMessa
         // receipts work both ways, as the server's own list of pointers does.
         if (!currentSettings(queryClient).read_receipts) return
         applyReadPointer(queryClient, conversationId, pointer)
+        // A "Message info" that's open lists who has seen a message: ask the
+        // server again, since it's the one that knows who counts.
+        void queryClient.invalidateQueries({ queryKey: messageInfoKey(conversationId) })
       })
 
     return () => {

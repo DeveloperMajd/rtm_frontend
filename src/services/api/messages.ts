@@ -5,6 +5,7 @@ import type {
   MessageType,
 } from '../../utils/baseTypes'
 import type { MessagesPage } from '../../utils/messagePages'
+import type { Reader } from '../../utils/readReceipts'
 
 /**
  * Which page of a conversation's history to read. History is paged by
@@ -164,6 +165,30 @@ const searchConversation = async (
   return { results: response.data.data, total: response.data.meta.total }
 }
 
+/**
+ * What the server knows about one message. The lists are only for the
+ * viewer's own messages: both are null on someone else's, and null when the
+ * viewer has turned their own read receipts off (`receipts_hidden` says
+ * which). Anyone who shares nothing is in `not_read`, like someone who
+ * hasn't read it. There is no time beside a name, because the server
+ * doesn't know when a person read this message in particular.
+ */
+export type MessageInfo = {
+  id: string
+  sender: { id: string; name: string; avatar_url?: string | null } | null
+  sent_at: string
+  edited_at: string | null
+  deleted_at: string | null
+  read_by: Reader[] | null
+  not_read: Reader[] | null
+  receipts_hidden: boolean
+}
+
+const getMessageInfo = async (messageId: string): Promise<MessageInfo> => {
+  const response = await api.get<{ data: MessageInfo }>(`/messages/${messageId}/info`)
+  return response.data.data
+}
+
 const addReaction = async (messageId: string, reaction: string): Promise<void> => {
   await api.post(`/messages/${messageId}/reactions`, { reaction })
 }
@@ -180,6 +205,7 @@ export {
   deleteMessage,
   searchMessages,
   searchConversation,
+  getMessageInfo,
   addReaction,
   removeReaction,
 }

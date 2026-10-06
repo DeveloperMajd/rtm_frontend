@@ -18,6 +18,7 @@ interface MessageMenuProps {
   onCopy: () => void
   onReact: () => void
   onEdit: () => void
+  onInfo: () => void
   onDelete: () => void
 }
 
@@ -25,9 +26,9 @@ const noModifiers = (e: KeyboardEvent) => !e.metaKey && !e.ctrlKey && !e.altKey
 
 /**
  * The More menu (Study-Toolbar-Menu). Someone else's message offers Reply,
- * Copy text and React; your own swaps React for Edit and adds Delete. The
- * features that need an API first stay visible, disabled and tagged Soon —
- * never faked. A read-only group keeps only Copy text.
+ * Copy text, React and Message info; your own swaps React for Edit and adds
+ * Delete. The features that need an API first stay visible, disabled and
+ * tagged Soon — never faked. A read-only group keeps only Copy text.
  */
 const MessageMenu = ({
   open,
@@ -43,6 +44,7 @@ const MessageMenu = ({
   onCopy,
   onReact,
   onEdit,
+  onInfo,
   onDelete,
 }: MessageMenuProps) => {
   const reply: MenuItemEntry = {
@@ -75,7 +77,7 @@ const MessageMenu = ({
     onSelect: onReact,
   }
   const edit: MenuItemEntry = { kind: 'item', id: 'edit', label: 'Edit', icon: 'pencil', onSelect: onEdit }
-  const info: MenuItemEntry = { kind: 'item', id: 'info', label: 'Message info', icon: 'info', tag: 'Soon' }
+  const info: MenuItemEntry = { kind: 'item', id: 'info', label: 'Message info', icon: 'info', onSelect: onInfo }
   const link: MenuItemEntry = { kind: 'item', id: 'link', label: 'Copy link', icon: 'link', tag: 'Soon' }
   const save: MenuItemEntry = {
     kind: 'item',

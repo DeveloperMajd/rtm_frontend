@@ -4,6 +4,10 @@ import type { ReadPointer } from '../services/api/conversations'
 /** Everyone's read pointers in one conversation (see useReadPointers). */
 export const readPointersKey = (conversationId: string) => ['reads', conversationId] as const
 
+/** Every open "Message info" in one conversation (see useMessageInfo): the
+ * prefix a live read refreshes them all by. */
+export const messageInfoKey = (conversationId: string) => ['message-info', conversationId] as const
+
 /** Is pointer `a` further along than `b`? Ids are UUIDv7, ordered by time
  * as strings, which is how the server compares them too. */
 const isAhead = (a: string | null, b: string | null) => a !== null && (b === null || a > b)

@@ -6,7 +6,7 @@ import useMessages from './useMessages'
 import { AuthContext, type AuthContextType } from './useAuth'
 import { getMessagesPage, type MessagesPageParam } from '../services/api/messages'
 import { markConversationAsRead, type ReadPointer } from '../services/api/conversations'
-import { readPointersKey } from '../utils/readReceipts'
+import { messageInfoKey, readPointersKey } from '../utils/readReceipts'
 import { DEFAULT_SETTINGS, settingsKey } from './useSettings'
 import type { MessageType } from '../utils/baseTypes'
 import type { MessagesPage } from '../utils/messagePages'
@@ -283,6 +283,22 @@ describe('useMessages — marking as read', () => {
       { user_id: 'jo', last_read_message_id: 'm1', last_read_at: '2026-09-30T10:00:00Z' },
     ])
   })
+
+  // The info sheet's lists come from the server, which knows who counts, so
+  // a read it hears about is a reason to ask again.
+  it('has an open Message info fetched again when someone reads', async () => {
+    latest('m1')
+    client.setQueryData([...messageInfoKey('c1'), 'm1'], { read_by: [], not_read: [] })
+    client.setQueryData([...messageInfoKey('c2'), 'm9'], { read_by: [], not_read: [] })
+    renderHook(() => useMessages('c1'), { wrapper })
+    await waitFor(() => expect(echo.handlers.ConversationRead).toBeDefined())
+
+    await broadcast('ConversationRead', { user_id: 'jo', last_read_message_id: 'm1', last_read_at: '2026-09-30T10:00:00Z' })
+
+    expect(client.getQueryState([...messageInfoKey('c1'), 'm1'])?.isInvalidated).toBe(true)
+    // Another conversation's isn't this one's business.
+    expect(client.getQueryState([...messageInfoKey('c2'), 'm9'])?.isInvalidated).toBe(false)
+  })
 })
 
 // Read receipts work both ways (Settings "Read receipts").
@@ -294,7 +310,10 @@ it('ignores others’ reads while the viewer doesn’t share their own', async (
   renderHook(() => useMessages('c1'), { wrapper })
   await waitFor(() => expect(echo.handlers.ConversationRead).toBeDefined())
 
+  client.setQueryData([...messageInfoKey('c1'), 'm1'], { read_by: null, not_read: null })
   await broadcast('ConversationRead', { user_id: 'jo', last_read_message_id: 'm1', last_read_at: '2026-09-30T10:00:00Z' })
 
   expect(client.getQueryData<ReadPointer[]>(readPointersKey('c1'))).toEqual(pointers)
+  // Nothing to refresh: they see no one's read state, and the server says so.
+  expect(client.getQueryState([...messageInfoKey('c1'), 'm1'])?.isInvalidated).toBe(false)
 })

@@ -1206,3 +1206,37 @@
     }
   }
 }
+
+// Message info: what the sheet's message is, when it was sent and, on your
+// own, who has seen it. The facts are .info-facts and the rows are the Seen
+// by popover's (.seen-by__*); a time beside each name would be a guess, so
+// there isn't one (see ReadReceipt).
+.message-info {
+  // Lined up with the facts above it (.info-facts insets by 0.35rem), not
+  // with the popover's wider inset the rows were made for.
+  &__seen {
+    margin-top: 14px;
+    padding-top: 12px;
+    border-top: 1px solid var(--c-line);
+
+    .seen-by__title,
+    .seen-by__row {
+      padding-inline: 0.35rem;
+    }
+
+    .btn {
+      margin: 8px 0 0 0.35rem;
+    }
+  }
+
+  &__note {
+    margin: 8px 0.35rem 0;
+    font-size: var(--fs-caption);
+    line-height: var(--lh-caption);
+    color: var(--c-fg-3);
+
+    a {
+      color: var(--c-accent-text);
+    }
+  }
+}
