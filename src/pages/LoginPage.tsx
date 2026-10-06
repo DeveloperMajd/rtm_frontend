@@ -9,17 +9,9 @@ import BootScreen from '../components/ui/BootScreen'
 import AuthLayout, { AuthBanner, AuthDivider, AuthHeader, GoogleButton } from '../components/auth/AuthLayout'
 import { oauthRedirectUrl } from '../services/api/auth'
 import { fieldErrors, statusOf } from '../utils/authErrors'
+import { returnPath, setReturnPathAside } from '../utils/returnPath'
 
 type LoginVars = { email: string; password: string }
-
-/** Where to go once signed in: back to the page that sent the viewer here
- * (RequireAuth passes it along), or the chat list. Only ever an in-app
- * path. */
-function returnPath(state: unknown): string {
-  const from = (state as { from?: unknown } | null)?.from
-  if (typeof from === 'string' && from.startsWith('/') && !from.startsWith('//')) return from
-  return '/conversations'
-}
 
 const LoginPage = () => {
   const [email, setEmail] = useState('')
@@ -109,10 +101,13 @@ const LoginPage = () => {
       </form>
 
       <AuthDivider />
-      <GoogleButton href={oauthRedirectUrl('google')} />
+      <GoogleButton href={oauthRedirectUrl('google')} onLeave={() => setReturnPathAside(returnPath(location.state))} />
 
       <p className='auth__alt'>
-        New to RTM? <Link to='/register'>Create an account</Link>
+        New to RTM?{' '}
+        <Link to='/register' state={location.state}>
+          Create an account
+        </Link>
       </p>
     </AuthLayout>
   )

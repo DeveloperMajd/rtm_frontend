@@ -14,6 +14,7 @@ import useMessages from '../../hooks/useMessages'
 import useTypingIndicator from '../../hooks/useTypingIndicator'
 import useConversations from '../../hooks/useConversations'
 import useReadPointers from '../../hooks/useReadPointers'
+import useMissingConversation from '../../hooks/useMissingConversation'
 import useAuth from '../../hooks/useAuth'
 import { useReadStateSnapshot } from '../../hooks/useReadStateSnapshot'
 import { useConversationSearch } from '../../hooks/useConversationSearch'
@@ -125,6 +126,18 @@ const ConversationRoomView = () => {
   // adding a contact navigates here at once, before the refetch that brings
   // the new conversation in has landed.
   const isUnavailable = areConversationsReady && !conversation
+  // Not theirs: whether they're just not in it, or it's gone, is the
+  // conversation's to say (see the screens below).
+  const missing = useMissingConversation(id!, isUnavailable)
+  // Whether it's the viewer's is the list's to say, cached or fresh. Its
+  // messages and read state are asked for at once all the same: a fresh load
+  // is nearly always a refresh, or a link into a conversation they're in,
+  // and waiting for the list would hold up every one of those. A refusal
+  // before the list has said is nobody's error, though — a link into a
+  // conversation they're not in gets the screen below, not "Couldn't open
+  // this conversation" or a failed jump's toast first. The live channel
+  // waits for it, as useMessages's own subscription does.
+  const isKnown = conversation !== undefined
 
   const {
     messages,
@@ -142,7 +155,9 @@ const ConversationRoomView = () => {
     isNewerError,
     loadNewer,
   } = useMessages(id!, hasLeft, { deferUntilReady: !areConversationsReady, enabled: !isUnavailable, anchor })
-  const typingText = useTypingIndicator(id!, !hasLeft && !isUnavailable)
+  // Held, behind the loading skeleton, until the list has said (see isKnown).
+  const isErrorOnHold = error !== null && !isKnown
+  const typingText = useTypingIndicator(id!, !hasLeft && isKnown)
   // Who could have read the viewer's messages, and how far each has.
   // Receipts belong to members only: someone who left sees the group as it
   // was, and their messages just say "Sent".
@@ -235,7 +250,7 @@ const ConversationRoomView = () => {
   // A window that couldn't be opened (the message is gone, outside the
   // history the viewer can see, or the request failed) goes back to the
   // newest messages, and a toast says why.
-  if (anchor !== null && error && messages.length === 0) {
+  if (anchor !== null && error && !isErrorOnHold && messages.length === 0) {
     setJumpFailure({ messageId: anchor, gone: isAxiosError(error) && [403, 404].includes(error.response?.status ?? 0) })
     setAnchor(null)
     setJump(null)
@@ -271,11 +286,18 @@ const ConversationRoomView = () => {
     : conversation?.other_participant?.name || 'Direct conversation'
 
   if (isUnavailable) {
+    // A moment while the server says why, rather than the wrong reason first.
+    if (missing === 'checking') {
+      return <section className='room room--unavailable' aria-label='Conversation' aria-busy='true' />
+    }
+
+    const notAMember = missing === 'not-a-member'
+
     return (
-      <section className='room room--unavailable' aria-label='Conversation not found'>
+      <section className='room room--unavailable' aria-label={notAMember ? 'No access' : 'Conversation not found'}>
         <EmptyState
-          icon='chatDots'
-          title='This conversation isn’t available'
+          icon={notAMember ? 'lock' : 'chatDots'}
+          title={notAMember ? 'You’re not in this conversation' : 'This conversation isn’t available'}
           actions={
             <Link to='/conversations' className='btn secondary sm'>
               <Icon name='arrowLeft' size={14} />
@@ -283,7 +305,9 @@ const ConversationRoomView = () => {
             </Link>
           }
         >
-          It may have been deleted, or the link is out of date.
+          {notAMember
+            ? 'Only the people in it can open it. If it’s a group, ask one of them to add you.'
+            : 'It may have been deleted, or the link is out of date.'}
         </EmptyState>
       </section>
     )
@@ -397,7 +421,7 @@ const ConversationRoomView = () => {
         <Messages
           key={anchor ?? 'latest'}
           messages={messages}
-          isLoading={isLoading}
+          isLoading={isLoading || isErrorOnHold}
           isLoadingMore={isLoadingMore}
           hasMore={hasMore}
           error={error}

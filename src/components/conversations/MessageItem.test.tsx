@@ -108,7 +108,7 @@ afterEach(() => {
 })
 
 describe('MessageItem', () => {
-  it("offers Reply, Copy text, React and Message info on someone else's message, with the unbuilt actions tagged Soon", async () => {
+  it("offers Reply, Copy text, React, Message info and Copy link on someone else's message, with Save still tagged Soon", async () => {
     const user = userEvent.setup()
     renderItem(<MessageItem message={message()} onReply={noop} onEdit={noop} />)
 
@@ -119,16 +119,16 @@ describe('MessageItem', () => {
       expect.stringContaining('Copy text'),
       'React',
       'Message info',
-      'Copy linkSoon',
+      'Copy link',
       'Save messageSoon',
     ])
-    expect(within(menu).getByRole('menuitem', { name: 'Message info' })).not.toHaveAttribute('aria-disabled', 'true')
-    for (const name of [/Copy link/, /Save message/]) {
-      expect(within(menu).getByRole('menuitem', { name })).toHaveAttribute('aria-disabled', 'true')
+    for (const name of ['Message info', 'Copy link']) {
+      expect(within(menu).getByRole('menuitem', { name })).not.toHaveAttribute('aria-disabled', 'true')
     }
+    expect(within(menu).getByRole('menuitem', { name: /Save message/ })).toHaveAttribute('aria-disabled', 'true')
   })
 
-  it('offers Edit and Delete only on your own message', async () => {
+  it('offers Edit and Delete only on your own message, and Copy link there too', async () => {
     const user = userEvent.setup()
     renderItem(<MessageItem message={own()} onReply={noop} onEdit={noop} />)
 
@@ -139,8 +139,23 @@ describe('MessageItem', () => {
       expect.stringContaining('Copy text'),
       'Edit',
       'Message info',
+      'Copy link',
       'Delete',
     ])
+  })
+
+  it('copies a link to your own message', async () => {
+    const user = userEvent.setup()
+    const writeText = vi.fn().mockResolvedValue(undefined)
+    Object.defineProperty(window, 'isSecureContext', { value: true, configurable: true })
+    Object.defineProperty(navigator, 'clipboard', { value: { writeText }, configurable: true })
+    renderItem(<MessageItem message={own({ id: 'm2' })} onReply={noop} onEdit={noop} />)
+
+    const menu = await openMore(user)
+    await user.click(within(menu).getByRole('menuitem', { name: 'Copy link' }))
+
+    expect(writeText).toHaveBeenCalledWith(`${window.location.origin}/c/c1/m/m2`)
+    expect(await screen.findByText('Link copied')).toBeInTheDocument()
   })
 
   it('opens Message info from the More menu: the facts straight away, who has seen it from the server', async () => {
@@ -353,6 +368,35 @@ describe('MessageItem', () => {
     expect(await screen.findByText('Message text copied')).toBeInTheDocument()
   })
 
+  it('copies a link that opens the conversation at this message', async () => {
+    const user = userEvent.setup()
+    const writeText = vi.fn().mockResolvedValue(undefined)
+    Object.defineProperty(window, 'isSecureContext', { value: true, configurable: true })
+    Object.defineProperty(navigator, 'clipboard', { value: { writeText }, configurable: true })
+    renderItem(<MessageItem message={message()} onReply={noop} onEdit={noop} />)
+
+    const menu = await openMore(user)
+    await user.click(within(menu).getByRole('menuitem', { name: 'Copy link' }))
+
+    expect(writeText).toHaveBeenCalledWith(`${window.location.origin}/c/c1/m/m1`)
+    expect(await screen.findByText('Link copied')).toBeInTheDocument()
+  })
+
+  it('says so when the link couldn’t be copied', async () => {
+    const user = userEvent.setup()
+    Object.defineProperty(window, 'isSecureContext', { value: true, configurable: true })
+    Object.defineProperty(navigator, 'clipboard', {
+      value: { writeText: vi.fn().mockRejectedValue(new Error('denied')) },
+      configurable: true,
+    })
+    renderItem(<MessageItem message={message()} onReply={noop} onEdit={noop} />)
+
+    const menu = await openMore(user)
+    await user.click(within(menu).getByRole('menuitem', { name: 'Copy link' }))
+
+    expect(await screen.findByText('Couldn’t copy the link. Please try again.')).toBeInTheDocument()
+  })
+
   it('disables Copy text for a message with no text', async () => {
     const user = userEvent.setup()
     renderItem(<MessageItem message={message({ body: '', attachments_count: 1 })} onReply={noop} onEdit={noop} />)
@@ -458,7 +502,10 @@ describe('MessageItem on a touch screen', () => {
     expect(within(sheet).getByRole('button', { name: 'Copy text' })).toBeEnabled()
     expect(within(sheet).getByRole('button', { name: 'Edit' })).toBeEnabled()
     expect(within(sheet).getByRole('button', { name: 'Message info' })).toBeEnabled()
+    expect(within(sheet).getByRole('button', { name: 'Copy link' })).toBeEnabled()
     expect(within(sheet).getByRole('button', { name: 'Delete' })).toBeEnabled()
+    // Saving is for other people's messages.
+    expect(within(sheet).queryByRole('button', { name: /Save message/ })).not.toBeInTheDocument()
   })
 
   it('opens Message info from the sheet, in its place', async () => {
@@ -478,13 +525,13 @@ describe('MessageItem on a touch screen', () => {
     expect(screen.getByText('Seen by · 1 of 2')).toBeInTheDocument()
   })
 
-  it('offers the unbuilt Copy link and Save on someone else’s message, disabled, and no Edit or Delete', () => {
+  it('offers Copy link on someone else’s message, Save still disabled, and no Edit or Delete', () => {
     renderItem(<MessageItem message={message()} onReply={noop} onEdit={noop} />)
 
     longPress(contentOf('Can you check the queue worker?'))
 
     const sheet = screen.getByRole('dialog', { name: 'Message actions' })
-    expect(within(sheet).getByRole('button', { name: 'Copy link Soon' })).toBeDisabled()
+    expect(within(sheet).getByRole('button', { name: 'Copy link' })).toBeEnabled()
     expect(within(sheet).getByRole('button', { name: 'Save message Soon' })).toBeDisabled()
     expect(within(sheet).queryByRole('button', { name: 'Edit' })).not.toBeInTheDocument()
     expect(within(sheet).queryByRole('button', { name: 'Delete' })).not.toBeInTheDocument()

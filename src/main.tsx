@@ -17,6 +17,7 @@ import ErrorBoundary from './components/ui/ErrorBoundary.tsx'
 import RouteError from './components/ui/RouteError.tsx'
 import BootScreen from './components/ui/BootScreen.tsx'
 import NotFoundPage from './pages/NotFoundPage.tsx'
+import MessageLinkPage from './pages/MessageLinkPage.tsx'
 
 const LoginPage = lazy(() => import('./pages/LoginPage.tsx'))
 const RegisterPage = lazy(() => import('./pages/RegisterPage.tsx'))
@@ -56,6 +57,9 @@ const router = createBrowserRouter([
       {
         element: <RequireAuth />,
         children: [
+          // A copied message link (Copy link). Signed in, it opens the
+          // conversation at the message; signed out, it waits for sign-in.
+          { path: '/c/:conversationId/m/:messageId', element: <MessageLinkPage /> },
           {
             // The rail, search and presence stay mounted moving between Chats
             // and Settings.

@@ -109,9 +109,11 @@ export const AuthDivider = () => (
   </div>
 )
 
-/** Google sign-in: a plain link to the backend's OAuth redirect. */
-export const GoogleButton = ({ href }: { href: string }) => (
-  <a href={href} className='btn secondary block auth__oauth'>
+/** Google sign-in: a plain link to the backend's OAuth redirect. `onLeave`
+ * runs first, to put aside anything the trip can't carry (see
+ * setReturnPathAside). */
+export const GoogleButton = ({ href, onLeave }: { href: string; onLeave?: () => void }) => (
+  <a href={href} className='btn secondary block auth__oauth' onClick={onLeave}>
     <span className='auth__oauth-mark' aria-hidden='true'>
       G
     </span>

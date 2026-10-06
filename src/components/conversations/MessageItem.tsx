@@ -7,6 +7,7 @@ import type { Receipt } from '../../utils/readReceipts'
 import { deleteMessage } from '../../services/api/messages'
 import { markMessageDeletedInCache, messagesKey } from '../../utils/messagePages'
 import { copyText } from '../../utils/clipboard'
+import { messageLink } from '../../utils/messageLinks'
 import { highlightSegments } from '../../utils/searchText'
 import useAuth from '../../hooks/useAuth'
 import useMessageReactions from '../../hooks/useMessageReactions'
@@ -124,6 +125,14 @@ const MessageItem = ({
     copyText(message.body)
       .then(() => toast.success('Message text copied'))
       .catch(() => toast.error('Couldn’t copy the text. Please try again.'))
+  }
+
+  // A link that opens this conversation at this message, for anyone in it
+  // (see MessageLinkPage).
+  const handleCopyLink = () => {
+    copyText(messageLink(message.conversation_id, message.id))
+      .then(() => toast.success('Link copied'))
+      .catch(() => toast.error('Couldn’t copy the link. Please try again.'))
   }
 
   const closePopover = () => setOpenPopover(null)
@@ -297,6 +306,7 @@ const MessageItem = ({
             onReact={() => setOpenPopover('react-toolbar')}
             onEdit={() => onEdit(message)}
             onInfo={() => setIsInfoOpen(true)}
+            onCopyLink={handleCopyLink}
             onDelete={() => setIsConfirmingDelete(true)}
           />
 
@@ -312,6 +322,7 @@ const MessageItem = ({
             onCopy={handleCopy}
             onEdit={() => onEdit(message)}
             onInfo={() => setIsInfoOpen(true)}
+            onCopyLink={handleCopyLink}
             onDelete={() => setIsConfirmingDelete(true)}
           />
 

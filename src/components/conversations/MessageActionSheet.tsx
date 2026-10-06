@@ -18,6 +18,7 @@ interface MessageActionSheetProps {
   onCopy: () => void
   onEdit: () => void
   onInfo: () => void
+  onCopyLink: () => void
   onDelete: () => void
 }
 
@@ -39,6 +40,7 @@ const MessageActionSheet = ({
   onCopy,
   onEdit,
   onInfo,
+  onCopyLink,
   onDelete,
 }: MessageActionSheetProps) => {
   // Each choice closes the sheet first, so focus is back in the
@@ -83,12 +85,8 @@ const MessageActionSheet = ({
         <SheetAction icon='copy' label='Copy text' disabled={!message.body} onSelect={choose(onCopy)} />
         {!readOnly && isOwn && <SheetAction icon='pencil' label='Edit' onSelect={choose(onEdit)} />}
         {!readOnly && <SheetAction icon='info' label='Message info' onSelect={choose(onInfo)} />}
-        {!readOnly && !isOwn && (
-          <>
-            <SheetAction icon='link' label='Copy link' soon />
-            <SheetAction icon='bookmark' label='Save message' soon />
-          </>
-        )}
+        {!readOnly && <SheetAction icon='link' label='Copy link' onSelect={choose(onCopyLink)} />}
+        {!readOnly && !isOwn && <SheetAction icon='bookmark' label='Save message' soon />}
         {!readOnly && isOwn && <SheetAction icon='trash' label='Delete' tone='danger' onSelect={choose(onDelete)} />}
       </div>
     </BottomSheet>

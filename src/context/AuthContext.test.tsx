@@ -1,5 +1,5 @@
 import { useState, type ReactNode } from 'react'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { act, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
@@ -9,6 +9,8 @@ import { AuthProvider } from './AuthContext'
 import useAuth from '../hooks/useAuth'
 import RequireAuth from '../layouts/RequireAuth'
 import LoginPage from '../pages/LoginPage'
+import RegisterPage from '../pages/RegisterPage'
+import MessageLinkPage from '../pages/MessageLinkPage'
 import * as authApi from '../services/api/auth'
 import { notifySessionExpired } from '../services/api/sessionEvents'
 import { saveDraft } from '../utils/drafts'
@@ -244,5 +246,119 @@ describe('an expired session', () => {
         'Your session expired. Sign in again to carry on.',
       ),
     )
+  })
+})
+
+describe('a message link opened while signed out', () => {
+  const At = () => {
+    const { pathname, search } = useLocation()
+    return (
+      <p>
+        At {pathname}
+        {search}
+      </p>
+    )
+  }
+
+  const renderAt = (path: string) =>
+    render(
+      <Providers>
+        <MemoryRouter initialEntries={[path]}>
+          <Routes>
+            <Route path='/login' element={<LoginPage />} />
+            <Route path='/register' element={<RegisterPage />} />
+            <Route element={<RequireAuth />}>
+              <Route path='/c/:conversationId/m/:messageId' element={<MessageLinkPage />} />
+              <Route path='/conversations' element={<At />} />
+              <Route path='/conversations/:id' element={<At />} />
+            </Route>
+          </Routes>
+        </MemoryRouter>
+      </Providers>,
+    )
+
+  const signIn = async (user: ReturnType<typeof userEvent.setup>) => {
+    await user.type(await screen.findByLabelText('Email'), 'majd@example.com')
+    await user.type(screen.getByLabelText('Password'), 'Secret_123')
+    await user.click(screen.getByRole('button', { name: 'Sign in' }))
+  }
+
+  afterEach(() => {
+    sessionStorage.clear()
+  })
+
+  it('opens the conversation at the message once the viewer has signed in', async () => {
+    const user = userEvent.setup()
+    vi.mocked(authApi.me).mockRejectedValue(httpError(401))
+    vi.mocked(authApi.login).mockResolvedValue(me)
+    renderAt('/c/c1/m/m1')
+
+    await signIn(user)
+
+    expect(await screen.findByText('At /conversations/c1?message=m1')).toBeInTheDocument()
+  })
+
+  it('opens it straight away for someone already signed in', async () => {
+    vi.mocked(authApi.me).mockResolvedValue(me)
+    renderAt('/c/c1/m/m1')
+
+    expect(await screen.findByText('At /conversations/c1?message=m1')).toBeInTheDocument()
+  })
+
+  it('keeps a deep link’s query across signing in', async () => {
+    const user = userEvent.setup()
+    vi.mocked(authApi.me).mockRejectedValue(httpError(401))
+    vi.mocked(authApi.login).mockResolvedValue(me)
+    renderAt('/conversations/c1?message=m1')
+
+    await signIn(user)
+
+    expect(await screen.findByText('At /conversations/c1?message=m1')).toBeInTheDocument()
+  })
+
+  it('still gets there when the viewer creates an account first', async () => {
+    const user = userEvent.setup()
+    vi.mocked(authApi.me).mockRejectedValue(httpError(401))
+    vi.mocked(authApi.register).mockResolvedValue(me)
+    renderAt('/c/c1/m/m1')
+
+    await user.click(await screen.findByRole('link', { name: 'Create an account' }))
+    await user.type(await screen.findByLabelText('Name'), 'Majd')
+    await user.type(screen.getByLabelText('Email'), 'majd@example.com')
+    await user.type(screen.getByLabelText('Password'), 'Secret_123!')
+    await user.type(screen.getByLabelText('Confirm password'), 'Secret_123!')
+    await user.click(screen.getByRole('button', { name: 'Create account' }))
+
+    expect(await screen.findByText('At /conversations/c1?message=m1')).toBeInTheDocument()
+  })
+
+  // Google can't carry the link there and back: the server brings everyone
+  // back to the chat list.
+  it('puts the link aside before leaving for Google, and opens it on the way back', async () => {
+    const user = userEvent.setup()
+    vi.mocked(authApi.me).mockRejectedValue(httpError(401))
+    const { unmount } = renderAt('/c/c1/m/m1')
+
+    // jsdom can't follow a link out of the app; the page would be leaving.
+    const stayHere = (event: MouseEvent) => event.preventDefault()
+    document.addEventListener('click', stayHere, { capture: true })
+    await user.click(await screen.findByRole('link', { name: /Continue with Google/ }))
+    document.removeEventListener('click', stayHere, { capture: true })
+
+    expect(sessionStorage.getItem('rtm.returnPath')).toBe('/c/c1/m/m1')
+    unmount()
+
+    vi.mocked(authApi.me).mockResolvedValue(me)
+    renderAt('/conversations')
+
+    expect(await screen.findByText('At /conversations/c1?message=m1')).toBeInTheDocument()
+    expect(sessionStorage.getItem('rtm.returnPath')).toBeNull()
+  })
+
+  it('lands on the chat list as usual when nothing was put aside', async () => {
+    vi.mocked(authApi.me).mockResolvedValue(me)
+    renderAt('/conversations')
+
+    expect(await screen.findByText('At /conversations')).toBeInTheDocument()
   })
 })

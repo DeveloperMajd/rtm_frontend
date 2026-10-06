@@ -72,6 +72,10 @@ board by board for desktop, tablet and phone.
   the message, loading the history around it if it isn't on screen, with a
   brief highlight. From there, history loads both ways as you scroll, and
   "Jump to latest" goes back to the newest messages.
+- **Copy link**: "Copy link", in the More menu or the long-press sheet,
+  copies a link to a message, yours or anyone's. The link jumps to it,
+  through sign-in first if needed (Google included). Someone who isn't in
+  the conversation is told just that, rather than that it's gone.
 - **Groups**: an info panel with members and admin roles. Members who leave
   or are removed keep their history, read-only and frozen at that point.
 - **Account**: sign-in, registration with a live password-rules checklist,
@@ -119,7 +123,7 @@ board by board for desktop, tablet and phone.
 
 Some controls in the design need backend work first. They appear
 **disabled and tagged** "Soon" or "Needs API", never faked:
-- copy link and saved messages;
+- saved messages;
 - shared media.
 
 ## Project structure
