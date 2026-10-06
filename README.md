@@ -60,7 +60,10 @@ board by board for desktop, tablet and phone.
   read, then "Seen" in a direct conversation or "Seen by N" in a group,
   which lists who has read it and who hasn't. It updates live.
   Conversations are marked as read only while you're looking: the tab is
-  visible and the window focused.
+  visible and the window focused. A read shows only if both people had read
+  receipts on when it was made, so switching either way only affects reads
+  from then on: turning them on doesn't reveal what was read while they were
+  off, and turning them off doesn't hide what was already shown.
 - **Message info**: the More menu's "Message info" shows when a message was
   sent and edited and, on your own, who has seen it and who hasn't yet. It
   updates live, and says so if you've turned your own read receipts off.

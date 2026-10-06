@@ -53,7 +53,7 @@ const info = (overrides: Partial<MessageInfo> = {}): MessageInfo => ({
   deleted_at: null,
   read_by: [{ user_id: 'jordan', name: 'Jordan' }],
   not_read: [{ user_id: 'sam', name: 'Sam' }],
-  receipts_hidden: false,
+  receipts_off: false,
   ...overrides,
 })
 

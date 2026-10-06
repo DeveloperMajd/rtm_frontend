@@ -30,7 +30,7 @@ const info = (overrides: Partial<MessageInfo> = {}): MessageInfo => ({
   deleted_at: null,
   read_by: [],
   not_read: [],
-  receipts_hidden: false,
+  receipts_off: false,
   ...overrides,
 })
 
@@ -102,16 +102,18 @@ describe('MessageInfoSheet', () => {
     expect(seenBy()).toHaveAttribute('aria-busy', 'false')
   })
 
-  it('explains that anyone with read receipts off shows as Not yet, only when someone does', async () => {
+  it('explains that a read made while either side had read receipts off shows as Not yet, only when someone does', async () => {
     vi.mocked(getMessageInfo).mockResolvedValue(info({ read_by: [person('Jordan')], not_read: [person('Sam')] }))
     const { unmount } = renderSheet()
-    expect(await screen.findByText('Anyone who has turned off read receipts shows as Not yet.')).toBeInTheDocument()
+    expect(
+      await screen.findByText('Anyone who read it while you or they had read receipts off shows as Not yet.'),
+    ).toBeInTheDocument()
     unmount()
 
     vi.mocked(getMessageInfo).mockResolvedValue(info({ read_by: [person('Jordan'), person('Sam')], not_read: [] }))
     renderSheet()
     await screen.findByText('Seen by · 2 of 2')
-    expect(screen.queryByText(/turned off read receipts shows/)).not.toBeInTheDocument()
+    expect(screen.queryByText(/had read receipts off shows/)).not.toBeInTheDocument()
   })
 
   it('says just “Seen by” in a conversation with one other person', async () => {
@@ -132,18 +134,33 @@ describe('MessageInfoSheet', () => {
     expect(await screen.findByText('No one else is in this conversation.')).toBeInTheDocument()
   })
 
-  it('explains why there is no list when the viewer has read receipts off, and links to the setting', async () => {
-    vi.mocked(getMessageInfo).mockResolvedValue(info({ read_by: null, not_read: null, receipts_hidden: true }))
+  // What was read before they switched still shows; only what comes after
+  // won't, and the note says so.
+  it('keeps the list while the viewer’s read receipts are off, says new reads won’t show, and links to the setting', async () => {
+    vi.mocked(getMessageInfo).mockResolvedValue(
+      info({ read_by: [person('Jordan')], not_read: [person('Sam')], receipts_off: true }),
+    )
 
     renderSheet()
 
-    expect(await screen.findByText(/You’ve turned off read receipts/)).toBeInTheDocument()
+    expect(await screen.findByText('Seen by · 1 of 2')).toBeInTheDocument()
+    expect(within(seenBy()).getByText('Jordan').closest('li')).toHaveTextContent('Seen')
+    expect(screen.getByText(/Your read receipts are off, so reads from now on won’t show\./)).toBeInTheDocument()
     expect(screen.getByRole('link', { name: 'Turn them on in Settings' })).toHaveAttribute('href', '/settings#privacy')
-    expect(screen.queryByText(/Seen by ·/)).not.toBeInTheDocument()
   })
 
-  it('does not blame the viewer’s settings when the lists are missing for another reason', async () => {
-    vi.mocked(getMessageInfo).mockResolvedValue(info({ read_by: null, not_read: null, receipts_hidden: false }))
+  it('says nothing about the viewer’s settings while theirs are on', async () => {
+    vi.mocked(getMessageInfo).mockResolvedValue(info({ read_by: [person('Jordan')], not_read: [] }))
+
+    renderSheet()
+
+    await screen.findByText('Seen by')
+    expect(screen.queryByText(/Your read receipts are off/)).not.toBeInTheDocument()
+    expect(screen.queryByRole('link')).not.toBeInTheDocument()
+  })
+
+  it('says the list isn’t available when the server gives none', async () => {
+    vi.mocked(getMessageInfo).mockResolvedValue(info({ read_by: null, not_read: null }))
 
     renderSheet()
 

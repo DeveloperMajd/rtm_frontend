@@ -89,22 +89,9 @@ const SeenBy = ({ conversationId, messageId }: { conversationId: string; message
       </>
     )
   } else if (data.read_by === null || data.not_read === null) {
-    // Their own read receipts are off, so they aren't shown anyone else's
-    // either: read receipts work both ways.
-    content = (
-      <p className='message-info__note'>
-        {data.receipts_hidden ? (
-          <>
-            You’ve turned off read receipts, so you can’t see who has seen your messages.{' '}
-            <Link to='/settings#privacy'>Turn them on in Settings</Link>
-          </>
-        ) : (
-          'Who has seen this isn’t available.'
-        )}
-      </p>
-    )
+    content = <p className='message-info__note'>Who has seen this isn’t available.</p>
   } else {
-    content = <Readers seen={data.read_by} notYet={data.not_read} />
+    content = <Readers seen={data.read_by} notYet={data.not_read} receiptsOff={data.receipts_off} />
   }
 
   return (
@@ -114,7 +101,12 @@ const SeenBy = ({ conversationId, messageId }: { conversationId: string; message
   )
 }
 
-const Readers = ({ seen, notYet }: { seen: Reader[]; notYet: Reader[] }) => {
+/**
+ * A read counts only if both people had read receipts on when it was made.
+ * With the viewer's own off, what was read before they switched still
+ * shows; the note says why nothing new will.
+ */
+const Readers = ({ seen, notYet, receiptsOff }: { seen: Reader[]; notYet: Reader[]; receiptsOff: boolean }) => {
   const total = seen.length + notYet.length
 
   if (total === 0) return <p className='message-info__note'>No one else is in this conversation.</p>
@@ -136,8 +128,14 @@ const Readers = ({ seen, notYet }: { seen: Reader[]; notYet: Reader[] }) => {
           </li>
         ))}
       </ul>
+      {receiptsOff && (
+        <p className='message-info__note'>
+          Your read receipts are off, so reads from now on won’t show.{' '}
+          <Link to='/settings#privacy'>Turn them on in Settings</Link>
+        </p>
+      )}
       {notYet.length > 0 && (
-        <p className='message-info__note'>Anyone who has turned off read receipts shows as Not yet.</p>
+        <p className='message-info__note'>Anyone who read it while you or they had read receipts off shows as Not yet.</p>
       )}
     </>
   )

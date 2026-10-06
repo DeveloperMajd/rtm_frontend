@@ -167,11 +167,12 @@ const searchConversation = async (
 
 /**
  * What the server knows about one message. The lists are only for the
- * viewer's own messages: both are null on someone else's, and null when the
- * viewer has turned their own read receipts off (`receipts_hidden` says
- * which). Anyone who shares nothing is in `not_read`, like someone who
- * hasn't read it. There is no time beside a name, because the server
- * doesn't know when a person read this message in particular.
+ * viewer's own messages (both null on someone else's). Someone is in
+ * `read_by` only if both of them had read receipts on when they read it;
+ * anyone else is in `not_read`, like someone who hasn't read it.
+ * `receipts_off` says the viewer's own are off now, so nothing read from now
+ * on will show. There is no time beside a name, because the server doesn't
+ * know when a person read this message in particular.
  */
 export type MessageInfo = {
   id: string
@@ -181,7 +182,7 @@ export type MessageInfo = {
   deleted_at: string | null
   read_by: Reader[] | null
   not_read: Reader[] | null
-  receipts_hidden: boolean
+  receipts_off: boolean
 }
 
 const getMessageInfo = async (messageId: string): Promise<MessageInfo> => {

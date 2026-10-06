@@ -169,14 +169,14 @@ describe('SettingsPage', () => {
     }
   })
 
-  // The setting decides what people can see now, so turning it back on shows
-  // what was read while it was off. It's said where it's set.
-  it('says that turning read receipts back on shows what was read while they were off', async () => {
+  // Each read counts by the setting it was made under, so switching changes
+  // nothing already read either way. It's said where it's set.
+  it('says that changing read receipts only affects what is read from then on', async () => {
     renderApp('/settings')
 
     const receipts = await screen.findByRole('switch', { name: /Read receipts/ })
 
-    expect(receipts).toHaveAccessibleDescription(/Turning it back on shows people what you read while it was off\./)
+    expect(receipts).toHaveAccessibleDescription(/Changing it only affects reads from then on, by you or by them\./)
   })
 
   it('saves a change straight away', async () => {

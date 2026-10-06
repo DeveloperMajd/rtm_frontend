@@ -75,7 +75,7 @@ describe('getMessageInfo', () => {
       deleted_at: null,
       read_by: [{ user_id: 'u2', name: 'Sam' }],
       not_read: [],
-      receipts_hidden: false,
+      receipts_off: false,
     }
     get.mockResolvedValue({ data: { data: info } })
 
