@@ -249,7 +249,7 @@ function SettingsPage() {
           <ul className='setting-rows'>
             <SettingRow
               title='Read receipts'
-              description='Let people see when you’ve read their messages. Turn it off and you won’t see when they’ve read yours either.'
+              description='Let people see when you’ve read their messages. Turn it off and you won’t see when they’ve read yours either. Turning it back on shows people what you read while it was off.'
               control={(ids) => (
                 <Switch checked={settings.read_receipts} onChange={(on) => update({ read_receipts: on })} {...ids} />
               )}

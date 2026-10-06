@@ -169,6 +169,16 @@ describe('SettingsPage', () => {
     }
   })
 
+  // The setting decides what people can see now, so turning it back on shows
+  // what was read while it was off. It's said where it's set.
+  it('says that turning read receipts back on shows what was read while they were off', async () => {
+    renderApp('/settings')
+
+    const receipts = await screen.findByRole('switch', { name: /Read receipts/ })
+
+    expect(receipts).toHaveAccessibleDescription(/Turning it back on shows people what you read while it was off\./)
+  })
+
   it('saves a change straight away', async () => {
     const user = userEvent.setup()
     vi.mocked(updateSettings).mockImplementation(async (changes) => ({ ...defaults, ...changes }))
