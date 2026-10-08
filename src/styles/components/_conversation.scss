@@ -657,6 +657,23 @@
     color: var(--c-fg);
     font-weight: 600;
   }
+
+  // Someone typing (Study-Typing-Presence): the four bars, then who, in the
+  // accent — over unread's emphasis too, since it's what's happening now.
+  // The name truncates, not the bars.
+  &__preview.is-typing,
+  &.has-unread &__preview.is-typing {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    color: var(--c-accent-text);
+    font-weight: 400;
+  }
+
+  &__typing {
+    @include truncate;
+    min-width: 0;
+  }
 }
 
 // Pin/Mute/Archive — see Conversations.tsx's QuickActions. Overlays the

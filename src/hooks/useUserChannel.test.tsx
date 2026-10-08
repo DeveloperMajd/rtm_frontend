@@ -6,6 +6,7 @@ import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom'
 import useUserChannel from './useUserChannel'
 import { AuthContext, type AuthContextType } from './useAuth'
 import { settingsKey, DEFAULT_SETTINGS } from './useSettings'
+import { forgetTyping, useListTyping } from './useListTyping'
 import { playMessageTone, showMessageNotification } from '../utils/alerts'
 import type { ConversationType, MessageType } from '../utils/baseTypes'
 
@@ -146,5 +147,54 @@ describe('useUserChannel — getting attention for a message', () => {
 
     expect(playMessageTone).not.toHaveBeenCalled()
     expect(showMessageNotification).not.toHaveBeenCalled()
+  })
+})
+
+describe('useUserChannel — who’s typing, for the chat list', () => {
+  const typingIn = (conversationId: string) => renderHook(() => useListTyping(conversationId)).result
+
+  const ping = (conversationId: string, userId: string, name: string) =>
+    act(() => echo.handlers.TypingIndicator?.({ conversation_id: conversationId, user_id: userId, name }))
+
+  afterEach(() => {
+    act(() => forgetTyping())
+  })
+
+  it('notes someone typing in any conversation, open or not', () => {
+    render()
+    const other = typingIn('other')
+
+    ping('other', 'jo', 'Jo')
+
+    expect(other.current).toEqual(['Jo'])
+  })
+
+  it('never shows the viewer as typing, from another tab of theirs', () => {
+    render()
+    const open = typingIn('open')
+
+    ping('open', 'me', 'Me')
+
+    expect(open.current).toEqual([])
+  })
+
+  it('stops showing someone typing once their message arrives', () => {
+    render()
+    const other = typingIn('other')
+    ping('other', 'jo', 'Jo')
+
+    arrive(message('other', { sender: { id: 'jo', name: 'Jo' } }))
+
+    expect(other.current).toEqual([])
+  })
+
+  it('forgets who was typing when the channel closes', () => {
+    const view = render()
+    const other = typingIn('other')
+    ping('other', 'jo', 'Jo')
+
+    view.unmount()
+
+    expect(other.current).toEqual([])
   })
 })

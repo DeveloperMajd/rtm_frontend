@@ -12,6 +12,7 @@ import { systemMessageText } from '../../utils/systemMessageText'
 import useAuth from '../../hooks/useAuth'
 import useConversationPreferences, { type PreferenceChanges } from '../../hooks/useConversationPreferences'
 import { useReorderAnimation } from '../../hooks/useReorderAnimation'
+import { typingLabel, useListTyping } from '../../hooks/useListTyping'
 import { conversationTitle } from '../../utils/conversations'
 import { presenceOf } from '../../utils/presence'
 
@@ -35,6 +36,31 @@ const matchesFilter = (c: ConversationType, filter: ConversationFilter): boolean
     case 'all':
       return true
   }
+}
+
+/**
+ * A row's second line: who's typing while anyone is — in the accent, behind
+ * the four typing bars (Study-Typing-Presence) — and the latest message
+ * otherwise. Its own component, so a ping re-renders the one row it's for.
+ */
+const RowPreview = ({ conversation: c, viewerId }: { conversation: ConversationType; viewerId?: string }) => {
+  const typists = useListTyping(c.id)
+
+  if (typists.length > 0) {
+    return (
+      <span className='conversation-item__preview is-typing'>
+        <span className='typing-bars' aria-hidden='true'>
+          <i />
+          <i />
+          <i />
+          <i />
+        </span>
+        <span className='conversation-item__typing'>{typingLabel(c.type, typists)}</span>
+      </span>
+    )
+  }
+
+  return <span className='conversation-item__preview'>{previewFor(c, viewerId)}</span>
 }
 
 /** Which of a row's actions was used last — to put focus back on it when
@@ -360,7 +386,7 @@ const Conversations = ({
               )}
             </div>
             <div className='conversation-item__top'>
-              <span className='conversation-item__preview'>{previewFor(c, user?.id)}</span>
+              <RowPreview conversation={c} viewerId={user?.id} />
               {unread && (
                 <span
                   className={`unread-pill${muted ? ' is-muted' : ''}`}
