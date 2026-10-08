@@ -45,6 +45,8 @@ export type ConversationType = {
     id: string
     name: string
     avatar_url?: string | null
+    /** What they've written about themselves, if anything. */
+    bio?: string | null
     is_online: boolean
     presence_status?: PresenceStatus
     last_seen_at?: string | null

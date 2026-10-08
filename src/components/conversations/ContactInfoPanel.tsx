@@ -22,10 +22,9 @@ type ContactInfoPanelProps = {
 }
 
 /**
- * Contact (Tablet-768-Info-Light, Contacts-1440's card): who this is, when
- * the conversation started, the groups you're both in, and — if they're in
- * your contacts — removing them. Their bio isn't exposed by the API, so
- * it's left out rather than faked.
+ * Contact (Tablet-768-Info-Light, Contacts-1440's card): who this is and
+ * what they've written about themselves, when the conversation started, the
+ * groups you're both in, and — if they're in your contacts — removing them.
  */
 const ContactInfoPanel = ({ conversation, conversations, onSearch }: ContactInfoPanelProps) => {
   const queryClient = useQueryClient()
@@ -62,6 +61,7 @@ const ContactInfoPanel = ({ conversation, conversations, onSearch }: ContactInfo
         <p className={`info-identity__meta${status === 'online' ? ' is-online' : ''}`}>
           {presenceLabel(status, person.last_seen_at)}
         </p>
+        {person.bio?.trim() && <p className='info-identity__bio'>{person.bio.trim()}</p>}
       </div>
 
       <ConversationActions conversation={conversation} onSearch={onSearch} />

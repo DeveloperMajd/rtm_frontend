@@ -91,7 +91,8 @@ board by board for desktop, tablet and phone.
   or are removed keep their history, read-only and frozen at that point.
 - **Account**: sign-in, registration with a live password-rules checklist,
   password reset, and Google sign-in. The profile page has an avatar
-  upload.
+  upload and a bio, which anyone you share a chat with sees in your
+  contact panel, under your name.
 - **Settings**:
   - Theme: Light, Dark, or System (the default).
   - Notifications, for messages in chats you're not looking at:

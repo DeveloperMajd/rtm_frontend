@@ -142,6 +142,21 @@
       color: var(--c-accent-text);
     }
   }
+
+  // What they've written about themselves (Tablet-768-Info-Light), set a
+  // little apart from who they are and whether they're here. Their own line
+  // breaks are kept; a long word or a link wraps rather than widening the
+  // panel.
+  &__bio {
+    max-width: 240px;
+    margin: 0.4rem 0 0;
+    font-size: 13.5px;
+    line-height: 20px;
+    color: var(--c-fg-2);
+    white-space: pre-line;
+    overflow-wrap: anywhere;
+    text-wrap: pretty;
+  }
 }
 
 // Search · Mute · Pin — tiles, all "Soon" for now.
