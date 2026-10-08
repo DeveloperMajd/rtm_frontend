@@ -1,23 +1,21 @@
 .skeleton {
   --sk-base: color-mix(in oklab, var(--c-line) 70%, var(--c-list));
-  --sk-shine: color-mix(in oklab, var(--c-line) 30%, var(--c-list));
 
   position: relative;
   overflow: hidden;
   background-color: var(--sk-base);
   border-radius: var(--r-btn-sm);
 
+  // A glisten: a narrow, slanted band of light that crosses the shape, then
+  // rests a moment before the next. Light in both themes (--c-glisten): a
+  // shine mixed from the line colour, as before, came out darker than the
+  // shape in the dark theme and all but invisible in the light one.
   &::after {
     content: '';
     position: absolute;
     inset: 0;
     transform: translateX(-100%);
-    background: linear-gradient(
-      90deg,
-      transparent,
-      var(--sk-shine),
-      transparent
-    );
+    background: linear-gradient(105deg, transparent 30%, var(--c-glisten) 50%, transparent 70%);
     // Signal's motion spec: "Skeleton shimmer 1.7 s loop".
     animation: skeleton-shimmer 1.7s ease-in-out infinite;
   }
@@ -86,7 +84,9 @@
   }
 }
 
+// Across in the first 70% of the loop; the rest is the pause between.
 @keyframes skeleton-shimmer {
+  70%,
   100% {
     transform: translateX(100%);
   }
