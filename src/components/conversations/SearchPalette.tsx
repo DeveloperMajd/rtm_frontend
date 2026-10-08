@@ -7,6 +7,7 @@ import { useModalBehavior } from '../../hooks/useModalBehavior'
 import { loadRecentSearches, rememberSearch } from '../../utils/recentSearches'
 import { highlightSegments, queryTerms, resultTime, snippetAround } from '../../utils/searchText'
 import { conversationTitle } from '../../utils/conversations'
+import { presenceLabel, presenceOf } from '../../utils/presence'
 import Avatar from '../ui/Avatar'
 import Icon from '../ui/Icon'
 import SignalBars from '../ui/SignalBars'
@@ -405,7 +406,9 @@ function conversationMeta(c: ConversationType): string {
     const members = (c.participants ?? []).filter((p) => !p.left_at).length
     return members > 0 ? `${members} ${members === 1 ? 'member' : 'members'}` : ''
   }
-  return c.other_participant?.is_online ? 'Online' : ''
+  // Whether they're here; an offline person's last seen is for the room.
+  const status = c.other_participant ? presenceOf(c.other_participant) : 'offline'
+  return status === 'offline' ? '' : presenceLabel(status)
 }
 
 const ConversationAvatar = ({ conversation }: { conversation: ConversationType }) => (

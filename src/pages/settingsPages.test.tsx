@@ -169,6 +169,16 @@ describe('SettingsPage', () => {
     }
   })
 
+  // Each read counts by the setting it was made under, so switching changes
+  // nothing already read either way. It's said where it's set.
+  it('says that changing read receipts only affects what is read from then on', async () => {
+    renderApp('/settings')
+
+    const receipts = await screen.findByRole('switch', { name: /Read receipts/ })
+
+    expect(receipts).toHaveAccessibleDescription(/Changing it only affects reads from then on, by you or by them\./)
+  })
+
   it('saves a change straight away', async () => {
     const user = userEvent.setup()
     vi.mocked(updateSettings).mockImplementation(async (changes) => ({ ...defaults, ...changes }))

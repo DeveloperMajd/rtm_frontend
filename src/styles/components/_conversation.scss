@@ -525,13 +525,16 @@
 .conversation-item-row {
   position: relative;
 
+  // Under the pointer, or reached by keyboard — not merely focused: a click
+  // leaves the focus on the row's link, and :focus-within kept the row lit
+  // and its actions up until something else was clicked.
   &:hover,
-  &:focus-within {
+  &:has(:focus-visible) {
     background-color: var(--c-raised-2);
   }
 
   &:hover .conversation-item__quick-actions,
-  &:focus-within .conversation-item__quick-actions {
+  &:has(:focus-visible) .conversation-item__quick-actions {
     opacity: 1;
     pointer-events: auto;
   }
@@ -539,8 +542,7 @@
   // A tap leaves :hover stuck on touch screens — the row is opening, not
   // asking for its actions. The keyboard still reveals them.
   @include touch {
-    &:hover .conversation-item__quick-actions,
-    &:focus-within .conversation-item__quick-actions {
+    &:hover .conversation-item__quick-actions {
       opacity: 0;
       pointer-events: none;
     }
@@ -655,6 +657,23 @@
     color: var(--c-fg);
     font-weight: 600;
   }
+
+  // Someone typing (Study-Typing-Presence): the four bars, then who, in the
+  // accent — over unread's emphasis too, since it's what's happening now.
+  // The name truncates, not the bars.
+  &__preview.is-typing,
+  &.has-unread &__preview.is-typing {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    color: var(--c-accent-text);
+    font-weight: 400;
+  }
+
+  &__typing {
+    @include truncate;
+    min-width: 0;
+  }
 }
 
 // Pin/Mute/Archive — see Conversations.tsx's QuickActions. Overlays the
@@ -757,6 +776,85 @@
     font-size: var(--fs-caption);
     color: var(--c-fg-3);
   }
+}
+
+// Saved (SavedMessages.tsx): a chat row's shape, for a message — who said
+// it and where on top, the message under it, up to two lines — with the
+// bookmark that takes it off the list beside it, always on show. The row
+// carries the divider, so it runs under the bookmark too.
+.saved-item-row {
+  display: flex;
+  align-items: center;
+  border-bottom: 1px solid color-mix(in oklab, var(--c-line) 60%, transparent);
+}
+
+.saved-item {
+  flex: 1;
+  min-width: 0;
+  border-bottom: 0;
+  padding-right: 0.25rem;
+
+  @include until($bp-md) {
+    padding-right: 4px;
+  }
+
+  &__place {
+    font-weight: 500;
+    color: var(--c-fg-2);
+  }
+
+  &__text {
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    overflow-wrap: anywhere;
+    margin: 0;
+    font-size: 0.8rem;
+    color: var(--c-fg);
+
+    @include until($bp-md) {
+      font-size: 14.5px;
+      line-height: 20px;
+    }
+  }
+
+  // Filled: this one is saved.
+  &__remove {
+    display: inline-flex;
+    flex: none;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    margin-right: 0.75rem;
+    border: 0;
+    border-radius: var(--r-btn-sm);
+    background: transparent;
+    color: var(--c-accent-text);
+    cursor: pointer;
+
+    svg {
+      fill: currentColor;
+    }
+
+    &:hover {
+      background-color: var(--c-raised);
+    }
+
+    @include until($bp-md) {
+      width: 40px;
+      height: 40px;
+      margin-right: 8px;
+    }
+  }
+}
+
+// Show more, under the Saved list.
+.saved-more {
+  display: flex;
+  justify-content: center;
+  padding: 12px 16px 16px;
 }
 
 // Archived's own header, in the list's place: back, and the title.
@@ -930,6 +1028,8 @@
   flex-direction: column;
   min-width: 0;
   background-color: var(--c-stage);
+  // What a presence dot in the header is cut out of (see .avatar__status).
+  --c-cut: var(--c-stage);
 
   // Nothing open yet (StartScreen) — beside the list from 768px only.
   &--start {

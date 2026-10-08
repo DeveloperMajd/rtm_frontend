@@ -40,7 +40,17 @@ export function useUpdateSettings() {
       queryClient.setQueryData<UserSettings>(settingsKey, { ...before, ...changes })
       return { before }
     },
-    onSuccess: (settings) => queryClient.setQueryData(settingsKey, settings),
+    onSuccess: (settings, _changes, context) => {
+      queryClient.setQueryData(settingsKey, settings)
+      // Switching read receipts changes what the viewer may see of everyone's
+      // reading from now on: the server has just noted where each pointer
+      // stands. What's cached (readPointersKey, messageInfoKey) is asked for
+      // again rather than worked out here.
+      if (context && context.before.read_receipts !== settings.read_receipts) {
+        void queryClient.invalidateQueries({ queryKey: ['reads'] })
+        void queryClient.invalidateQueries({ queryKey: ['message-info'] })
+      }
+    },
     onError: (_error, _changes, context) => {
       if (context) queryClient.setQueryData(settingsKey, context.before)
       toast.error('Couldn’t save that setting. Please try again.', { id: 'settings-failed' })

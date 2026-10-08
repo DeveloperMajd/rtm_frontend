@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import toast from 'react-hot-toast'
@@ -12,7 +12,7 @@ import {
   updateParticipantRole,
 } from '../../services/api/conversations'
 import { getContacts } from '../../services/api/contacts'
-import { presenceLabel } from '../../utils/presence'
+import { presenceLabel, presenceOf } from '../../utils/presence'
 import Avatar from '../ui/Avatar'
 import Badge from '../ui/Badge'
 import Button from '../ui/Button'
@@ -22,6 +22,7 @@ import Menu, { type MenuEntry } from '../ui/Menu'
 import Modal from '../ui/Modal'
 import PersonRow from './PersonRow'
 import ConversationActions from './ConversationActions'
+import { SharedMediaSection, SharedMediaView } from './SharedMedia'
 import type { ContactType, ConversationType } from '../../utils/baseTypes'
 
 type Participant = NonNullable<ConversationType['participants']>[number]
@@ -59,6 +60,15 @@ const GroupInfoPanel = ({ conversation, currentUserId, readOnly, onSearch }: Gro
   const [title, setTitle] = useState(conversation.title ?? '')
   const [dialog, setDialog] = useState<OpenDialog>(null)
   const closeDialog = () => setDialog(null)
+  // See all: the panel swaps to the full list, and back.
+  const [isShowingMedia, setIsShowingMedia] = useState(false)
+  const seeAllRef = useRef<HTMLButtonElement>(null)
+  const isBackFromMedia = useRef(false)
+  useEffect(() => {
+    if (isShowingMedia || !isBackFromMedia.current) return
+    isBackFromMedia.current = false
+    seeAllRef.current?.focus()
+  }, [isShowingMedia])
 
   const displayTitle = conversation.title || 'Untitled group'
   const participants = (conversation.participants ?? []).filter((p) => !p.left_at)
@@ -133,6 +143,19 @@ const GroupInfoPanel = ({ conversation, currentUserId, readOnly, onSearch }: Gro
   })
 
   const titleDirty = title.trim().length > 0 && title.trim() !== (conversation.title ?? '')
+
+  if (isShowingMedia) {
+    return (
+      <SharedMediaView
+        conversationId={conversation.id}
+        backLabel='Back to group info'
+        onBack={() => {
+          isBackFromMedia.current = true
+          setIsShowingMedia(false)
+        }}
+      />
+    )
+  }
 
   return (
     <div className='group-info'>
@@ -209,12 +232,9 @@ const GroupInfoPanel = ({ conversation, currentUserId, readOnly, onSearch }: Gro
         </ul>
       </section>
 
-      {/* No endpoint lists a conversation's attachments yet. */}
-      <div className='info-row is-disabled' aria-disabled='true'>
-        <Icon name='image' size={16} />
-        <span>Shared media</span>
-        <Badge tone='needs-api'>Needs API</Badge>
-      </div>
+      {/* For a group the viewer has left, what was sent while they were in
+          it: the server's to cut off, as with the history. */}
+      <SharedMediaSection conversationId={conversation.id} onSeeAll={() => setIsShowingMedia(true)} seeAllRef={seeAllRef} />
 
       {!readOnly && (
         <div className='info-danger-actions'>
@@ -346,9 +366,9 @@ const MemberRow = ({
       <PersonRow
         name={p.name}
         avatarUrl={p.avatar_url}
-        isOnline={p.is_online}
+        status={presenceOf(p)}
         lastSeenAt={p.last_seen_at}
-        meta={isSelf ? `You · ${presenceLabel(p.is_online, p.last_seen_at)}` : undefined}
+        meta={isSelf ? `You · ${presenceLabel(presenceOf(p), p.last_seen_at)}` : undefined}
         trailing={
           <>
             {isAdmin && (
@@ -481,7 +501,7 @@ const AddPeopleDialog = ({
               <PersonRow
                 name={u.name}
                 avatarUrl={u.avatar_url}
-                isOnline={u.is_online}
+                status={presenceOf(u)}
                 lastSeenAt={u.last_seen_at}
                 selected={selected.has(u.id)}
                 control={<input type='checkbox' checked={selected.has(u.id)} onChange={() => toggle(u.id)} />}
@@ -532,7 +552,7 @@ const HandOverDialog = ({
             <PersonRow
               name={p.name}
               avatarUrl={p.avatar_url}
-              isOnline={p.is_online}
+              status={presenceOf(p)}
               lastSeenAt={p.last_seen_at}
               selected={successorId === p.user_id}
               control={

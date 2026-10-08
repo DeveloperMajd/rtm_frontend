@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type DragEvent } from 'react'
-import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
+import { Link, useNavigate, useOutletContext, useParams, useSearchParams } from 'react-router-dom'
 import toast from 'react-hot-toast'
 import { isAxiosError } from 'axios'
 import MessageForm, { type MessageFormHandle } from './MessageForm'
@@ -14,6 +14,8 @@ import useMessages from '../../hooks/useMessages'
 import useTypingIndicator from '../../hooks/useTypingIndicator'
 import useConversations from '../../hooks/useConversations'
 import useReadPointers from '../../hooks/useReadPointers'
+import useMissingConversation from '../../hooks/useMissingConversation'
+import { useSavedMessageIds } from '../../hooks/useSavedMessages'
 import useAuth from '../../hooks/useAuth'
 import { useReadStateSnapshot } from '../../hooks/useReadStateSnapshot'
 import { useConversationSearch } from '../../hooks/useConversationSearch'
@@ -28,7 +30,9 @@ import ActionToast from '../ui/ActionToast'
 import type { JumpTarget } from '../../hooks/useJumpHighlight'
 import { format } from 'date-fns'
 import { unreadTotal } from '../../utils/conversations'
+import { presenceOf } from '../../utils/presence'
 import type { MessageType } from '../../utils/baseTypes'
+import type { AppShellContext } from '../../layouts/appShellContext'
 
 /** What a jump to a message that couldn't be opened says (see below). */
 type JumpFailure = { messageId: string; gone: boolean }
@@ -81,6 +85,10 @@ const ConversationRoomView = () => {
   const isGroup = conversation?.type === 'group'
   const hasLeft = Boolean(conversation?.viewer_left_at)
   const unreadElsewhere = unreadTotal(conversations, id)
+  // A phone's back button returns to the list the room was opened from,
+  // and says so: Saved stays open behind a message opened from it. (No
+  // shell around a room rendered on its own in a test.)
+  const backToSaved = useOutletContext<AppShellContext | undefined>()?.activeTab === 'saved'
 
   // Dragging files over the conversation turns the whole pane into a drop
   // target (Attach-Composer); dropped files go through the composer's own
@@ -125,6 +133,18 @@ const ConversationRoomView = () => {
   // adding a contact navigates here at once, before the refetch that brings
   // the new conversation in has landed.
   const isUnavailable = areConversationsReady && !conversation
+  // Not theirs: whether they're just not in it, or it's gone, is the
+  // conversation's to say (see the screens below).
+  const missing = useMissingConversation(id!, isUnavailable)
+  // Whether it's the viewer's is the list's to say, cached or fresh. Its
+  // messages and read state are asked for at once all the same: a fresh load
+  // is nearly always a refresh, or a link into a conversation they're in,
+  // and waiting for the list would hold up every one of those. A refusal
+  // before the list has said is nobody's error, though — a link into a
+  // conversation they're not in gets the screen below, not "Couldn't open
+  // this conversation" or a failed jump's toast first. The live channel
+  // waits for it, as useMessages's own subscription does.
+  const isKnown = conversation !== undefined
 
   const {
     messages,
@@ -142,11 +162,15 @@ const ConversationRoomView = () => {
     isNewerError,
     loadNewer,
   } = useMessages(id!, hasLeft, { deferUntilReady: !areConversationsReady, enabled: !isUnavailable, anchor })
-  const typingText = useTypingIndicator(id!, !hasLeft && !isUnavailable)
+  // Held, behind the loading skeleton, until the list has said (see isKnown).
+  const isErrorOnHold = error !== null && !isKnown
+  const typingText = useTypingIndicator(id!, !hasLeft && isKnown)
   // Who could have read the viewer's messages, and how far each has.
   // Receipts belong to members only: someone who left sees the group as it
   // was, and their messages just say "Sent".
   const readPointers = useReadPointers(id!, !hasLeft && !isUnavailable)
+  // Which messages the viewer has saved, anywhere: asked once a session.
+  const savedIds = useSavedMessageIds()
   const readers = (conversation?.participants ?? [])
     .filter((p) => !p.left_at && p.user_id !== user?.id)
     .map((p) => ({ user_id: p.user_id, name: p.name, avatar_url: p.avatar_url }))
@@ -235,7 +259,7 @@ const ConversationRoomView = () => {
   // A window that couldn't be opened (the message is gone, outside the
   // history the viewer can see, or the request failed) goes back to the
   // newest messages, and a toast says why.
-  if (anchor !== null && error && messages.length === 0) {
+  if (anchor !== null && error && !isErrorOnHold && messages.length === 0) {
     setJumpFailure({ messageId: anchor, gone: isAxiosError(error) && [403, 404].includes(error.response?.status ?? 0) })
     setAnchor(null)
     setJump(null)
@@ -271,11 +295,18 @@ const ConversationRoomView = () => {
     : conversation?.other_participant?.name || 'Direct conversation'
 
   if (isUnavailable) {
+    // A moment while the server says why, rather than the wrong reason first.
+    if (missing === 'checking') {
+      return <section className='room room--unavailable' aria-label='Conversation' aria-busy='true' />
+    }
+
+    const notAMember = missing === 'not-a-member'
+
     return (
-      <section className='room room--unavailable' aria-label='Conversation not found'>
+      <section className='room room--unavailable' aria-label={notAMember ? 'No access' : 'Conversation not found'}>
         <EmptyState
-          icon='chatDots'
-          title='This conversation isn’t available'
+          icon={notAMember ? 'lock' : 'chatDots'}
+          title={notAMember ? 'You’re not in this conversation' : 'This conversation isn’t available'}
           actions={
             <Link to='/conversations' className='btn secondary sm'>
               <Icon name='arrowLeft' size={14} />
@@ -283,7 +314,9 @@ const ConversationRoomView = () => {
             </Link>
           }
         >
-          It may have been deleted, or the link is out of date.
+          {notAMember
+            ? 'Only the people in it can open it. If it’s a group, ask one of them to add you.'
+            : 'It may have been deleted, or the link is out of date.'}
         </EmptyState>
       </section>
     )
@@ -310,7 +343,11 @@ const ConversationRoomView = () => {
             type='button'
             className='room__back'
             aria-label={
-              unreadElsewhere > 0 ? `Back to conversations, ${unreadElsewhere} unread` : 'Back to conversations'
+              backToSaved
+                ? `Back to saved messages${unreadElsewhere > 0 ? `, ${unreadElsewhere} unread chats` : ''}`
+                : unreadElsewhere > 0
+                  ? `Back to conversations, ${unreadElsewhere} unread`
+                  : 'Back to conversations'
             }
             onClick={() => navigate('/conversations')}
           >
@@ -327,14 +364,14 @@ const ConversationRoomView = () => {
             src={isGroup ? null : conversation?.other_participant?.avatar_url}
             kind={isGroup ? 'group' : 'user'}
             size='sm'
-            online={isGroup ? undefined : conversation?.other_participant?.is_online}
+            status={!isGroup && conversation?.other_participant ? presenceOf(conversation.other_participant) : undefined}
           />
 
           <div style={{ flex: 1, minWidth: 0 }}>
             <div className='room__title'>{headerTitle}</div>
             {!isGroup && conversation?.other_participant && (
               <OnlineStatus
-                isOnline={conversation.other_participant.is_online}
+                status={presenceOf(conversation.other_participant)}
                 lastSeenAt={conversation.other_participant.last_seen_at}
                 showLabel
               />
@@ -397,7 +434,7 @@ const ConversationRoomView = () => {
         <Messages
           key={anchor ?? 'latest'}
           messages={messages}
-          isLoading={isLoading}
+          isLoading={isLoading || isErrorOnHold}
           isLoadingMore={isLoadingMore}
           hasMore={hasMore}
           error={error}
@@ -424,6 +461,7 @@ const ConversationRoomView = () => {
           currentMatchId={isSearchOpen ? currentMatchId : null}
           readers={readers}
           readPointers={readPointers}
+          savedIds={savedIds}
           isGroup={isGroup}
         />
 

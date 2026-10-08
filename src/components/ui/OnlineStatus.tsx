@@ -1,12 +1,25 @@
-import { formatDistanceToNow } from 'date-fns'
+import type { CSSProperties } from 'react'
+import type { PresenceStatus } from '../../utils/baseTypes'
+import { presenceLabel } from '../../utils/presence'
 
 type OnlineStatusProps = {
-  isOnline: boolean
+  status: PresenceStatus
   lastSeenAt?: string | null
   showLabel?: boolean
 }
 
-const OnlineStatus = ({ isOnline, lastSeenAt, showLabel = false }: OnlineStatusProps) => {
+/** The dot's look for each status, in the avatar's shapes (DS-Icons-
+ * Avatars): filled for online, half-filled for away, grey for offline. */
+const DOT: Record<PresenceStatus, CSSProperties> = {
+  online: { backgroundColor: 'var(--c-accent)' },
+  away: {
+    background: 'linear-gradient(90deg, var(--c-accent) 50%, transparent 50%)',
+    boxShadow: 'inset 0 0 0 1.5px var(--c-accent)',
+  },
+  offline: { backgroundColor: 'var(--c-fg-2)' },
+}
+
+const OnlineStatus = ({ status, lastSeenAt, showLabel = false }: OnlineStatusProps) => {
   const dot = (
     <span
       aria-hidden='true'
@@ -16,18 +29,12 @@ const OnlineStatus = ({ isOnline, lastSeenAt, showLabel = false }: OnlineStatusP
         height: '0.5rem',
         borderRadius: '999px',
         flex: '0 0 auto',
-        backgroundColor: isOnline ? 'var(--c-accent)' : 'var(--c-fg-2)',
+        ...DOT[status],
       }}
     />
   )
 
   if (!showLabel) return dot
-
-  const label = isOnline
-    ? 'Online'
-    : lastSeenAt
-      ? `Last seen ${formatDistanceToNow(new Date(lastSeenAt), { addSuffix: true })}`
-      : 'Offline'
 
   return (
     <span
@@ -40,7 +47,7 @@ const OnlineStatus = ({ isOnline, lastSeenAt, showLabel = false }: OnlineStatusP
       }}
     >
       {dot}
-      {label}
+      {presenceLabel(status, lastSeenAt)}
     </span>
   )
 }

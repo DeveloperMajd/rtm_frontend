@@ -7,6 +7,7 @@ import { conversationTitle, patchConversationInCache } from '../utils/conversati
 import { isViewing } from '../utils/viewing'
 import { playMessageTone, showMessageNotification, unlockAudio } from '../utils/alerts'
 import { currentSettings } from './useSettings'
+import { forgetTyping, noteTyping, stopTyping } from './useListTyping'
 import useEcho from './useEcho'
 import useAuth from './useAuth'
 
@@ -14,8 +15,8 @@ type ConversationsResponse = { data: ConversationType[] }
 
 /**
  * The signed-in person's own channel: every message in any of their
- * conversations, membership changes, deletions, and their pin, mute and
- * archive from other tabs. Subscribed once, by AppShell.
+ * conversations, who's typing in them, membership changes, deletions, and
+ * their pin, mute and archive from other tabs. Subscribed once, by AppShell.
  *
  * It used to be subscribed by every component that read the conversation
  * list (four of them on a chat screen), and each one's cleanup stopped every
@@ -91,6 +92,8 @@ export default function useUserChannel() {
       .private(`App.Models.User.${user.id}`)
       .listen('MessageSent', (message: MessageType) => {
         alert(message)
+        // Whoever was typing it has sent it.
+        if (message.sender) stopTyping(message.conversation_id, message.sender.id)
 
         // The open conversation's own subscription (useMessages) already
         // owns this entry's cache updates, including the read receipt.
@@ -115,13 +118,21 @@ export default function useUserChannel() {
         const { conversation_id, ...rest } = preferences
         patchConversationInCache(queryClient, conversation_id, rest)
       })
+      // Someone typing in any of the viewer's conversations, for its row in
+      // the chat list (useListTyping). The open room shows it too, from the
+      // conversation's own channel.
+      .listen('TypingIndicator', ({ conversation_id, user_id, name }: { conversation_id: string; user_id: string; name: string }) => {
+        if (user_id !== user.id) noteTyping(conversation_id, user_id, name)
+      })
 
     return () => {
       channel.stopListening('MessageSent')
       channel.stopListening('ConversationParticipantsUpdated')
       channel.stopListening('ConversationDeleted')
       channel.stopListening('ConversationPreferencesUpdated')
+      channel.stopListening('TypingIndicator')
       echo.leave(`App.Models.User.${user.id}`)
+      forgetTyping()
     }
   }, [user, echo, queryClient])
 }

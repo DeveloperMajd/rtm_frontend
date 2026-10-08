@@ -46,6 +46,12 @@ vi.mock('../services/api/contacts', () => ({
   addContact: vi.fn(),
   removeContact: vi.fn(),
 }))
+vi.mock('../services/api/savedMessages', () => ({
+  getSavedMessages: vi.fn().mockResolvedValue({ data: [], meta: { has_more: false, next_before_id: null } }),
+  getSavedMessageIds: vi.fn().mockResolvedValue([]),
+  saveMessage: vi.fn(),
+  unsaveMessage: vi.fn(),
+}))
 
 const me = { id: 'u1', name: 'Majd Kalthoum', email: 'majd@example.com', bio: 'Backend by day.' }
 
@@ -136,6 +142,23 @@ describe('AppShell on every screen size', () => {
 
     expect(screen.getByRole('heading', { level: 1, name: 'Contacts' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Contacts' })).toHaveAttribute('aria-current', 'page')
+  })
+
+  it('switches the list to Saved from the navigation, from Settings too', async () => {
+    const user = userEvent.setup()
+    renderAt('/settings')
+
+    await user.click(screen.getByRole('button', { name: 'Saved messages' }))
+
+    expect(shell()).toHaveAttribute('data-view', 'list')
+    expect(screen.getByRole('heading', { level: 1, name: 'Saved' })).toBeInTheDocument()
+    expect(screen.getByRole('region', { name: 'Saved messages' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Saved messages' })).toHaveAttribute('aria-current', 'page')
+    expect(screen.getByRole('button', { name: /^Chats/ })).not.toHaveAttribute('aria-current')
+    expect(await screen.findByRole('heading', { name: 'No saved messages' })).toBeInTheDocument()
+    // Nothing to add from here: no New group, no Add contact.
+    expect(screen.queryByRole('button', { name: 'New group' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Add contact' })).not.toBeInTheDocument()
   })
 })
 

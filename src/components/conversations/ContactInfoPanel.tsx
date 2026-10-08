@@ -1,16 +1,16 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import toast from 'react-hot-toast'
 import { format } from 'date-fns'
 import { removeContact } from '../../services/api/contacts'
 import useContacts from '../../hooks/useContacts'
-import { presenceLabel } from '../../utils/presence'
+import { presenceLabel, presenceOf } from '../../utils/presence'
 import Avatar from '../ui/Avatar'
-import Badge from '../ui/Badge'
 import ConfirmDialog from '../ui/ConfirmDialog'
 import Icon from '../ui/Icon'
 import ConversationActions from './ConversationActions'
+import { SharedMediaSection, SharedMediaView } from './SharedMedia'
 import type { ConversationType } from '../../utils/baseTypes'
 
 type ContactInfoPanelProps = {
@@ -22,16 +22,24 @@ type ContactInfoPanelProps = {
 }
 
 /**
- * Contact (Tablet-768-Info-Light, Contacts-1440's card): who this is, when
- * the conversation started, the groups you're both in, and — if they're in
- * your contacts — removing them. Their bio isn't exposed by the API, so
- * it's left out rather than faked.
+ * Contact (Tablet-768-Info-Light, Contacts-1440's card): who this is and
+ * what they've written about themselves, when the conversation started, the
+ * groups you're both in, and — if they're in your contacts — removing them.
  */
 const ContactInfoPanel = ({ conversation, conversations, onSearch }: ContactInfoPanelProps) => {
   const queryClient = useQueryClient()
   const { data: contacts = [] } = useContacts()
   const [confirmingRemove, setConfirmingRemove] = useState(false)
   const person = conversation.other_participant
+  // See all: the panel swaps to the full list, and back.
+  const [isShowingMedia, setIsShowingMedia] = useState(false)
+  const seeAllRef = useRef<HTMLButtonElement>(null)
+  const isBackFromMedia = useRef(false)
+  useEffect(() => {
+    if (isShowingMedia || !isBackFromMedia.current) return
+    isBackFromMedia.current = false
+    seeAllRef.current?.focus()
+  }, [isShowingMedia])
 
   const { mutate: remove, isPending: isRemoving } = useMutation({
     mutationFn: (userId: string) => removeContact(userId),
@@ -44,6 +52,20 @@ const ContactInfoPanel = ({ conversation, conversations, onSearch }: ContactInfo
 
   if (!person) return null
 
+  if (isShowingMedia) {
+    return (
+      <SharedMediaView
+        conversationId={conversation.id}
+        backLabel='Back to contact info'
+        onBack={() => {
+          isBackFromMedia.current = true
+          setIsShowingMedia(false)
+        }}
+      />
+    )
+  }
+
+  const status = presenceOf(person)
   const isContact = contacts.some((c) => c.id === person.id)
   // Groups you're both active members of.
   const sharedGroups = conversations.filter(
@@ -56,11 +78,12 @@ const ContactInfoPanel = ({ conversation, conversations, onSearch }: ContactInfo
   return (
     <div className='contact-info'>
       <div className='info-identity'>
-        <Avatar name={person.name} src={person.avatar_url} size='xl' online={person.is_online} />
+        <Avatar name={person.name} src={person.avatar_url} size='xl' status={status} />
         <p className='info-identity__name'>{person.name}</p>
-        <p className={`info-identity__meta${person.is_online ? ' is-online' : ''}`}>
-          {presenceLabel(person.is_online, person.last_seen_at)}
+        <p className={`info-identity__meta${status === 'online' ? ' is-online' : ''}`}>
+          {presenceLabel(status, person.last_seen_at)}
         </p>
+        {person.bio?.trim() && <p className='info-identity__bio'>{person.bio.trim()}</p>}
       </div>
 
       <ConversationActions conversation={conversation} onSearch={onSearch} />
@@ -88,12 +111,7 @@ const ContactInfoPanel = ({ conversation, conversations, onSearch }: ContactInfo
         </div>
       </dl>
 
-      {/* No endpoint lists a conversation's attachments yet. */}
-      <div className='info-row is-disabled' aria-disabled='true'>
-        <Icon name='image' size={16} />
-        <span>Shared media</span>
-        <Badge tone='needs-api'>Needs API</Badge>
-      </div>
+      <SharedMediaSection conversationId={conversation.id} onSeeAll={() => setIsShowingMedia(true)} seeAllRef={seeAllRef} />
 
       {isContact && (
         <div className='info-danger-actions'>

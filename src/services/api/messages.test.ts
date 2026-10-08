@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import api from './axios'
-import { getMessagesPage } from './messages'
+import { getMessageInfo, getMessagesPage } from './messages'
 import type { MessageType } from '../../utils/baseTypes'
 
 vi.mock('./axios', () => ({ default: { get: vi.fn() } }))
@@ -62,5 +62,24 @@ describe('getMessagesPage', () => {
     const page = await getMessagesPage('c1', { kind: 'newer', after: 'm6' })
 
     expect(page.meta.next_after_id).toBeNull()
+  })
+})
+
+describe('getMessageInfo', () => {
+  it('reads what the server knows about one message', async () => {
+    const info = {
+      id: 'm1',
+      sender: { id: 'u1', name: 'Jordan' },
+      sent_at: '2026-01-01T10:00:00Z',
+      edited_at: null,
+      deleted_at: null,
+      read_by: [{ user_id: 'u2', name: 'Sam' }],
+      not_read: [],
+      receipts_off: false,
+    }
+    get.mockResolvedValue({ data: { data: info } })
+
+    expect(await getMessageInfo('m1')).toEqual(info)
+    expect(get).toHaveBeenCalledWith('/messages/m1/info')
   })
 })

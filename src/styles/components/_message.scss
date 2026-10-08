@@ -412,6 +412,17 @@
     margin: -0.3rem -0.3rem 0.4rem;
   }
 
+  // Pulled up to the bubble's edge only when the media opens the bubble.
+  // Under the sender's name, or a reply quote, it keeps its distance: the
+  // pull ran the photos right up against the name.
+  &__sender + &__attachments {
+    margin-top: 0.3rem;
+  }
+
+  &__quote + &__attachments {
+    margin-top: 0;
+  }
+
   // The time (and "edited") in each bubble's own quieter text colour —
   // not by fading the text, which on a deleted message's clear bubble fell
   // below AA contrast.
@@ -1203,6 +1214,40 @@
       font-family: var(--f-mono);
       font-size: var(--fs-meta);
       opacity: 0.7;
+    }
+  }
+}
+
+// Message info: what the sheet's message is, when it was sent and, on your
+// own, who has seen it. The facts are .info-facts and the rows are the Seen
+// by popover's (.seen-by__*); a time beside each name would be a guess, so
+// there isn't one (see ReadReceipt).
+.message-info {
+  // Lined up with the facts above it (.info-facts insets by 0.35rem), not
+  // with the popover's wider inset the rows were made for.
+  &__seen {
+    margin-top: 14px;
+    padding-top: 12px;
+    border-top: 1px solid var(--c-line);
+
+    .seen-by__title,
+    .seen-by__row {
+      padding-inline: 0.35rem;
+    }
+
+    .btn {
+      margin: 8px 0 0 0.35rem;
+    }
+  }
+
+  &__note {
+    margin: 8px 0.35rem 0;
+    font-size: var(--fs-caption);
+    line-height: var(--lh-caption);
+    color: var(--c-fg-3);
+
+    a {
+      color: var(--c-accent-text);
     }
   }
 }

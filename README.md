@@ -33,12 +33,18 @@ board by board for desktop, tablet and phone.
 
 - **Messaging**:
   - Direct and group conversations, delivered live over WebSockets with
-    typing indicators.
+    typing indicators, above the composer and on the chat's row in the
+    list ("typing…", "Sam is typing…", "2 people typing…").
   - Replies, reactions, editing in the composer, and deletion after a
     confirmation.
   - Attachments (images and PDFs), with a lightbox for images.
   - An unread divider where you left off, and older history that loads as
     you scroll up.
+- **Presence**: a dot on each person's avatar, in the design's shapes:
+  filled when they're online, half-filled when they're away, a hollow
+  ring when they're offline. Under their name it says "Online", "Away", or
+  when they were last seen. You're away once the app has gone five minutes
+  without a touch in any of its tabs, and back at the next one.
 - **Search**: a ⌘K / Ctrl+K palette with recent searches, results grouped
   by conversation and the matching words marked. A result opens at the
   message itself. Inside a conversation, the palette can search just that
@@ -60,16 +66,39 @@ board by board for desktop, tablet and phone.
   read, then "Seen" in a direct conversation or "Seen by N" in a group,
   which lists who has read it and who hasn't. It updates live.
   Conversations are marked as read only while you're looking: the tab is
-  visible and the window focused.
+  visible and the window focused. A read shows only if both people had read
+  receipts on when it was made, so switching either way only affects reads
+  from then on: turning them on doesn't reveal what was read while they were
+  off, and turning them off doesn't hide what was already shown.
+- **Message info**: the More menu's "Message info" shows when a message was
+  sent and edited and, on your own, who has seen it and who hasn't yet. It
+  updates live, and says so if you've turned your own read receipts off.
+  Anyone who has turned theirs off shows as "Not yet".
 - **Jump to a message**: a reply's quote and a search result both jump to
   the message, loading the history around it if it isn't on screen, with a
   brief highlight. From there, history loads both ways as you scroll, and
   "Jump to latest" goes back to the newest messages.
+- **Copy link**: "Copy link", in the More menu or the long-press sheet,
+  copies a link to a message, yours or anyone's. The link jumps to it,
+  through sign-in first if needed (Google included). Someone who isn't in
+  the conversation is told just that, rather than that it's gone.
+- **Saved messages**: "Save message", in the same menu and sheet, keeps a
+  message to find again, yours or anyone's. Saved, beside Chats and
+  Contacts in the navigation, lists them, most recently saved first; each
+  opens its conversation at the message, and its bookmark takes it off the
+  list. Only you see what you save. Nothing shows from a group you've left
+  or that's been deleted, nor a message deleted since.
 - **Groups**: an info panel with members and admin roles. Members who leave
   or are removed keep their history, read-only and frozen at that point.
+- **Shared media**: a chat's info panel shows its newest photos, three to
+  a row, and its newest files, each counted. See all swaps the panel for
+  all of them, a page at a time, and a photo opens in the viewer with who
+  sent it and when. Someone who left a group sees what was sent while
+  they were in it.
 - **Account**: sign-in, registration with a live password-rules checklist,
   password reset, and Google sign-in. The profile page has an avatar
-  upload.
+  upload and a bio, which anyone you share a chat with sees in your
+  contact panel, under your name.
 - **Settings**:
   - Theme: Light, Dark, or System (the default).
   - Notifications, for messages in chats you're not looking at:
@@ -107,13 +136,6 @@ board by board for desktop, tablet and phone.
   - Live regions for new messages, typing and connection changes.
   - Visible focus throughout, and reduced motion respected.
   - Text contrast checked with axe in both themes.
-
-### Shown, but not built yet
-
-Some controls in the design need backend work first. They appear
-**disabled and tagged** "Soon" or "Needs API", never faked:
-- message info, copy link and saved messages;
-- shared media.
 
 ## Project structure
 

@@ -53,6 +53,7 @@ vi.mock('../../hooks/useReadStateSnapshot', () => ({
 }))
 vi.mock('../../services/api/conversations', () => ({ postTyping: vi.fn().mockResolvedValue(undefined) }))
 vi.mock('../../services/api/messages', () => ({ sendMessage: vi.fn() }))
+vi.mock('../../services/api/savedMessages', () => ({ getSavedMessageIds: vi.fn().mockResolvedValue([]) }))
 
 const auth: AuthContextType = {
   user: { id: 'me', name: 'Me', email: 'me@example.com' },

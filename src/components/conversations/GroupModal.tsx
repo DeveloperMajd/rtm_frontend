@@ -9,6 +9,7 @@ import Avatar from '../ui/Avatar'
 import Icon from '../ui/Icon'
 import Modal from '../ui/Modal'
 import PersonRow from './PersonRow'
+import { presenceOf } from '../../utils/presence'
 
 interface GroupModalProps {
   open: boolean
@@ -171,7 +172,7 @@ const GroupModal = ({ open, onClose, onAddContact }: GroupModalProps) => {
                   <PersonRow
                     name={u.name}
                     avatarUrl={u.avatar_url}
-                    isOnline={u.is_online}
+                    status={presenceOf(u)}
                     lastSeenAt={u.last_seen_at}
                     selected={selectedIds.has(u.id)}
                     control={

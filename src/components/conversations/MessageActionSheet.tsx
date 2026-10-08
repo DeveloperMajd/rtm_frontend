@@ -1,6 +1,7 @@
 import { format } from 'date-fns'
 import BottomSheet, { SheetAction } from '../ui/BottomSheet'
 import { QUICK_REACTIONS, reactionLabel } from '../../utils/reactions'
+import { previewOf } from '../../utils/messagePreview'
 import type { MessageType } from '../../utils/baseTypes'
 
 interface MessageActionSheetProps {
@@ -10,29 +11,24 @@ interface MessageActionSheetProps {
   isOwn: boolean
   /** A group the viewer has left: nothing but Copy text. */
   readOnly: boolean
+  /** Already on the viewer's Saved list: the action takes it off instead. */
+  isSaved: boolean
   /** Reactions the viewer has already placed. */
   mine: ReadonlySet<string>
   onToggleReaction: (reaction: string, reacted: boolean) => void
   onReply: () => void
   onCopy: () => void
   onEdit: () => void
+  onInfo: () => void
+  onCopyLink: () => void
+  onToggleSave: () => void
   onDelete: () => void
-}
-
-/** The message a sheet is about, in a line or two. */
-function previewOf(message: MessageType): string {
-  if (message.body) return message.body
-  const count = message.attachments?.length ?? 0
-  if (count > 1) return `${count} attachments`
-  const first = message.attachments?.[0]
-  return first ? (first.is_image ? 'Photo' : first.original_name) : ''
 }
 
 /**
  * What a long press on a message opens on a touch screen
  * (Mobile-430-Message-Sheet): the six reactions along the top, the message
- * itself, then the same actions as the desktop More menu — the ones that
- * need an API first shown, disabled and tagged, never faked.
+ * itself, then the same actions as the desktop More menu.
  */
 const MessageActionSheet = ({
   open,
@@ -40,11 +36,15 @@ const MessageActionSheet = ({
   message,
   isOwn,
   readOnly,
+  isSaved,
   mine,
   onToggleReaction,
   onReply,
   onCopy,
   onEdit,
+  onInfo,
+  onCopyLink,
+  onToggleSave,
   onDelete,
 }: MessageActionSheetProps) => {
   // Each choice closes the sheet first, so focus is back in the
@@ -88,12 +88,14 @@ const MessageActionSheet = ({
         {!readOnly && <SheetAction icon='reply' label='Reply' onSelect={choose(onReply)} />}
         <SheetAction icon='copy' label='Copy text' disabled={!message.body} onSelect={choose(onCopy)} />
         {!readOnly && isOwn && <SheetAction icon='pencil' label='Edit' onSelect={choose(onEdit)} />}
-        {!readOnly && <SheetAction icon='info' label='Message info' soon />}
-        {!readOnly && !isOwn && (
-          <>
-            <SheetAction icon='link' label='Copy link' soon />
-            <SheetAction icon='bookmark' label='Save message' soon />
-          </>
+        {!readOnly && <SheetAction icon='info' label='Message info' onSelect={choose(onInfo)} />}
+        {!readOnly && <SheetAction icon='link' label='Copy link' onSelect={choose(onCopyLink)} />}
+        {!readOnly && (
+          <SheetAction
+            icon='bookmark'
+            label={isSaved ? 'Remove from saved' : 'Save message'}
+            onSelect={choose(onToggleSave)}
+          />
         )}
         {!readOnly && isOwn && <SheetAction icon='trash' label='Delete' tone='danger' onSelect={choose(onDelete)} />}
       </div>

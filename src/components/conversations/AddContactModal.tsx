@@ -7,6 +7,7 @@ import Button from '../ui/Button'
 import Icon from '../ui/Icon'
 import Modal from '../ui/Modal'
 import PersonRow from './PersonRow'
+import { presenceOf } from '../../utils/presence'
 
 interface AddContactModalProps {
   open: boolean
@@ -134,7 +135,7 @@ const AddContactModal = ({ open, onClose, onAdded }: AddContactModalProps) => {
             <PersonRow
               name={u.name}
               avatarUrl={u.avatar_url}
-              isOnline={u.is_online}
+              status={presenceOf(u)}
               lastSeenAt={u.last_seen_at}
               trailing={
                 <Button

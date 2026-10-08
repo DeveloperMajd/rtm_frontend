@@ -10,6 +10,9 @@ import type { ContactType, ConversationType } from '../../utils/baseTypes'
 
 let mockContacts: ContactType[] = []
 vi.mock('../../services/api/contacts', () => ({ removeContact: vi.fn() }))
+vi.mock('../../services/api/sharedMedia', () => ({
+  getSharedMedia: vi.fn(async () => ({ data: [], meta: { total: 0, has_more: false, next_before_id: null } })),
+}))
 vi.mock('../../hooks/useContacts', () => ({ default: () => ({ data: mockContacts }) }))
 
 const direct: ConversationType = {
@@ -42,12 +45,17 @@ const Providers = ({ children }: { children: ReactNode }) => {
   )
 }
 
-const renderPanel = (conversations: ConversationType[] = [direct]) =>
+const renderPanel = (conversations: ConversationType[] = [direct], conversation = direct) =>
   render(
     <Providers>
-      <ContactInfoPanel conversation={direct} conversations={conversations} />
+      <ContactInfoPanel conversation={conversation} conversations={conversations} />
     </Providers>,
   )
+
+const withBio = (bio: string | null): ConversationType => ({
+  ...direct,
+  other_participant: { ...direct.other_participant!, bio },
+})
 
 beforeEach(() => {
   vi.clearAllMocks()
@@ -61,6 +69,30 @@ describe('ContactInfoPanel', () => {
     expect(screen.getByText('nitsuj1001')).toBeInTheDocument()
     expect(screen.getByText('Online')).toBeInTheDocument()
     expect(screen.getByText('Direct · since 14 Sep 2026')).toBeInTheDocument()
+  })
+
+  it('says what they’ve written about themselves, under whether they’re here, keeping their line breaks', () => {
+    const conversation = withBio('  Backend by day,\nWebSockets by night.  ')
+    renderPanel([conversation], conversation)
+
+    const bio = screen.getByText(/Backend by day/)
+    expect(bio).toHaveClass('info-identity__bio')
+    expect(bio.textContent).toBe('Backend by day,\nWebSockets by night.')
+    // Right after the presence line, in the identity block.
+    expect(bio.previousElementSibling).toHaveTextContent('Online')
+  })
+
+  it('leaves the bio out when there isn’t one, or it’s only spaces', () => {
+    const { unmount } = renderPanel()
+    expect(document.querySelector('.info-identity__bio')).toBeNull()
+    unmount()
+
+    for (const bio of [null, '   ']) {
+      const conversation = withBio(bio)
+      const view = renderPanel([conversation], conversation)
+      expect(document.querySelector('.info-identity__bio')).toBeNull()
+      view.unmount()
+    }
   })
 
   it('lists only the groups you’re both still in', () => {

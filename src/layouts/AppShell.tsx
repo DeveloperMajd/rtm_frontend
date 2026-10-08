@@ -36,7 +36,8 @@ type ShellView = 'list' | 'room' | 'settings-hub' | 'settings'
  *
  * The navigation is one element in two shapes: from 768px, the icon rail
  * down the left edge; on a phone, the tab bar along the bottom
- * (Mobile-430-Chats) — Chats, Contacts, Search and Profile.
+ * (Mobile-430-Chats) — Chats, Contacts, Saved, Search and Profile. Saved
+ * has no board of its own: it's a third list beside Chats and Contacts.
  */
 function AppShell() {
   const [activeTab, setActiveTab] = useState<ListTab>('chats')
@@ -109,7 +110,7 @@ function AppShell() {
   const unread = unreadTotal(conversations)
   const signal = SIGNAL_OF[connection]
 
-  // From Settings, the rail's Chats and Contacts go back to that list.
+  // From Settings, the rail's Chats, Contacts and Saved go back to that list.
   const showList = (tab: ListTab) => {
     setActiveTab(tab)
     if (!inChats) navigate('/conversations')
@@ -184,6 +185,20 @@ function AppShell() {
           </span>
           <span className='rail__label' aria-hidden='true'>
             Contacts
+          </span>
+        </button>
+        <button
+          type='button'
+          className='rail__nav-btn'
+          aria-current={inChats && activeTab === 'saved' ? 'page' : undefined}
+          aria-label='Saved messages'
+          onClick={() => showList('saved')}
+        >
+          <span className='rail__icon'>
+            <Icon name='bookmark' />
+          </span>
+          <span className='rail__label' aria-hidden='true'>
+            Saved
           </span>
         </button>
         <button

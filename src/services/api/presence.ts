@@ -1,7 +1,9 @@
 import api from './axios'
+import type { IdleState } from '../../utils/baseTypes'
 
-const heartbeat = async (): Promise<void> => {
-  await api.post('/presence/heartbeat')
+/** Online for the next 30 seconds: using the app, or away from it. */
+const heartbeat = async (state: IdleState = 'active'): Promise<void> => {
+  await api.post('/presence/heartbeat', { state })
 }
 
 // For an in-app action (explicit logout) where there's time to await a real

@@ -152,7 +152,7 @@ const ImageTile = ({
  * the time it's clicked (a tab left open), the card says so and offers a
  * Reload instead of opening a dead link.
  */
-const FileCard = ({ attachment, onRefreshLinks }: { attachment: AttachmentType; onRefreshLinks: () => void }) => {
+export const FileCard = ({ attachment, onRefreshLinks }: { attachment: AttachmentType; onRefreshLinks: () => void }) => {
   const [expiredUrl, setExpiredUrl] = useState<string | null>(null)
   const expired = expiredUrl === attachment.url
   const { base, ext } = splitFileName(attachment.original_name)

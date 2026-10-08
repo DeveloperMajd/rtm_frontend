@@ -67,11 +67,25 @@ const updateConversationPreferences = async (
   return response.data.data
 }
 
-/** How far someone still in the conversation has read. */
+/** A stretch of someone's reading done with read receipts on: after `from`
+ * (null: from the very beginning) up to and including `to` (null: still
+ * open, running to their pointer). */
+export type ReadStretch = [from: string | null, to: string | null]
+
+/** What the viewer may see of someone's reading: how far, which stretches
+ * of it they read with read receipts on, and which of it happened while the
+ * viewer had theirs on. A read shows only inside both (see covers in
+ * utils/readReceipts). */
 export type ReadPointer = {
   user_id: string
   last_read_message_id: string | null
   last_read_at: string | null
+  /** Absent from a server from before stretches, which shared everything up
+   * to the pointer. */
+  stretches?: ReadStretch[]
+  /** The viewer's side. Not in a live read, which goes to everyone alike;
+   * it changes only when the viewer switches, and then it's fetched again. */
+  viewer_stretches?: ReadStretch[]
 }
 
 const getReadPointers = async (conversationId: string): Promise<ReadPointer[]> => {

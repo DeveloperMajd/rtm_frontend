@@ -8,13 +8,20 @@ import { useModalBehavior } from '../../hooks/useModalBehavior'
 import { attachmentDownloadUrl, formatBytes, signedUrlExpiresAt } from '../../utils/attachments'
 import type { AttachmentType } from '../../utils/baseTypes'
 
+type Sender = { name: string; avatar_url?: string | null } | null
+
+/** An image, with who sent it and when if it says (shared media's come from
+ * many messages); otherwise the message's, from the props below. */
+type LightboxImage = AttachmentType & { sender?: Sender; sent_at?: string }
+
 interface LightboxProps {
-  images: AttachmentType[]
+  images: LightboxImage[]
   index: number
   onIndexChange: (index: number) => void
   onClose: () => void
-  sender: { name: string; avatar_url?: string | null } | null
-  sentAt: string
+  /** One message's sender and time, for images that don't carry their own. */
+  sender?: Sender
+  sentAt?: string
   /** See MessageAttachments — re-signs expired links, on request only. */
   onRefreshLinks: () => void
 }
@@ -28,10 +35,10 @@ function sentLabel(iso: string): string {
 }
 
 /**
- * Full-screen viewer for one message's images (Attach-Lightbox): who sent
- * it and when, zoom, download, open in a new tab, ←/→ between the
- * message's images, and Esc to close. Modal in every sense — focus is
- * trapped inside and the app behind it is inert (useModalBehavior).
+ * Full-screen viewer for a message's images, or a conversation's shared
+ * photos (Attach-Lightbox): who sent each and when, zoom, download, open in
+ * a new tab, ←/→ between them, and Esc to close. Modal in every sense —
+ * focus is trapped inside and the app behind it is inert (useModalBehavior).
  *
  * Always dark, whatever the theme: a photo reads best against black.
  */
@@ -44,6 +51,8 @@ const Lightbox = ({ images, index, onIndexChange, onClose, sender, sentAt, onRef
 
   const image = images[index]
   const count = images.length
+  const who = image.sender !== undefined ? image.sender : sender
+  const when = image.sent_at ?? sentAt
   const hasPrev = index > 0
   const hasNext = index < count - 1
 
@@ -86,11 +95,11 @@ const Lightbox = ({ images, index, onIndexChange, onClose, sender, sentAt, onRef
     >
       <header className='lightbox__bar'>
         <div className='lightbox__who'>
-          <Avatar name={sender?.name ?? '?'} src={sender?.avatar_url} size='sm' />
+          <Avatar name={who?.name ?? '?'} src={who?.avatar_url} size='sm' />
           <div className='lightbox__who-text'>
-            <span className='lightbox__sender'>{sender?.name ?? 'Unknown'}</span>
+            <span className='lightbox__sender'>{who?.name ?? 'Unknown'}</span>
             <span className='lightbox__meta'>
-              {image.original_name} · {sentLabel(sentAt)} · {formatBytes(image.size_bytes)}
+              {[image.original_name, when && sentLabel(when), formatBytes(image.size_bytes)].filter(Boolean).join(' · ')}
             </span>
           </div>
         </div>

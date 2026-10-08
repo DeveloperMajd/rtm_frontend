@@ -7,10 +7,12 @@ import type { Receipt } from '../../utils/readReceipts'
 import { deleteMessage } from '../../services/api/messages'
 import { markMessageDeletedInCache, messagesKey } from '../../utils/messagePages'
 import { copyText } from '../../utils/clipboard'
+import { messageLink } from '../../utils/messageLinks'
 import { highlightSegments } from '../../utils/searchText'
 import useAuth from '../../hooks/useAuth'
 import useMessageReactions from '../../hooks/useMessageReactions'
 import useMessageGestures from '../../hooks/useMessageGestures'
+import { useToggleSaved } from '../../hooks/useSavedMessages'
 import type { AnchorRect } from '../../hooks/useAnchoredPopover'
 import Avatar from '../ui/Avatar'
 import Icon from '../ui/Icon'
@@ -22,6 +24,7 @@ import MessageReactions from './MessageReactions'
 import MessageToolbar from './MessageToolbar'
 import MessageMenu from './MessageMenu'
 import MessageActionSheet from './MessageActionSheet'
+import MessageInfoSheet from './MessageInfoSheet'
 import ReactionPicker from './ReactionPicker'
 import ReadReceipt from './ReadReceipt'
 
@@ -40,6 +43,8 @@ type MessageItemProps = {
   highlightTerms?: string[]
   /** The search match being shown (a ring until the search moves on). */
   isCurrentMatch?: boolean
+  /** On the viewer's Saved list: its menu offers Remove from saved. */
+  isSaved?: boolean
 }
 
 /** Which popover is open, and — for the reaction picker — which button
@@ -56,13 +61,16 @@ const MessageItem = ({
   onJumpTo,
   highlightTerms,
   isCurrentMatch = false,
+  isSaved = false,
 }: MessageItemProps) => {
   const { user } = useAuth()
   const queryClient = useQueryClient()
+  const toggleSaved = useToggleSaved()
   const { grouped: reactionGroups, toggleReaction } = useMessageReactions(message.id, message.reactions)
   const [openPopover, setOpenPopover] = useState<OpenPopover>(null)
   const [isConfirmingDelete, setIsConfirmingDelete] = useState(false)
   const [isSheetOpen, setIsSheetOpen] = useState(false)
+  const [isInfoOpen, setIsInfoOpen] = useState(false)
   const menuId = useId()
 
   const contentRef = useRef<HTMLDivElement>(null)
@@ -122,6 +130,14 @@ const MessageItem = ({
     copyText(message.body)
       .then(() => toast.success('Message text copied'))
       .catch(() => toast.error('Couldn’t copy the text. Please try again.'))
+  }
+
+  // A link that opens this conversation at this message, for anyone in it
+  // (see MessageLinkPage).
+  const handleCopyLink = () => {
+    copyText(messageLink(message.conversation_id, message.id))
+      .then(() => toast.success('Link copied'))
+      .catch(() => toast.error('Couldn’t copy the link. Please try again.'))
   }
 
   const closePopover = () => setOpenPopover(null)
@@ -284,6 +300,7 @@ const MessageItem = ({
             isOwn={isOwn}
             readOnly={readOnly}
             hasText={Boolean(message.body)}
+            isSaved={isSaved}
             triggerRef={moreButtonRef}
             getAnchorRect={menuAnchor}
             // Hangs from the toolbar back across the bubble
@@ -294,6 +311,9 @@ const MessageItem = ({
             onCopy={handleCopy}
             onReact={() => setOpenPopover('react-toolbar')}
             onEdit={() => onEdit(message)}
+            onInfo={() => setIsInfoOpen(true)}
+            onCopyLink={handleCopyLink}
+            onToggleSave={() => toggleSaved(message.id, !isSaved)}
             onDelete={() => setIsConfirmingDelete(true)}
           />
 
@@ -303,12 +323,23 @@ const MessageItem = ({
             message={message}
             isOwn={isOwn}
             readOnly={readOnly}
+            isSaved={isSaved}
             mine={myReactions}
             onToggleReaction={(reaction, reacted) => toggleReaction({ reaction, reacted })}
             onReply={() => onReply(message)}
             onCopy={handleCopy}
             onEdit={() => onEdit(message)}
+            onInfo={() => setIsInfoOpen(true)}
+            onCopyLink={handleCopyLink}
+            onToggleSave={() => toggleSaved(message.id, !isSaved)}
             onDelete={() => setIsConfirmingDelete(true)}
+          />
+
+          <MessageInfoSheet
+            open={isInfoOpen}
+            onClose={() => setIsInfoOpen(false)}
+            message={message}
+            isOwn={isOwn}
           />
 
           <ReactionPicker

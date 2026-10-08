@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react'
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
-import { render, screen, waitFor, within } from '@testing-library/react'
+import { act, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
@@ -8,6 +8,7 @@ import toast, { Toaster } from 'react-hot-toast'
 import Conversations from './Conversations'
 import { AuthContext, type AuthContextType } from '../../hooks/useAuth'
 import { updateConversationPreferences } from '../../services/api/conversations'
+import { forgetTyping, noteTyping } from '../../hooks/useListTyping'
 import type { ConversationType } from '../../utils/baseTypes'
 
 vi.mock('../../services/api/conversations', () => ({ updateConversationPreferences: vi.fn() }))
@@ -72,6 +73,78 @@ const conversation = (overrides: Partial<ConversationType>): ConversationType =>
 })
 
 describe('Conversations', () => {
+  it('slides a chat to the top when it gets a new message, rather than jumping it there', () => {
+    const realOffsetTop = Object.getOwnPropertyDescriptor(HTMLElement.prototype, 'offsetTop')!
+    const animate = vi.fn()
+    // jsdom lays nothing out: a row's place is its position in the list.
+    Object.defineProperty(HTMLElement.prototype, 'offsetTop', {
+      configurable: true,
+      get(this: HTMLElement) {
+        return this.parentElement ? [...this.parentElement.children].indexOf(this) * 72 : 0
+      },
+    })
+    HTMLElement.prototype.animate = animate
+    try {
+      const ana = conversation({ id: 'a', other_participant: { id: 'a', name: 'Ana', is_online: false } })
+      const ben = conversation({ id: 'b', other_participant: { id: 'b', name: 'Ben', is_online: false } })
+      const { rerender } = renderWithProviders(<Conversations conversations={[ana, ben]} isLoading={false} error={null} />)
+
+      rerender(withProviders(<Conversations conversations={[ben, ana]} isLoading={false} error={null} />))
+
+      expect(animate.mock.contexts.map((row) => (row as HTMLElement).dataset.reorderId)).toEqual(['b', 'a'])
+    } finally {
+      Object.defineProperty(HTMLElement.prototype, 'offsetTop', realOffsetTop)
+      delete (HTMLElement.prototype as Partial<HTMLElement>).animate
+    }
+  })
+
+  it('says who’s typing in place of the latest message, then goes back to it', () => {
+    const jordan = conversation({
+      id: 'd1',
+      latest_message: { type: 'user', body: 'See you soon', sender_name: 'Jordan' },
+    })
+    const team = conversation({
+      id: 'g1',
+      type: 'group',
+      title: 'Team',
+      other_participant: null,
+      latest_message: { type: 'user', body: 'Lunch?', sender_name: 'Ana' },
+    })
+    renderWithProviders(<Conversations conversations={[jordan, team]} isLoading={false} error={null} />)
+    const rowOf = (name: RegExp) => screen.getByRole('link', { name })
+
+    act(() => noteTyping('d1', 'jordan', 'Jordan'))
+    act(() => noteTyping('g1', 'sam', 'Sam'))
+
+    expect(within(rowOf(/^Jordan/)).getByText('typing…')).toBeInTheDocument()
+    expect(rowOf(/^Jordan/).querySelector('.is-typing .typing-bars')).toBeInTheDocument()
+    expect(within(rowOf(/^Team/)).getByText('Sam is typing…')).toBeInTheDocument()
+
+    act(() => noteTyping('g1', 'robin', 'Robin'))
+    expect(within(rowOf(/^Team/)).getByText('2 people typing…')).toBeInTheDocument()
+
+    act(() => forgetTyping())
+    expect(within(rowOf(/^Jordan/)).getByText('Jordan: See you soon')).toBeInTheDocument()
+    expect(within(rowOf(/^Team/)).getByText('Ana: Lunch?')).toBeInTheDocument()
+  })
+
+  it('marks the person in a direct conversation online, away or offline by their dot', () => {
+    const list = [
+      conversation({ id: 'a', other_participant: { id: 'a', name: 'Ana', is_online: true, presence_status: 'online' } }),
+      conversation({ id: 'b', other_participant: { id: 'b', name: 'Ben', is_online: true, presence_status: 'away' } }),
+      conversation({ id: 'c', other_participant: { id: 'c', name: 'Cy', is_online: false, presence_status: 'offline' } }),
+      // From a server before away presence: online or not.
+      conversation({ id: 'd', other_participant: { id: 'd', name: 'Di', is_online: true } }),
+    ]
+    renderWithProviders(<Conversations conversations={list} isLoading={false} error={null} />)
+
+    const dotOf = (name: string) => screen.getByRole('link', { name: new RegExp(name) }).querySelector('.avatar__status')
+    expect(dotOf('Ana')).toHaveClass('is-online')
+    expect(dotOf('Ben')).toHaveClass('is-away')
+    expect(dotOf('Cy')).toHaveClass('is-offline')
+    expect(dotOf('Di')).toHaveClass('is-online')
+  })
+
   it('shows every conversation with the default "all" filter', () => {
     const list = [
       conversation({ id: 'direct-1', type: 'direct' }),

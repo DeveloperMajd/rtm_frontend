@@ -3,17 +3,21 @@ import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vite
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import { MemoryRouter } from 'react-router-dom'
 import toast, { Toaster } from 'react-hot-toast'
 import MessageItem from './MessageItem'
 import { AuthContext, type AuthContextType } from '../../hooks/useAuth'
-import { addReaction, deleteMessage } from '../../services/api/messages'
+import { addReaction, deleteMessage, getMessageInfo, type MessageInfo } from '../../services/api/messages'
+import { saveMessage, unsaveMessage } from '../../services/api/savedMessages'
 import type { MessageType } from '../../utils/baseTypes'
 
 vi.mock('../../services/api/messages', () => ({
   deleteMessage: vi.fn(),
   addReaction: vi.fn(),
   removeReaction: vi.fn(),
+  getMessageInfo: vi.fn(),
 }))
+vi.mock('../../services/api/savedMessages', () => ({ saveMessage: vi.fn(), unsaveMessage: vi.fn() }))
 
 const authValue: AuthContextType = {
   user: { id: 'me', name: 'Me', email: 'me@example.com' },
@@ -31,14 +35,29 @@ const authValue: AuthContextType = {
 const renderItem = (ui: ReactNode) => {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } })
   return render(
-    <QueryClientProvider client={queryClient}>
-      <AuthContext.Provider value={authValue}>
-        <ul>{ui}</ul>
-        <Toaster />
-      </AuthContext.Provider>
-    </QueryClientProvider>,
+    <MemoryRouter>
+      <QueryClientProvider client={queryClient}>
+        <AuthContext.Provider value={authValue}>
+          <ul>{ui}</ul>
+          <Toaster />
+        </AuthContext.Provider>
+      </QueryClientProvider>
+    </MemoryRouter>,
   )
 }
+
+/** What the server says about a message the viewer sent to Jordan and Sam. */
+const info = (overrides: Partial<MessageInfo> = {}): MessageInfo => ({
+  id: 'm1',
+  sender: { id: 'me', name: 'Me' },
+  sent_at: '2026-01-01T10:00:00Z',
+  edited_at: null,
+  deleted_at: null,
+  read_by: [{ user_id: 'jordan', name: 'Jordan' }],
+  not_read: [{ user_id: 'sam', name: 'Sam' }],
+  receipts_off: false,
+  ...overrides,
+})
 
 const message = (overrides: Partial<MessageType> = {}): MessageType => ({
   id: 'm1',
@@ -83,6 +102,9 @@ beforeAll(() => {
 
 beforeEach(() => {
   vi.mocked(deleteMessage).mockReset()
+  vi.mocked(getMessageInfo).mockReset()
+  vi.mocked(saveMessage).mockReset()
+  vi.mocked(unsaveMessage).mockReset()
 })
 
 afterEach(() => {
@@ -90,7 +112,7 @@ afterEach(() => {
 })
 
 describe('MessageItem', () => {
-  it("offers Reply, Copy text and React on someone else's message, with the unbuilt actions tagged Soon", async () => {
+  it("offers Reply, Copy text, React, Message info, Copy link and Save on someone else's message", async () => {
     const user = userEvent.setup()
     renderItem(<MessageItem message={message()} onReply={noop} onEdit={noop} />)
 
@@ -100,16 +122,16 @@ describe('MessageItem', () => {
       expect.stringContaining('Reply'),
       expect.stringContaining('Copy text'),
       'React',
-      'Message infoSoon',
-      'Copy linkSoon',
-      'Save messageSoon',
+      'Message info',
+      'Copy link',
+      'Save message',
     ])
-    for (const name of [/Message info/, /Copy link/, /Save message/]) {
-      expect(within(menu).getByRole('menuitem', { name })).toHaveAttribute('aria-disabled', 'true')
+    for (const name of ['Message info', 'Copy link', 'Save message']) {
+      expect(within(menu).getByRole('menuitem', { name })).not.toHaveAttribute('aria-disabled', 'true')
     }
   })
 
-  it('offers Edit and Delete only on your own message', async () => {
+  it('offers Edit and Delete only on your own message, and Copy link and Save there too', async () => {
     const user = userEvent.setup()
     renderItem(<MessageItem message={own()} onReply={noop} onEdit={noop} />)
 
@@ -119,9 +141,127 @@ describe('MessageItem', () => {
       expect.stringContaining('Reply'),
       expect.stringContaining('Copy text'),
       'Edit',
-      'Message infoSoon',
+      'Message info',
+      'Copy link',
+      'Save message',
       'Delete',
     ])
+  })
+
+  it('saves a message from the More menu, and says so', async () => {
+    vi.mocked(saveMessage).mockResolvedValue(undefined)
+    const user = userEvent.setup()
+    renderItem(<MessageItem message={message()} onReply={noop} onEdit={noop} />)
+
+    const menu = await openMore(user)
+    await user.click(within(menu).getByRole('menuitem', { name: 'Save message' }))
+
+    expect(saveMessage).toHaveBeenCalledWith('m1')
+    expect(await screen.findByText('Message saved')).toBeInTheDocument()
+  })
+
+  it('offers to take a saved message off the list instead', async () => {
+    vi.mocked(unsaveMessage).mockResolvedValue(undefined)
+    const user = userEvent.setup()
+    renderItem(<MessageItem message={own()} onReply={noop} onEdit={noop} isSaved />)
+
+    const menu = await openMore(user)
+    expect(within(menu).queryByRole('menuitem', { name: 'Save message' })).not.toBeInTheDocument()
+    await user.click(within(menu).getByRole('menuitem', { name: 'Remove from saved' }))
+
+    expect(unsaveMessage).toHaveBeenCalledWith('m1')
+    expect(saveMessage).not.toHaveBeenCalled()
+    expect(await screen.findByText('Removed from saved')).toBeInTheDocument()
+  })
+
+  it('says so when a message couldn’t be saved', async () => {
+    vi.mocked(saveMessage).mockRejectedValue(new Error('offline'))
+    const user = userEvent.setup()
+    renderItem(<MessageItem message={message()} onReply={noop} onEdit={noop} />)
+
+    const menu = await openMore(user)
+    await user.click(within(menu).getByRole('menuitem', { name: 'Save message' }))
+
+    expect(await screen.findByText('Couldn’t save the message. Please try again.')).toBeInTheDocument()
+    expect(screen.queryByText('Message saved')).not.toBeInTheDocument()
+  })
+
+  it('copies a link to your own message', async () => {
+    const user = userEvent.setup()
+    const writeText = vi.fn().mockResolvedValue(undefined)
+    Object.defineProperty(window, 'isSecureContext', { value: true, configurable: true })
+    Object.defineProperty(navigator, 'clipboard', { value: { writeText }, configurable: true })
+    renderItem(<MessageItem message={own({ id: 'm2' })} onReply={noop} onEdit={noop} />)
+
+    const menu = await openMore(user)
+    await user.click(within(menu).getByRole('menuitem', { name: 'Copy link' }))
+
+    expect(writeText).toHaveBeenCalledWith(`${window.location.origin}/c/c1/m/m2`)
+    expect(await screen.findByText('Link copied')).toBeInTheDocument()
+  })
+
+  it('opens Message info from the More menu: the facts straight away, who has seen it from the server', async () => {
+    vi.mocked(getMessageInfo).mockResolvedValue(info())
+    const user = userEvent.setup()
+    renderItem(<MessageItem message={own()} onReply={noop} onEdit={noop} />)
+
+    const menu = await openMore(user)
+    await user.click(within(menu).getByRole('menuitem', { name: 'Message info' }))
+
+    const sheet = screen.getByRole('dialog', { name: 'Message info' })
+    expect(within(sheet).getByText('Deploying the fix now')).toBeInTheDocument()
+    expect(within(sheet).getByText('Sent').closest('div')?.querySelector('time')).toHaveAttribute(
+      'datetime',
+      '2026-01-01T10:00:00Z',
+    )
+
+    expect(await within(sheet).findByText('Seen by · 1 of 2')).toBeInTheDocument()
+    expect(getMessageInfo).toHaveBeenCalledWith('m1')
+    expect(within(sheet).getByText('Jordan').closest('li')).toHaveTextContent('Seen')
+    expect(within(sheet).getByText('Sam').closest('li')).toHaveTextContent('Not yet')
+  })
+
+  it('shows Message info on someone else’s message without asking the server anything', async () => {
+    const user = userEvent.setup()
+    renderItem(<MessageItem message={message()} onReply={noop} onEdit={noop} />)
+
+    const menu = await openMore(user)
+    await user.click(within(menu).getByRole('menuitem', { name: 'Message info' }))
+
+    const sheet = screen.getByRole('dialog', { name: 'Message info' })
+    expect(within(sheet).getByText('Jordan')).toBeInTheDocument()
+    expect(within(sheet).queryByLabelText('Seen by')).not.toBeInTheDocument()
+    expect(getMessageInfo).not.toHaveBeenCalled()
+  })
+
+  it('says when an edited message was edited, beside when it was sent', async () => {
+    vi.mocked(getMessageInfo).mockResolvedValue(info())
+    const user = userEvent.setup()
+    renderItem(<MessageItem message={own({ edited_at: '2026-01-01T10:05:00Z' })} onReply={noop} onEdit={noop} />)
+
+    const menu = await openMore(user)
+    await user.click(within(menu).getByRole('menuitem', { name: 'Message info' }))
+
+    const sheet = screen.getByRole('dialog', { name: 'Message info' })
+    expect(within(sheet).getByText('Edited').closest('div')?.querySelector('time')).toHaveAttribute(
+      'datetime',
+      '2026-01-01T10:05:00Z',
+    )
+    await within(sheet).findByText('Seen by · 1 of 2')
+  })
+
+  it('closes Message info with Escape, and puts focus back on the message’s More button', async () => {
+    vi.mocked(getMessageInfo).mockResolvedValue(info())
+    const user = userEvent.setup()
+    renderItem(<MessageItem message={own()} onReply={noop} onEdit={noop} />)
+
+    const menu = await openMore(user)
+    await user.click(within(menu).getByRole('menuitem', { name: 'Message info' }))
+    await screen.findByText('Seen by · 1 of 2')
+    await user.keyboard('{Escape}')
+
+    expect(screen.queryByRole('dialog', { name: 'Message info' })).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'More actions' })).toHaveFocus()
   })
 
   it('keeps only Copy text in a read-only group, with React and Reply shown but disabled', async () => {
@@ -270,6 +410,35 @@ describe('MessageItem', () => {
     expect(await screen.findByText('Message text copied')).toBeInTheDocument()
   })
 
+  it('copies a link that opens the conversation at this message', async () => {
+    const user = userEvent.setup()
+    const writeText = vi.fn().mockResolvedValue(undefined)
+    Object.defineProperty(window, 'isSecureContext', { value: true, configurable: true })
+    Object.defineProperty(navigator, 'clipboard', { value: { writeText }, configurable: true })
+    renderItem(<MessageItem message={message()} onReply={noop} onEdit={noop} />)
+
+    const menu = await openMore(user)
+    await user.click(within(menu).getByRole('menuitem', { name: 'Copy link' }))
+
+    expect(writeText).toHaveBeenCalledWith(`${window.location.origin}/c/c1/m/m1`)
+    expect(await screen.findByText('Link copied')).toBeInTheDocument()
+  })
+
+  it('says so when the link couldn’t be copied', async () => {
+    const user = userEvent.setup()
+    Object.defineProperty(window, 'isSecureContext', { value: true, configurable: true })
+    Object.defineProperty(navigator, 'clipboard', {
+      value: { writeText: vi.fn().mockRejectedValue(new Error('denied')) },
+      configurable: true,
+    })
+    renderItem(<MessageItem message={message()} onReply={noop} onEdit={noop} />)
+
+    const menu = await openMore(user)
+    await user.click(within(menu).getByRole('menuitem', { name: 'Copy link' }))
+
+    expect(await screen.findByText('Couldn’t copy the link. Please try again.')).toBeInTheDocument()
+  })
+
   it('disables Copy text for a message with no text', async () => {
     const user = userEvent.setup()
     renderItem(<MessageItem message={message({ body: '', attachments_count: 1 })} onReply={noop} onEdit={noop} />)
@@ -374,20 +543,60 @@ describe('MessageItem on a touch screen', () => {
     expect(within(sheet).getByRole('button', { name: 'Reply' })).toBeEnabled()
     expect(within(sheet).getByRole('button', { name: 'Copy text' })).toBeEnabled()
     expect(within(sheet).getByRole('button', { name: 'Edit' })).toBeEnabled()
-    expect(within(sheet).getByRole('button', { name: 'Message info Soon' })).toBeDisabled()
+    expect(within(sheet).getByRole('button', { name: 'Message info' })).toBeEnabled()
+    expect(within(sheet).getByRole('button', { name: 'Copy link' })).toBeEnabled()
+    expect(within(sheet).getByRole('button', { name: 'Save message' })).toBeEnabled()
     expect(within(sheet).getByRole('button', { name: 'Delete' })).toBeEnabled()
   })
 
-  it('offers the unbuilt Copy link and Save on someone else’s message, disabled, and no Edit or Delete', () => {
+  it('opens Message info from the sheet, in its place', async () => {
+    vi.mocked(getMessageInfo).mockResolvedValue(info())
+    renderItem(<MessageItem message={own()} onReply={noop} onEdit={noop} />)
+    const content = contentOf('Deploying the fix now')
+
+    longPress(content)
+    lift(content)
+    fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Message info' }))
+
+    expect(screen.queryByRole('dialog', { name: 'Message actions' })).not.toBeInTheDocument()
+    expect(screen.getByRole('dialog', { name: 'Message info' })).toBeInTheDocument()
+    await act(async () => {
+      await vi.runAllTimersAsync()
+    })
+    expect(screen.getByText('Seen by · 1 of 2')).toBeInTheDocument()
+  })
+
+  it('offers Copy link and Save on someone else’s message, and no Edit or Delete', () => {
     renderItem(<MessageItem message={message()} onReply={noop} onEdit={noop} />)
 
     longPress(contentOf('Can you check the queue worker?'))
 
     const sheet = screen.getByRole('dialog', { name: 'Message actions' })
-    expect(within(sheet).getByRole('button', { name: 'Copy link Soon' })).toBeDisabled()
-    expect(within(sheet).getByRole('button', { name: 'Save message Soon' })).toBeDisabled()
+    expect(within(sheet).getByRole('button', { name: 'Copy link' })).toBeEnabled()
+    expect(within(sheet).getByRole('button', { name: 'Save message' })).toBeEnabled()
     expect(within(sheet).queryByRole('button', { name: 'Edit' })).not.toBeInTheDocument()
     expect(within(sheet).queryByRole('button', { name: 'Delete' })).not.toBeInTheDocument()
+  })
+
+  it('saves from the sheet, and offers to take a saved one off the list', async () => {
+    vi.mocked(saveMessage).mockResolvedValue(undefined)
+    const { unmount } = renderItem(<MessageItem message={message()} onReply={noop} onEdit={noop} />)
+    const content = contentOf('Can you check the queue worker?')
+
+    longPress(content)
+    lift(content)
+    fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Save message' }))
+
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+    await act(async () => {
+      await vi.runAllTimersAsync()
+    })
+    expect(saveMessage).toHaveBeenCalledWith('m1')
+    unmount()
+
+    renderItem(<MessageItem message={message()} onReply={noop} onEdit={noop} isSaved />)
+    longPress(contentOf('Can you check the queue worker?'))
+    expect(within(screen.getByRole('dialog')).getByRole('button', { name: 'Remove from saved' })).toBeEnabled()
   })
 
   it('does nothing for a mouse held down — that has the toolbar', () => {

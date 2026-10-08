@@ -26,6 +26,15 @@ vi.mock('../../services/api/conversations', () => ({
   updateParticipantRole: vi.fn(),
 }))
 vi.mock('../../services/api/contacts', () => ({ getContacts: vi.fn() }))
+vi.mock('../../services/api/sharedMedia', () => ({
+  getSharedMedia: vi.fn(async (_id: string, kind: string) => ({
+    data:
+      kind === 'media'
+        ? [{ id: 'a1', message_id: 'm1', original_name: 'board.png', mime_type: 'image/png', size_bytes: 2048, is_image: true, url: 'http://x/board.png', created_at: '2026-10-08T10:00:00Z', sender: { id: 'n', name: 'nitsuj1001' }, sent_at: '2026-10-08T10:00:00Z' }]
+        : [],
+    meta: { total: kind === 'media' ? 1 : 0, has_more: false, next_before_id: null },
+  })),
+}))
 
 beforeAll(() => {
   // jsdom has no matchMedia; the Toaster asks it about reduced motion.
@@ -130,9 +139,20 @@ describe('GroupInfoPanel — what each role sees', () => {
     expect(screen.getAllByText('Admin')).toHaveLength(1)
   })
 
-  it('shows shared media as not yet available', () => {
+  it('shows the group’s shared media, and See all swaps the panel for it', async () => {
+    const user = userEvent.setup()
     renderPanel(group([person('me', 'Me'), person('n', 'nitsuj1001', 'admin')]))
-    expect(screen.getByText('Shared media').closest('.info-row')).toHaveTextContent('Needs API')
+
+    expect(await screen.findByRole('heading', { name: 'Shared media · 1' })).toBeInTheDocument()
+    expect(screen.queryByText('Needs API')).not.toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'See all' }))
+
+    expect(screen.getByRole('button', { name: 'Back to group info' })).toHaveFocus()
+    expect(screen.queryByRole('heading', { name: /Members/ })).not.toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: 'Back to group info' }))
+    expect(screen.getByRole('heading', { name: /Members/ })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'See all' })).toHaveFocus()
   })
 })
 

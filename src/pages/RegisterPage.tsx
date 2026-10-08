@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Link, Navigate } from 'react-router-dom'
+import { Link, Navigate, useLocation } from 'react-router-dom'
 import { useMutation } from '@tanstack/react-query'
 import useAuth from '../hooks/useAuth'
 import Button from '../components/ui/Button'
@@ -10,6 +10,7 @@ import AuthLayout, { AuthBanner, AuthDivider, AuthHeader, GoogleButton } from '.
 import { isPasswordStrong } from '../utils/passwordRules'
 import { oauthRedirectUrl } from '../services/api/auth'
 import { apiMessage, fieldErrors, statusOf } from '../utils/authErrors'
+import { returnPath, setReturnPathAside } from '../utils/returnPath'
 
 type RegisterVars = {
   name: string
@@ -24,6 +25,9 @@ const RegisterPage = () => {
   const [password, setPassword] = useState('')
   const [passwordConfirmation, setPasswordConfirmation] = useState('')
   const { register, isAuthenticated, isLoading } = useAuth()
+  // Where the viewer was going when sign-in sent them here, carried over
+  // from the sign-in page (see returnPath).
+  const location = useLocation()
 
   const { mutate, isPending, error } = useMutation<void, unknown, RegisterVars>({
     mutationFn: ({ name, email, password, password_confirmation }) =>
@@ -36,7 +40,7 @@ const RegisterPage = () => {
   }
 
   if (isAuthenticated) {
-    return <Navigate to='/conversations' replace />
+    return <Navigate to={returnPath(location.state)} replace />
   }
 
   // A rejected field is shown on that field (Auth-Register-States: "That
@@ -114,10 +118,13 @@ const RegisterPage = () => {
       </form>
 
       <AuthDivider />
-      <GoogleButton href={oauthRedirectUrl('google')} />
+      <GoogleButton href={oauthRedirectUrl('google')} onLeave={() => setReturnPathAside(returnPath(location.state))} />
 
       <p className='auth__alt'>
-        Already have an account? <Link to='/login'>Sign in</Link>
+        Already have an account?{' '}
+        <Link to='/login' state={location.state}>
+          Sign in
+        </Link>
       </p>
     </AuthLayout>
   )

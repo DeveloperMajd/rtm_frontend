@@ -11,7 +11,10 @@ import { ConversationListSkeleton } from '../ui/Skeleton'
 import { systemMessageText } from '../../utils/systemMessageText'
 import useAuth from '../../hooks/useAuth'
 import useConversationPreferences, { type PreferenceChanges } from '../../hooks/useConversationPreferences'
+import { useReorderAnimation } from '../../hooks/useReorderAnimation'
+import { typingLabel, useListTyping } from '../../hooks/useListTyping'
 import { conversationTitle } from '../../utils/conversations'
+import { presenceOf } from '../../utils/presence'
 
 export type ConversationFilter = 'all' | 'unread' | 'groups' | 'direct'
 
@@ -33,6 +36,31 @@ const matchesFilter = (c: ConversationType, filter: ConversationFilter): boolean
     case 'all':
       return true
   }
+}
+
+/**
+ * A row's second line: who's typing while anyone is — in the accent, behind
+ * the four typing bars (Study-Typing-Presence) — and the latest message
+ * otherwise. Its own component, so a ping re-renders the one row it's for.
+ */
+const RowPreview = ({ conversation: c, viewerId }: { conversation: ConversationType; viewerId?: string }) => {
+  const typists = useListTyping(c.id)
+
+  if (typists.length > 0) {
+    return (
+      <span className='conversation-item__preview is-typing'>
+        <span className='typing-bars' aria-hidden='true'>
+          <i />
+          <i />
+          <i />
+          <i />
+        </span>
+        <span className='conversation-item__typing'>{typingLabel(c.type, typists)}</span>
+      </span>
+    )
+  }
+
+  return <span className='conversation-item__preview'>{previewFor(c, viewerId)}</span>
 }
 
 /** Which of a row's actions was used last — to put focus back on it when
@@ -159,6 +187,10 @@ const Conversations = ({
     if (button) button.focus()
     else document.getElementById('chat-list')?.focus()
   })
+
+  // A chat that moves (to the top with a new message, into Pinned, up into
+  // the gap an archive leaves) slides there, rather than jumping.
+  useReorderAnimation(listRef, `${view}:${filter}`)
 
   if (isLoading && conversations.length === 0) {
     return <ConversationListSkeleton />
@@ -318,7 +350,7 @@ const Conversations = ({
     const muted = Boolean(c.muted_at)
 
     return (
-      <li key={c.id} className='conversation-item-row'>
+      <li key={c.id} className='conversation-item-row' data-reorder-id={c.id}>
         <NavLink
           to={`/conversations/${c.id}`}
           className={({ isActive }) =>
@@ -330,7 +362,7 @@ const Conversations = ({
             src={c.type === 'direct' ? c.other_participant?.avatar_url : null}
             kind={c.type === 'group' ? 'group' : 'user'}
             size='md'
-            online={c.type === 'direct' ? c.other_participant?.is_online : undefined}
+            status={c.type === 'direct' && c.other_participant ? presenceOf(c.other_participant) : undefined}
           />
           <div className='conversation-item__body'>
             <div className='conversation-item__top'>
@@ -354,7 +386,7 @@ const Conversations = ({
               )}
             </div>
             <div className='conversation-item__top'>
-              <span className='conversation-item__preview'>{previewFor(c, user?.id)}</span>
+              <RowPreview conversation={c} viewerId={user?.id} />
               {unread && (
                 <span
                   className={`unread-pill${muted ? ' is-muted' : ''}`}

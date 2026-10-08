@@ -1,3 +1,12 @@
+/** Whether someone is here: away is online, with the app left idle. Given
+ * beside `is_online`, which stays true while they're away (and is all a
+ * server from before away presence sends). */
+export type PresenceStatus = 'online' | 'away' | 'offline'
+
+/** Whether the viewer is using the app, as their heartbeat tells the server
+ * (see useIdleState); others see `away` as PresenceStatus 'away'. */
+export type IdleState = 'active' | 'away'
+
 export type UserType = {
   id: string
   name: string
@@ -20,6 +29,7 @@ export type ContactType = {
   name: string
   avatar_url?: string | null
   is_online?: boolean
+  presence_status?: PresenceStatus
   last_seen_at?: string | null
 }
 
@@ -35,7 +45,10 @@ export type ConversationType = {
     id: string
     name: string
     avatar_url?: string | null
+    /** What they've written about themselves, if anything. */
+    bio?: string | null
     is_online: boolean
+    presence_status?: PresenceStatus
     last_seen_at?: string | null
   } | null
   latest_message?: {
@@ -52,6 +65,7 @@ export type ConversationType = {
     role: string
     left_at?: string | null
     is_online: boolean
+    presence_status?: PresenceStatus
     last_seen_at?: string | null
   }[]
   participants_count?: number
