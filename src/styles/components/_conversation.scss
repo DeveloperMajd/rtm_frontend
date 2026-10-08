@@ -1011,6 +1011,8 @@
   flex-direction: column;
   min-width: 0;
   background-color: var(--c-stage);
+  // What a presence dot in the header is cut out of (see .avatar__status).
+  --c-cut: var(--c-stage);
 
   // Nothing open yet (StartScreen) — beside the list from 768px only.
   &--start {

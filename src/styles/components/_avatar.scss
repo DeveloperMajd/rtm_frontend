@@ -68,10 +68,13 @@
     min-height: 8px;
     box-sizing: border-box;
     border-radius: 999px;
-    // The surface-coloured shadow (not `border`, which the status ring
-    // itself needs) cuts the dot out from whatever's behind it.
-    box-shadow: 0 0 0 2px var(--c-list);
-    background-color: transparent;
+    // The surface the avatar sits on (--c-cut, as in the design; the list's
+    // unless the surface sets its own). The shadow — not `border`, which the
+    // status ring itself needs — cuts the dot out from the avatar, and the
+    // dot's empty middle is filled with it too: left clear, the avatar's
+    // edge showed through as a stray line across an offline or away dot.
+    box-shadow: 0 0 0 2px var(--c-cut, var(--c-list));
+    background-color: var(--c-cut, var(--c-list));
     border: 1.5px solid var(--c-fg-3);
 
     &.is-online {
@@ -82,7 +85,7 @@
     // Half-filled, in an accent ring like online's (Study-Typing-Presence).
     &.is-away {
       border-color: var(--c-accent);
-      background: linear-gradient(90deg, var(--c-accent) 50%, transparent 50%);
+      background: linear-gradient(90deg, var(--c-accent) 50%, var(--c-cut, var(--c-list)) 50%);
     }
 
     &.is-connecting {

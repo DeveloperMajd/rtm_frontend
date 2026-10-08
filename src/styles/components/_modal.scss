@@ -47,6 +47,8 @@
   flex-direction: column;
   // Signal's dedicated dialog surface, not the generic list/sidebar one.
   background-color: var(--c-overlay);
+  // What a presence dot in a person row is cut out of (see .avatar__status).
+  --c-cut: var(--c-overlay);
   color: var(--c-fg);
   border: 1px solid var(--c-line-2);
   border-radius: var(--r-dialog);
