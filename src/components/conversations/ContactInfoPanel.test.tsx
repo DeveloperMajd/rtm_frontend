@@ -10,6 +10,9 @@ import type { ContactType, ConversationType } from '../../utils/baseTypes'
 
 let mockContacts: ContactType[] = []
 vi.mock('../../services/api/contacts', () => ({ removeContact: vi.fn() }))
+vi.mock('../../services/api/sharedMedia', () => ({
+  getSharedMedia: vi.fn(async () => ({ data: [], meta: { total: 0, has_more: false, next_before_id: null } })),
+}))
 vi.mock('../../hooks/useContacts', () => ({ default: () => ({ data: mockContacts }) }))
 
 const direct: ConversationType = {

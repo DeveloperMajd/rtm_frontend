@@ -90,6 +90,11 @@ board by board for desktop, tablet and phone.
   or that's been deleted, nor a message deleted since.
 - **Groups**: an info panel with members and admin roles. Members who leave
   or are removed keep their history, read-only and frozen at that point.
+- **Shared media**: a chat's info panel shows its newest photos, three to
+  a row, and its newest files, each counted. See all swaps the panel for
+  all of them, a page at a time, and a photo opens in the viewer with who
+  sent it and when. Someone who left a group sees what was sent while
+  they were in it.
 - **Account**: sign-in, registration with a live password-rules checklist,
   password reset, and Google sign-in. The profile page has an avatar
   upload and a bio, which anyone you share a chat with sees in your
@@ -131,12 +136,6 @@ board by board for desktop, tablet and phone.
   - Live regions for new messages, typing and connection changes.
   - Visible focus throughout, and reduced motion respected.
   - Text contrast checked with axe in both themes.
-
-### Shown, but not built yet
-
-Some controls in the design need backend work first. They appear
-**disabled and tagged** "Soon" or "Needs API", never faked: so far, shared
-media.
 
 ## Project structure
 

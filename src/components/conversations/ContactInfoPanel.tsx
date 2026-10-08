@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import toast from 'react-hot-toast'
@@ -7,10 +7,10 @@ import { removeContact } from '../../services/api/contacts'
 import useContacts from '../../hooks/useContacts'
 import { presenceLabel, presenceOf } from '../../utils/presence'
 import Avatar from '../ui/Avatar'
-import Badge from '../ui/Badge'
 import ConfirmDialog from '../ui/ConfirmDialog'
 import Icon from '../ui/Icon'
 import ConversationActions from './ConversationActions'
+import { SharedMediaSection, SharedMediaView } from './SharedMedia'
 import type { ConversationType } from '../../utils/baseTypes'
 
 type ContactInfoPanelProps = {
@@ -31,6 +31,15 @@ const ContactInfoPanel = ({ conversation, conversations, onSearch }: ContactInfo
   const { data: contacts = [] } = useContacts()
   const [confirmingRemove, setConfirmingRemove] = useState(false)
   const person = conversation.other_participant
+  // See all: the panel swaps to the full list, and back.
+  const [isShowingMedia, setIsShowingMedia] = useState(false)
+  const seeAllRef = useRef<HTMLButtonElement>(null)
+  const isBackFromMedia = useRef(false)
+  useEffect(() => {
+    if (isShowingMedia || !isBackFromMedia.current) return
+    isBackFromMedia.current = false
+    seeAllRef.current?.focus()
+  }, [isShowingMedia])
 
   const { mutate: remove, isPending: isRemoving } = useMutation({
     mutationFn: (userId: string) => removeContact(userId),
@@ -42,6 +51,19 @@ const ContactInfoPanel = ({ conversation, conversations, onSearch }: ContactInfo
   })
 
   if (!person) return null
+
+  if (isShowingMedia) {
+    return (
+      <SharedMediaView
+        conversationId={conversation.id}
+        backLabel='Back to contact info'
+        onBack={() => {
+          isBackFromMedia.current = true
+          setIsShowingMedia(false)
+        }}
+      />
+    )
+  }
 
   const status = presenceOf(person)
   const isContact = contacts.some((c) => c.id === person.id)
@@ -89,12 +111,7 @@ const ContactInfoPanel = ({ conversation, conversations, onSearch }: ContactInfo
         </div>
       </dl>
 
-      {/* No endpoint lists a conversation's attachments yet. */}
-      <div className='info-row is-disabled' aria-disabled='true'>
-        <Icon name='image' size={16} />
-        <span>Shared media</span>
-        <Badge tone='needs-api'>Needs API</Badge>
-      </div>
+      <SharedMediaSection conversationId={conversation.id} onSeeAll={() => setIsShowingMedia(true)} seeAllRef={seeAllRef} />
 
       {isContact && (
         <div className='info-danger-actions'>

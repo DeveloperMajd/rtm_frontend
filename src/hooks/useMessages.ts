@@ -11,6 +11,7 @@ import {
   replaceMessageInCache,
 } from '../utils/messagePages'
 import { applyReadPointer, messageInfoKey } from '../utils/readReceipts'
+import { sharedMediaKey } from './useSharedMedia'
 import { isViewing } from '../utils/viewing'
 import useEcho from './useEcho'
 import useAuth from './useAuth'
@@ -195,6 +196,10 @@ const useMessages = (conversationId: string, readOnly = false, options: UseMessa
         if (hasNewerRef.current) {
           pendingLiveRef.current = [...pendingLiveRef.current, message].slice(-PENDING_LIMIT)
         }
+        // New photos or files: the info panel's shared media, if it's open.
+        if (message.attachments_count) {
+          void queryClient.invalidateQueries({ queryKey: sharedMediaKey(conversationId) })
+        }
 
         queryClient.setQueryData<ConversationsResponse>(
           ['conversations'],
@@ -246,6 +251,10 @@ const useMessages = (conversationId: string, readOnly = false, options: UseMessa
         // the snapshot every reply holds of it (see patchMessageInCache).
         replaceMessageInCache(queryClient, conversationId, updatedMessage)
         replacePending(updatedMessage)
+        // A deleted message's photos and files leave the shared media too.
+        if (updatedMessage.deleted_at && updatedMessage.attachments_count) {
+          void queryClient.invalidateQueries({ queryKey: sharedMediaKey(conversationId) })
+        }
       })
       .listen('ConversationRead', (pointer: ReadPointer) => {
         // Someone read further: "Sent" becomes "Seen" (see useReadPointers).
