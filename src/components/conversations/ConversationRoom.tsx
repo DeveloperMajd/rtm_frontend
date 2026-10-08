@@ -30,6 +30,7 @@ import ActionToast from '../ui/ActionToast'
 import type { JumpTarget } from '../../hooks/useJumpHighlight'
 import { format } from 'date-fns'
 import { unreadTotal } from '../../utils/conversations'
+import { presenceOf } from '../../utils/presence'
 import type { MessageType } from '../../utils/baseTypes'
 import type { AppShellContext } from '../../layouts/appShellContext'
 
@@ -363,14 +364,14 @@ const ConversationRoomView = () => {
             src={isGroup ? null : conversation?.other_participant?.avatar_url}
             kind={isGroup ? 'group' : 'user'}
             size='sm'
-            online={isGroup ? undefined : conversation?.other_participant?.is_online}
+            status={!isGroup && conversation?.other_participant ? presenceOf(conversation.other_participant) : undefined}
           />
 
           <div style={{ flex: 1, minWidth: 0 }}>
             <div className='room__title'>{headerTitle}</div>
             {!isGroup && conversation?.other_participant && (
               <OnlineStatus
-                isOnline={conversation.other_participant.is_online}
+                status={presenceOf(conversation.other_participant)}
                 lastSeenAt={conversation.other_participant.last_seen_at}
                 showLabel
               />

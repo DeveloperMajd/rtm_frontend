@@ -68,6 +68,17 @@ describe('Contacts', () => {
     expect(screen.getByText('2 contacts · 1 online')).toBeInTheDocument()
   })
 
+  // Away is online with the app left idle: counted, and shown as such.
+  it('says who’s away, with the half-filled dot', () => {
+    contactsQuery.data = [...someContacts, { id: 'a', name: 'Ana', is_online: true, presence_status: 'away' }]
+    renderContacts()
+
+    const ana = screen.getByText('Ana').closest('li') as HTMLElement
+    expect(within(ana).getByText('Away')).toBeInTheDocument()
+    expect(ana.querySelector('.avatar__status')).toHaveClass('is-away')
+    expect(screen.getByText('3 contacts · 2 online')).toBeInTheDocument()
+  })
+
   it('filters by name', async () => {
     const user = userEvent.setup()
     renderContacts()

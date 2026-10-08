@@ -12,6 +12,7 @@ import { systemMessageText } from '../../utils/systemMessageText'
 import useAuth from '../../hooks/useAuth'
 import useConversationPreferences, { type PreferenceChanges } from '../../hooks/useConversationPreferences'
 import { conversationTitle } from '../../utils/conversations'
+import { presenceOf } from '../../utils/presence'
 
 export type ConversationFilter = 'all' | 'unread' | 'groups' | 'direct'
 
@@ -330,7 +331,7 @@ const Conversations = ({
             src={c.type === 'direct' ? c.other_participant?.avatar_url : null}
             kind={c.type === 'group' ? 'group' : 'user'}
             size='md'
-            online={c.type === 'direct' ? c.other_participant?.is_online : undefined}
+            status={c.type === 'direct' && c.other_participant ? presenceOf(c.other_participant) : undefined}
           />
           <div className='conversation-item__body'>
             <div className='conversation-item__top'>

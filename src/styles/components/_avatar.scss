@@ -79,7 +79,9 @@
       background-color: var(--c-accent);
     }
 
+    // Half-filled, in an accent ring like online's (Study-Typing-Presence).
     &.is-away {
+      border-color: var(--c-accent);
       background: linear-gradient(90deg, var(--c-accent) 50%, transparent 50%);
     }
 

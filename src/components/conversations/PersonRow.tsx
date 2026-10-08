@@ -1,11 +1,13 @@
 import type { ReactNode } from 'react'
 import Avatar from '../ui/Avatar'
 import { presenceLabel } from '../../utils/presence'
+import type { PresenceStatus } from '../../utils/baseTypes'
 
 interface PersonRowProps {
   name: string
   avatarUrl?: string | null
-  isOnline?: boolean
+  /** Online, away or offline (see presenceOf). */
+  status?: PresenceStatus
   lastSeenAt?: string | null
   /** Overrides the presence line, e.g. "You · Online". */
   meta?: ReactNode
@@ -24,7 +26,7 @@ interface PersonRowProps {
 const PersonRow = ({
   name,
   avatarUrl,
-  isOnline,
+  status = 'offline',
   lastSeenAt,
   meta,
   control,
@@ -35,11 +37,11 @@ const PersonRow = ({
   const content = (
     <>
       {control}
-      <Avatar name={name} src={avatarUrl} size='sm' online={isOnline ?? false} />
+      <Avatar name={name} src={avatarUrl} size='sm' status={status} />
       <span className='person-row__text'>
         <span className='person-row__name'>{name}</span>
-        <span className={`person-row__meta${isOnline && meta === undefined ? ' is-online' : ''}`}>
-          {meta ?? presenceLabel(isOnline, lastSeenAt)}
+        <span className={`person-row__meta${status === 'online' && meta === undefined ? ' is-online' : ''}`}>
+          {meta ?? presenceLabel(status, lastSeenAt)}
         </span>
       </span>
       {trailing}

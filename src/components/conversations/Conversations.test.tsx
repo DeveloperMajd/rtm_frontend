@@ -72,6 +72,23 @@ const conversation = (overrides: Partial<ConversationType>): ConversationType =>
 })
 
 describe('Conversations', () => {
+  it('marks the person in a direct conversation online, away or offline by their dot', () => {
+    const list = [
+      conversation({ id: 'a', other_participant: { id: 'a', name: 'Ana', is_online: true, presence_status: 'online' } }),
+      conversation({ id: 'b', other_participant: { id: 'b', name: 'Ben', is_online: true, presence_status: 'away' } }),
+      conversation({ id: 'c', other_participant: { id: 'c', name: 'Cy', is_online: false, presence_status: 'offline' } }),
+      // From a server before away presence: online or not.
+      conversation({ id: 'd', other_participant: { id: 'd', name: 'Di', is_online: true } }),
+    ]
+    renderWithProviders(<Conversations conversations={list} isLoading={false} error={null} />)
+
+    const dotOf = (name: string) => screen.getByRole('link', { name: new RegExp(name) }).querySelector('.avatar__status')
+    expect(dotOf('Ana')).toHaveClass('is-online')
+    expect(dotOf('Ben')).toHaveClass('is-away')
+    expect(dotOf('Cy')).toHaveClass('is-offline')
+    expect(dotOf('Di')).toHaveClass('is-online')
+  })
+
   it('shows every conversation with the default "all" filter', () => {
     const list = [
       conversation({ id: 'direct-1', type: 'direct' }),

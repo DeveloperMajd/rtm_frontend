@@ -5,7 +5,7 @@ import toast from 'react-hot-toast'
 import { format } from 'date-fns'
 import { removeContact } from '../../services/api/contacts'
 import useContacts from '../../hooks/useContacts'
-import { presenceLabel } from '../../utils/presence'
+import { presenceLabel, presenceOf } from '../../utils/presence'
 import Avatar from '../ui/Avatar'
 import Badge from '../ui/Badge'
 import ConfirmDialog from '../ui/ConfirmDialog'
@@ -44,6 +44,7 @@ const ContactInfoPanel = ({ conversation, conversations, onSearch }: ContactInfo
 
   if (!person) return null
 
+  const status = presenceOf(person)
   const isContact = contacts.some((c) => c.id === person.id)
   // Groups you're both active members of.
   const sharedGroups = conversations.filter(
@@ -56,10 +57,10 @@ const ContactInfoPanel = ({ conversation, conversations, onSearch }: ContactInfo
   return (
     <div className='contact-info'>
       <div className='info-identity'>
-        <Avatar name={person.name} src={person.avatar_url} size='xl' online={person.is_online} />
+        <Avatar name={person.name} src={person.avatar_url} size='xl' status={status} />
         <p className='info-identity__name'>{person.name}</p>
-        <p className={`info-identity__meta${person.is_online ? ' is-online' : ''}`}>
-          {presenceLabel(person.is_online, person.last_seen_at)}
+        <p className={`info-identity__meta${status === 'online' ? ' is-online' : ''}`}>
+          {presenceLabel(status, person.last_seen_at)}
         </p>
       </div>
 

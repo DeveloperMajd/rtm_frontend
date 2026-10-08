@@ -163,6 +163,22 @@ const posted = (id: string, extra: Partial<MessageType> = {}): MessageType => ({
   ...extra,
 })
 
+describe('ConversationRoom’s header', () => {
+  it('says when the other person is away, rather than online', () => {
+    conversations = [
+      direct('c1', 0, {
+        other_participant: { id: 'u-c1', name: 'Person c1', is_online: true, presence_status: 'away' },
+      }),
+    ]
+    renderRoom()
+
+    expect(screen.getByText('Away')).toBeInTheDocument()
+    expect(screen.queryByText('Online')).not.toBeInTheDocument()
+    // The header's avatar says the same, with the half-filled dot.
+    expect(document.querySelector('.room__header .avatar__status')).toHaveClass('is-away')
+  })
+})
+
 describe('ConversationRoom and saved messages', () => {
   it('offers to take a saved message off the list, and to save the others', async () => {
     const user = userEvent.setup()

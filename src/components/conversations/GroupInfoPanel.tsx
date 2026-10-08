@@ -12,7 +12,7 @@ import {
   updateParticipantRole,
 } from '../../services/api/conversations'
 import { getContacts } from '../../services/api/contacts'
-import { presenceLabel } from '../../utils/presence'
+import { presenceLabel, presenceOf } from '../../utils/presence'
 import Avatar from '../ui/Avatar'
 import Badge from '../ui/Badge'
 import Button from '../ui/Button'
@@ -346,9 +346,9 @@ const MemberRow = ({
       <PersonRow
         name={p.name}
         avatarUrl={p.avatar_url}
-        isOnline={p.is_online}
+        status={presenceOf(p)}
         lastSeenAt={p.last_seen_at}
-        meta={isSelf ? `You · ${presenceLabel(p.is_online, p.last_seen_at)}` : undefined}
+        meta={isSelf ? `You · ${presenceLabel(presenceOf(p), p.last_seen_at)}` : undefined}
         trailing={
           <>
             {isAdmin && (
@@ -481,7 +481,7 @@ const AddPeopleDialog = ({
               <PersonRow
                 name={u.name}
                 avatarUrl={u.avatar_url}
-                isOnline={u.is_online}
+                status={presenceOf(u)}
                 lastSeenAt={u.last_seen_at}
                 selected={selected.has(u.id)}
                 control={<input type='checkbox' checked={selected.has(u.id)} onChange={() => toggle(u.id)} />}
@@ -532,7 +532,7 @@ const HandOverDialog = ({
             <PersonRow
               name={p.name}
               avatarUrl={p.avatar_url}
-              isOnline={p.is_online}
+              status={presenceOf(p)}
               lastSeenAt={p.last_seen_at}
               selected={successorId === p.user_id}
               control={

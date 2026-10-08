@@ -5,7 +5,7 @@ import toast from 'react-hot-toast'
 import { removeContact } from '../../services/api/contacts'
 import useContacts from '../../hooks/useContacts'
 import useConversations from '../../hooks/useConversations'
-import { presenceLabel } from '../../utils/presence'
+import { presenceLabel, presenceOf } from '../../utils/presence'
 import Avatar from '../ui/Avatar'
 import Button from '../ui/Button'
 import ConfirmDialog from '../ui/ConfirmDialog'
@@ -124,11 +124,11 @@ const Contacts = ({ onConversationOpened, onAddContact }: ContactsProps) => {
                 className='contact-row__open'
                 onClick={() => openConversationWith(contact.id)}
               >
-                <Avatar name={contact.name} src={contact.avatar_url} size='md' online={!!contact.is_online} />
+                <Avatar name={contact.name} src={contact.avatar_url} size='md' status={presenceOf(contact)} />
                 <span className='contact-row__text'>
                   <span className='contact-row__name'>{contact.name}</span>
-                  <span className={`contact-row__meta${contact.is_online ? ' is-online' : ''}`}>
-                    {presenceLabel(contact.is_online, contact.last_seen_at)}
+                  <span className={`contact-row__meta${presenceOf(contact) === 'online' ? ' is-online' : ''}`}>
+                    {presenceLabel(presenceOf(contact), contact.last_seen_at)}
                   </span>
                 </span>
               </button>
