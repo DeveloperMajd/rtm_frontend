@@ -76,7 +76,12 @@ type MessagesProps = {
   readers?: Reader[]
   readPointers?: ReadPointer[]
   isGroup?: boolean
+  /** The messages the viewer has saved, so each one's menu offers Save or
+   * Remove from saved (see useSavedMessageIds). */
+  savedIds?: ReadonlySet<string>
 }
+
+const NONE_SAVED: ReadonlySet<string> = new Set()
 
 const GROUP_WINDOW_MS = 5 * 60 * 1000
 
@@ -119,6 +124,7 @@ const Messages = ({
   readers = [],
   readPointers = [],
   isGroup = false,
+  savedIds = NONE_SAVED,
 }: MessagesProps) => {
   const { user } = useAuth()
   const containerRef = useRef<HTMLDivElement>(null)
@@ -347,6 +353,7 @@ const Messages = ({
                     onJumpTo={onJumpTo}
                     highlightTerms={searchTerms}
                     isCurrentMatch={message.id === currentMatchId}
+                    isSaved={savedIds.has(message.id)}
                     receipt={message.id === lastOwnMessageId ? receipt : undefined}
                     grouped={
                       !showDay &&

@@ -76,6 +76,12 @@ board by board for desktop, tablet and phone.
   copies a link to a message, yours or anyone's. The link jumps to it,
   through sign-in first if needed (Google included). Someone who isn't in
   the conversation is told just that, rather than that it's gone.
+- **Saved messages**: "Save message", in the same menu and sheet, keeps a
+  message to find again, yours or anyone's. Saved, beside Chats and
+  Contacts in the navigation, lists them, most recently saved first; each
+  opens its conversation at the message, and its bookmark takes it off the
+  list. Only you see what you save. Nothing shows from a group you've left
+  or that's been deleted, nor a message deleted since.
 - **Groups**: an info panel with members and admin roles. Members who leave
   or are removed keep their history, read-only and frozen at that point.
 - **Account**: sign-in, registration with a live password-rules checklist,
@@ -122,9 +128,8 @@ board by board for desktop, tablet and phone.
 ### Shown, but not built yet
 
 Some controls in the design need backend work first. They appear
-**disabled and tagged** "Soon" or "Needs API", never faked:
-- saved messages;
-- shared media.
+**disabled and tagged** "Soon" or "Needs API", never faked: so far, shared
+media.
 
 ## Project structure
 

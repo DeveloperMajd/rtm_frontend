@@ -11,6 +11,8 @@ interface MessageActionSheetProps {
   isOwn: boolean
   /** A group the viewer has left: nothing but Copy text. */
   readOnly: boolean
+  /** Already on the viewer's Saved list: the action takes it off instead. */
+  isSaved: boolean
   /** Reactions the viewer has already placed. */
   mine: ReadonlySet<string>
   onToggleReaction: (reaction: string, reacted: boolean) => void
@@ -19,14 +21,14 @@ interface MessageActionSheetProps {
   onEdit: () => void
   onInfo: () => void
   onCopyLink: () => void
+  onToggleSave: () => void
   onDelete: () => void
 }
 
 /**
  * What a long press on a message opens on a touch screen
  * (Mobile-430-Message-Sheet): the six reactions along the top, the message
- * itself, then the same actions as the desktop More menu — the ones that
- * need an API first shown, disabled and tagged, never faked.
+ * itself, then the same actions as the desktop More menu.
  */
 const MessageActionSheet = ({
   open,
@@ -34,6 +36,7 @@ const MessageActionSheet = ({
   message,
   isOwn,
   readOnly,
+  isSaved,
   mine,
   onToggleReaction,
   onReply,
@@ -41,6 +44,7 @@ const MessageActionSheet = ({
   onEdit,
   onInfo,
   onCopyLink,
+  onToggleSave,
   onDelete,
 }: MessageActionSheetProps) => {
   // Each choice closes the sheet first, so focus is back in the
@@ -86,7 +90,13 @@ const MessageActionSheet = ({
         {!readOnly && isOwn && <SheetAction icon='pencil' label='Edit' onSelect={choose(onEdit)} />}
         {!readOnly && <SheetAction icon='info' label='Message info' onSelect={choose(onInfo)} />}
         {!readOnly && <SheetAction icon='link' label='Copy link' onSelect={choose(onCopyLink)} />}
-        {!readOnly && !isOwn && <SheetAction icon='bookmark' label='Save message' soon />}
+        {!readOnly && (
+          <SheetAction
+            icon='bookmark'
+            label={isSaved ? 'Remove from saved' : 'Save message'}
+            onSelect={choose(onToggleSave)}
+          />
+        )}
         {!readOnly && isOwn && <SheetAction icon='trash' label='Delete' tone='danger' onSelect={choose(onDelete)} />}
       </div>
     </BottomSheet>

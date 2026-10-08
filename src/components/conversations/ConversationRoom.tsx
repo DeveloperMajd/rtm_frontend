@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type DragEvent } from 'react'
-import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
+import { Link, useNavigate, useOutletContext, useParams, useSearchParams } from 'react-router-dom'
 import toast from 'react-hot-toast'
 import { isAxiosError } from 'axios'
 import MessageForm, { type MessageFormHandle } from './MessageForm'
@@ -15,6 +15,7 @@ import useTypingIndicator from '../../hooks/useTypingIndicator'
 import useConversations from '../../hooks/useConversations'
 import useReadPointers from '../../hooks/useReadPointers'
 import useMissingConversation from '../../hooks/useMissingConversation'
+import { useSavedMessageIds } from '../../hooks/useSavedMessages'
 import useAuth from '../../hooks/useAuth'
 import { useReadStateSnapshot } from '../../hooks/useReadStateSnapshot'
 import { useConversationSearch } from '../../hooks/useConversationSearch'
@@ -30,6 +31,7 @@ import type { JumpTarget } from '../../hooks/useJumpHighlight'
 import { format } from 'date-fns'
 import { unreadTotal } from '../../utils/conversations'
 import type { MessageType } from '../../utils/baseTypes'
+import type { AppShellContext } from '../../layouts/appShellContext'
 
 /** What a jump to a message that couldn't be opened says (see below). */
 type JumpFailure = { messageId: string; gone: boolean }
@@ -82,6 +84,10 @@ const ConversationRoomView = () => {
   const isGroup = conversation?.type === 'group'
   const hasLeft = Boolean(conversation?.viewer_left_at)
   const unreadElsewhere = unreadTotal(conversations, id)
+  // A phone's back button returns to the list the room was opened from,
+  // and says so: Saved stays open behind a message opened from it. (No
+  // shell around a room rendered on its own in a test.)
+  const backToSaved = useOutletContext<AppShellContext | undefined>()?.activeTab === 'saved'
 
   // Dragging files over the conversation turns the whole pane into a drop
   // target (Attach-Composer); dropped files go through the composer's own
@@ -162,6 +168,8 @@ const ConversationRoomView = () => {
   // Receipts belong to members only: someone who left sees the group as it
   // was, and their messages just say "Sent".
   const readPointers = useReadPointers(id!, !hasLeft && !isUnavailable)
+  // Which messages the viewer has saved, anywhere: asked once a session.
+  const savedIds = useSavedMessageIds()
   const readers = (conversation?.participants ?? [])
     .filter((p) => !p.left_at && p.user_id !== user?.id)
     .map((p) => ({ user_id: p.user_id, name: p.name, avatar_url: p.avatar_url }))
@@ -334,7 +342,11 @@ const ConversationRoomView = () => {
             type='button'
             className='room__back'
             aria-label={
-              unreadElsewhere > 0 ? `Back to conversations, ${unreadElsewhere} unread` : 'Back to conversations'
+              backToSaved
+                ? `Back to saved messages${unreadElsewhere > 0 ? `, ${unreadElsewhere} unread chats` : ''}`
+                : unreadElsewhere > 0
+                  ? `Back to conversations, ${unreadElsewhere} unread`
+                  : 'Back to conversations'
             }
             onClick={() => navigate('/conversations')}
           >
@@ -448,6 +460,7 @@ const ConversationRoomView = () => {
           currentMatchId={isSearchOpen ? currentMatchId : null}
           readers={readers}
           readPointers={readPointers}
+          savedIds={savedIds}
           isGroup={isGroup}
         />
 

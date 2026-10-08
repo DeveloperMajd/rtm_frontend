@@ -1,18 +1,21 @@
 import { useState, type ReactNode } from 'react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { MemoryRouter, Route, Routes } from 'react-router-dom'
+import { MemoryRouter, Outlet, Route, Routes } from 'react-router-dom'
 import { AxiosError, AxiosHeaders } from 'axios'
 import toast from 'react-hot-toast'
 import { AuthContext, type AuthContextType } from '../../hooks/useAuth'
 import useTypingIndicator from '../../hooks/useTypingIndicator'
 import ConversationRoom from './ConversationRoom'
 import { getConversationById } from '../../services/api/conversations'
-import type { ConversationType } from '../../utils/baseTypes'
+import { getSavedMessageIds } from '../../services/api/savedMessages'
+import type { ConversationType, MessageType } from '../../utils/baseTypes'
+import type { AppShellContext, ListTab } from '../../layouts/appShellContext'
 
 let conversations: ConversationType[] = []
+let roomMessages: MessageType[] = []
 // False until this mount has fetched the list itself: a fresh load, or a
 // link opened in a new tab.
 let areConversationsReady = true
@@ -26,7 +29,7 @@ vi.mock('../../hooks/useConversations', () => ({
 }))
 vi.mock('../../hooks/useMessages', () => ({
   default: (_id: string, _readOnly: boolean, { anchor = null }: { anchor?: string | null } = {}) => ({
-    messages: [],
+    messages: roomMessages,
     isLoading: false,
     isLoadingMore: false,
     hasMore: false,
@@ -39,11 +42,14 @@ vi.mock('../../hooks/useMessages', () => ({
 vi.mock('../../hooks/useTypingIndicator', () => ({ default: vi.fn(() => '') }))
 vi.mock('../../hooks/useReadStateSnapshot', () => ({ useReadStateSnapshot: () => undefined }))
 vi.mock('../../services/api/conversations', () => ({ postTyping: vi.fn(), getConversationById: vi.fn() }))
+vi.mock('../../services/api/savedMessages', () => ({ getSavedMessageIds: vi.fn() }))
 vi.mock('react-hot-toast', () => ({ default: { error: vi.fn(), success: vi.fn(), dismiss: vi.fn() } }))
 
 beforeEach(() => {
   areConversationsReady = true
   refusedWindow = null
+  roomMessages = []
+  vi.mocked(getSavedMessageIds).mockResolvedValue([])
   vi.mocked(toast.error).mockClear()
   vi.mocked(useTypingIndicator).mockClear()
 })
@@ -72,16 +78,36 @@ const Providers = ({ children, path }: { children: ReactNode; path: string }) =>
   )
 }
 
-const room = (path: string) => (
+/** What AppShell hands the screens below it, with `activeTab` the list the
+ * room was opened from. */
+const Shell = ({ activeTab }: { activeTab: ListTab }) => {
+  const context: AppShellContext = {
+    activeTab,
+    setActiveTab: vi.fn(),
+    openSearch: vi.fn(),
+    signal: 'connected',
+    connection: 'connected',
+    recovered: false,
+  }
+  return <Outlet context={context} />
+}
+
+const room = (path: string, from?: ListTab) => (
   <Providers path={path}>
     <Routes>
       <Route path='/conversations' element={<p>The list</p>} />
-      <Route path='/conversations/:id' element={<ConversationRoom />} />
+      {from ? (
+        <Route element={<Shell activeTab={from} />}>
+          <Route path='/conversations/:id' element={<ConversationRoom />} />
+        </Route>
+      ) : (
+        <Route path='/conversations/:id' element={<ConversationRoom />} />
+      )}
     </Routes>
   </Providers>
 )
 
-const renderRoom = (path = '/conversations/c1') => render(room(path))
+const renderRoom = (path = '/conversations/c1', from?: ListTab) => render(room(path, from))
 
 const direct = (id: string, unread: number, extra: Partial<ConversationType> = {}) =>
   ({ id, type: 'direct', unread_count: unread, other_participant: { id: `u-${id}`, name: `Person ${id}` }, ...extra }) as ConversationType
@@ -109,6 +135,54 @@ describe('ConversationRoom’s back button (phones)', () => {
     renderRoom()
 
     expect(screen.getByRole('button', { name: 'Back to conversations' })).toHaveTextContent('')
+  })
+
+  // Saved stays open behind a message opened from it.
+  it('goes back to Saved when the room was opened from there, and says so', () => {
+    conversations = [direct('c1', 0), direct('c2', 2)]
+    const { unmount } = renderRoom('/conversations/c1', 'saved')
+
+    expect(screen.getByRole('button', { name: 'Back to saved messages, 2 unread chats' })).toHaveTextContent('2')
+    unmount()
+
+    conversations = [direct('c1', 0)]
+    renderRoom('/conversations/c1', 'saved')
+    expect(screen.getByRole('button', { name: 'Back to saved messages' })).toBeInTheDocument()
+  })
+})
+
+const posted = (id: string, extra: Partial<MessageType> = {}): MessageType => ({
+  id,
+  conversation_id: 'c1',
+  type: 'user',
+  sender: { id: 'u-c1', name: 'Person c1' },
+  body: `Message ${id}`,
+  reactions: [],
+  created_at: '2026-01-01T10:00:00Z',
+  updated_at: '2026-01-01T10:00:00Z',
+  ...extra,
+})
+
+describe('ConversationRoom and saved messages', () => {
+  it('offers to take a saved message off the list, and to save the others', async () => {
+    const user = userEvent.setup()
+    vi.mocked(getSavedMessageIds).mockResolvedValue(['m2'])
+    conversations = [direct('c1', 0)]
+    roomMessages = [posted('m1'), posted('m2', { sender: { id: 'me', name: 'Me' } })]
+    renderRoom()
+
+    const moreFor = (id: string) =>
+      within(document.querySelector(`[data-message-id="${id}"]`) as HTMLElement).getByRole('button', {
+        name: 'More actions',
+      })
+
+    await user.click(moreFor('m2'))
+    expect(await screen.findByRole('menuitem', { name: 'Remove from saved' })).toBeInTheDocument()
+    await user.keyboard('{Escape}')
+
+    await user.click(moreFor('m1'))
+    expect(screen.getByRole('menuitem', { name: 'Save message' })).toBeInTheDocument()
+    expect(getSavedMessageIds).toHaveBeenCalledTimes(1)
   })
 })
 

@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Outlet, useLocation, useNavigate } from 'react-router-dom'
 import Conversations, { type ConversationFilter } from '../components/conversations/Conversations'
 import Contacts from '../components/conversations/Contacts'
+import SavedMessages from '../components/conversations/SavedMessages'
 import GroupModal from '../components/conversations/GroupModal'
 import AddContactModal from '../components/conversations/AddContactModal'
 import SearchTrigger from '../components/conversations/SearchTrigger'
@@ -13,7 +14,7 @@ import SignalBars from '../components/ui/SignalBars'
 import useConversations from '../hooks/useConversations'
 import { unreadTotal } from '../utils/conversations'
 import { LIVE_LABEL } from '../utils/connection'
-import { useAppShell } from './appShellContext'
+import { useAppShell, type ListTab } from './appShellContext'
 
 const FILTERS: { key: ConversationFilter; label: string }[] = [
   { key: 'all', label: 'All' },
@@ -22,9 +23,16 @@ const FILTERS: { key: ConversationFilter; label: string }[] = [
   { key: 'direct', label: 'Direct' },
 ]
 
-/** The Chats screen: the conversation (or contact) list beside the open
- * room — or, on a phone, one or the other. The navigation, search and
- * connection state around it are AppShell's. */
+/** Each list's heading, and its name as a region. */
+const LISTS: Record<ListTab, { title: string; label: string }> = {
+  chats: { title: 'Chats', label: 'Conversations' },
+  contacts: { title: 'Contacts', label: 'Contacts' },
+  saved: { title: 'Saved', label: 'Saved messages' },
+}
+
+/** The Chats screen: the conversation, contact or saved-message list beside
+ * the open room — or, on a phone, one or the other. The navigation, search
+ * and connection state around it are AppShell's. */
 function ConversationsLayout() {
   const shell = useAppShell()
   const { activeTab, setActiveTab, openSearch, signal, connection } = shell
@@ -44,15 +52,10 @@ function ConversationsLayout() {
 
   return (
     <>
-      <section
-        id='chat-list'
-        tabIndex={-1}
-        className='list-pane'
-        aria-label={activeTab === 'chats' ? 'Conversations' : 'Contacts'}
-      >
+      <section id='chat-list' tabIndex={-1} className='list-pane' aria-label={LISTS[activeTab].label}>
         <header className='list-pane__header'>
           <div className='list-pane__heading'>
-            <h1 className='list-pane__title'>{activeTab === 'chats' ? 'Chats' : 'Contacts'}</h1>
+            <h1 className='list-pane__title'>{LISTS[activeTab].title}</h1>
             {activeTab === 'chats' && (
               // Phone only: the rail shows the connection from 768px.
               <span className={`list-pane__live is-${signal}`}>
@@ -83,7 +86,7 @@ function ConversationsLayout() {
                 <Icon name='plus' />
               </button>
             </>
-          ) : (
+          ) : activeTab === 'contacts' ? (
             <button
               type='button'
               className='list-pane__icon-btn is-always'
@@ -92,7 +95,7 @@ function ConversationsLayout() {
             >
               <Icon name='userPlus' />
             </button>
-          )}
+          ) : null}
         </header>
 
         {activeTab === 'chats' && (
@@ -132,8 +135,10 @@ function ConversationsLayout() {
               onNewGroup={() => setIsGroupModalOpen(true)}
               onRetry={retry}
             />
-          ) : (
+          ) : activeTab === 'contacts' ? (
             <Contacts onConversationOpened={() => setActiveTab('chats')} onAddContact={() => setIsAddContactOpen(true)} />
+          ) : (
+            <SavedMessages />
           )}
         </div>
       </section>

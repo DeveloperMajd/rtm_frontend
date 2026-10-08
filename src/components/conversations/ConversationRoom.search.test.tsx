@@ -54,6 +54,7 @@ vi.mock('../../services/api/messages', () => ({
   sendMessage: vi.fn(),
   searchConversation: vi.fn(),
 }))
+vi.mock('../../services/api/savedMessages', () => ({ getSavedMessageIds: vi.fn().mockResolvedValue([]) }))
 
 const auth: AuthContextType = {
   user: { id: 'me', name: 'Me', email: 'me@example.com' },
