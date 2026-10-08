@@ -11,6 +11,7 @@ import { ConversationListSkeleton } from '../ui/Skeleton'
 import { systemMessageText } from '../../utils/systemMessageText'
 import useAuth from '../../hooks/useAuth'
 import useConversationPreferences, { type PreferenceChanges } from '../../hooks/useConversationPreferences'
+import { useReorderAnimation } from '../../hooks/useReorderAnimation'
 import { conversationTitle } from '../../utils/conversations'
 import { presenceOf } from '../../utils/presence'
 
@@ -160,6 +161,10 @@ const Conversations = ({
     if (button) button.focus()
     else document.getElementById('chat-list')?.focus()
   })
+
+  // A chat that moves (to the top with a new message, into Pinned, up into
+  // the gap an archive leaves) slides there, rather than jumping.
+  useReorderAnimation(listRef, `${view}:${filter}`)
 
   if (isLoading && conversations.length === 0) {
     return <ConversationListSkeleton />
@@ -319,7 +324,7 @@ const Conversations = ({
     const muted = Boolean(c.muted_at)
 
     return (
-      <li key={c.id} className='conversation-item-row'>
+      <li key={c.id} className='conversation-item-row' data-reorder-id={c.id}>
         <NavLink
           to={`/conversations/${c.id}`}
           className={({ isActive }) =>

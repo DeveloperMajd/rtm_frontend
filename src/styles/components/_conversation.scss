@@ -525,13 +525,16 @@
 .conversation-item-row {
   position: relative;
 
+  // Under the pointer, or reached by keyboard — not merely focused: a click
+  // leaves the focus on the row's link, and :focus-within kept the row lit
+  // and its actions up until something else was clicked.
   &:hover,
-  &:focus-within {
+  &:has(:focus-visible) {
     background-color: var(--c-raised-2);
   }
 
   &:hover .conversation-item__quick-actions,
-  &:focus-within .conversation-item__quick-actions {
+  &:has(:focus-visible) .conversation-item__quick-actions {
     opacity: 1;
     pointer-events: auto;
   }
@@ -539,8 +542,7 @@
   // A tap leaves :hover stuck on touch screens — the row is opening, not
   // asking for its actions. The keyboard still reveals them.
   @include touch {
-    &:hover .conversation-item__quick-actions,
-    &:focus-within .conversation-item__quick-actions {
+    &:hover .conversation-item__quick-actions {
       opacity: 0;
       pointer-events: none;
     }

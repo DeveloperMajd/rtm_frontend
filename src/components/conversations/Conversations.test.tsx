@@ -72,6 +72,31 @@ const conversation = (overrides: Partial<ConversationType>): ConversationType =>
 })
 
 describe('Conversations', () => {
+  it('slides a chat to the top when it gets a new message, rather than jumping it there', () => {
+    const realOffsetTop = Object.getOwnPropertyDescriptor(HTMLElement.prototype, 'offsetTop')!
+    const animate = vi.fn()
+    // jsdom lays nothing out: a row's place is its position in the list.
+    Object.defineProperty(HTMLElement.prototype, 'offsetTop', {
+      configurable: true,
+      get(this: HTMLElement) {
+        return this.parentElement ? [...this.parentElement.children].indexOf(this) * 72 : 0
+      },
+    })
+    HTMLElement.prototype.animate = animate
+    try {
+      const ana = conversation({ id: 'a', other_participant: { id: 'a', name: 'Ana', is_online: false } })
+      const ben = conversation({ id: 'b', other_participant: { id: 'b', name: 'Ben', is_online: false } })
+      const { rerender } = renderWithProviders(<Conversations conversations={[ana, ben]} isLoading={false} error={null} />)
+
+      rerender(withProviders(<Conversations conversations={[ben, ana]} isLoading={false} error={null} />))
+
+      expect(animate.mock.contexts.map((row) => (row as HTMLElement).dataset.reorderId)).toEqual(['b', 'a'])
+    } finally {
+      Object.defineProperty(HTMLElement.prototype, 'offsetTop', realOffsetTop)
+      delete (HTMLElement.prototype as Partial<HTMLElement>).animate
+    }
+  })
+
   it('marks the person in a direct conversation online, away or offline by their dot', () => {
     const list = [
       conversation({ id: 'a', other_participant: { id: 'a', name: 'Ana', is_online: true, presence_status: 'online' } }),

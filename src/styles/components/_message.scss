@@ -412,6 +412,17 @@
     margin: -0.3rem -0.3rem 0.4rem;
   }
 
+  // Pulled up to the bubble's edge only when the media opens the bubble.
+  // Under the sender's name, or a reply quote, it keeps its distance: the
+  // pull ran the photos right up against the name.
+  &__sender + &__attachments {
+    margin-top: 0.3rem;
+  }
+
+  &__quote + &__attachments {
+    margin-top: 0;
+  }
+
   // The time (and "edited") in each bubble's own quieter text colour —
   // not by fading the text, which on a deleted message's clear bubble fell
   // below AA contrast.
