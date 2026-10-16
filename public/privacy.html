@@ -63,14 +63,14 @@
   </p>
   <ul>
     <li><strong>Neon</strong> — hosts the application's database</li>
-    <li><strong>Upstash</strong> — hosts ephemeral session/cache data</li>
     <li><strong>Resend</strong> — delivers transactional email (e.g.
       password reset links)</li>
     <li><strong>Google / Facebook</strong> — if you choose to sign in with
       one of these, they authenticate your identity; RTM only receives
       your name, email, and profile picture, never your password</li>
     <li><strong>Vercel / Oracle Cloud</strong> — host the application
-      itself</li>
+      itself (Oracle Cloud also holds its ephemeral session/cache
+      data)</li>
   </ul>
 
   <h2>Data retention & deletion</h2>
