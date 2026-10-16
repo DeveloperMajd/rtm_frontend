@@ -39,12 +39,12 @@ afterEach(() => {
 })
 
 describe('usePresenceHeartbeat', () => {
-  it('beats at once and every fifteen seconds, saying whether the app is in use', () => {
+  it('beats at once and every thirty seconds, saying whether the app is in use', () => {
     renderHook(() => usePresenceHeartbeat(true))
     expect(heartbeat).toHaveBeenCalledTimes(1)
     expect(heartbeat).toHaveBeenLastCalledWith('active')
 
-    vi.advanceTimersByTime(15_000)
+    vi.advanceTimersByTime(30_000)
     expect(heartbeat).toHaveBeenCalledTimes(2)
   })
 
@@ -57,7 +57,7 @@ describe('usePresenceHeartbeat', () => {
     expect(heartbeat).toHaveBeenLastCalledWith('away')
 
     // The beats carry on saying away.
-    vi.advanceTimersByTime(15_000)
+    vi.advanceTimersByTime(30_000)
     expect(heartbeat).toHaveBeenLastCalledWith('away')
 
     idle = 'active'
@@ -98,14 +98,14 @@ describe('usePresenceHeartbeat', () => {
     setVisibility('hidden')
 
     // Still beating just before the ten minutes are up: the first beat and
-    // one every fifteen seconds since…
+    // one every thirty seconds since…
     wait(STOP_AFTER_HIDDEN_MS - 1)
-    expect(heartbeat).toHaveBeenCalledTimes(41)
+    expect(heartbeat).toHaveBeenCalledTimes(21)
 
     // …and not at all after.
     wait(1)
     wait(30 * 60_000)
-    expect(heartbeat).toHaveBeenCalledTimes(41)
+    expect(heartbeat).toHaveBeenCalledTimes(21)
     // The last beat runs out on its own: leaving would also take someone
     // offline whose other tab is still in use.
     expect(leaveViaBeacon).not.toHaveBeenCalled()
@@ -126,7 +126,7 @@ describe('usePresenceHeartbeat', () => {
     expect(heartbeat).toHaveBeenCalledTimes(1)
     expect(heartbeat).toHaveBeenLastCalledWith('active')
 
-    wait(15_000)
+    wait(30_000)
     expect(heartbeat).toHaveBeenCalledTimes(2)
   })
 
@@ -140,7 +140,7 @@ describe('usePresenceHeartbeat', () => {
 
     // Out of view for eighteen minutes in all, but never ten on end.
     const beats = vi.mocked(heartbeat).mock.calls.length
-    wait(15_000)
+    wait(30_000)
     expect(heartbeat).toHaveBeenCalledTimes(beats + 1)
   })
 
