@@ -1,10 +1,12 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { renderHook } from '@testing-library/react'
-import usePresenceHeartbeat from './usePresenceHeartbeat'
+import { afterEach, beforeEach, describe, expect, it, vi, type MockInstance } from 'vitest'
+import { act, renderHook } from '@testing-library/react'
+import usePresenceHeartbeat, { STOP_AFTER_HIDDEN_MS } from './usePresenceHeartbeat'
 import { heartbeat, leaveViaBeacon } from '../services/api/presence'
 import type { IdleState } from '../utils/baseTypes'
 
 let idle: IdleState = 'active'
+let visibility: DocumentVisibilityState = 'visible'
+let visibilitySpy: MockInstance
 
 vi.mock('./useIdleState', () => ({ useIdleState: () => idle }))
 vi.mock('../services/api/presence', () => ({
@@ -13,15 +15,27 @@ vi.mock('../services/api/presence', () => ({
   leaveViaBeacon: vi.fn(),
 }))
 
+const wait = (ms: number) => act(() => void vi.advanceTimersByTime(ms))
+
+/** The tab going out of view (another tab in front) or back into it. */
+const setVisibility = (next: DocumentVisibilityState) =>
+  act(() => {
+    visibility = next
+    document.dispatchEvent(new Event('visibilitychange'))
+  })
+
 beforeEach(() => {
   vi.useFakeTimers()
   idle = 'active'
+  visibility = 'visible'
+  visibilitySpy = vi.spyOn(document, 'visibilityState', 'get').mockImplementation(() => visibility)
   vi.mocked(heartbeat).mockClear()
   vi.mocked(leaveViaBeacon).mockClear()
 })
 
 afterEach(() => {
   vi.useRealTimers()
+  visibilitySpy.mockRestore()
 })
 
 describe('usePresenceHeartbeat', () => {
@@ -76,5 +90,67 @@ describe('usePresenceHeartbeat', () => {
     vi.advanceTimersByTime(60_000)
 
     expect(heartbeat).not.toHaveBeenCalled()
+  })
+
+  it('stops beating once the tab has been out of view for ten minutes, without leaving', () => {
+    renderHook(() => usePresenceHeartbeat(true))
+    wait(5_000)
+    setVisibility('hidden')
+
+    // Still beating just before the ten minutes are up: the first beat and
+    // one every fifteen seconds since…
+    wait(STOP_AFTER_HIDDEN_MS - 1)
+    expect(heartbeat).toHaveBeenCalledTimes(41)
+
+    // …and not at all after.
+    wait(1)
+    wait(30 * 60_000)
+    expect(heartbeat).toHaveBeenCalledTimes(41)
+    // The last beat runs out on its own: leaving would also take someone
+    // offline whose other tab is still in use.
+    expect(leaveViaBeacon).not.toHaveBeenCalled()
+  })
+
+  it('beats at once when the tab is back, saying it’s in use, and only once', () => {
+    const { rerender } = renderHook(() => usePresenceHeartbeat(true))
+    setVisibility('hidden')
+    idle = 'away'
+    rerender()
+    wait(STOP_AFTER_HIDDEN_MS)
+    vi.mocked(heartbeat).mockClear()
+
+    // Coming back into view counts as a touch, so it's active again in the
+    // same render the beat restarts in.
+    idle = 'active'
+    setVisibility('visible')
+    expect(heartbeat).toHaveBeenCalledTimes(1)
+    expect(heartbeat).toHaveBeenLastCalledWith('active')
+
+    wait(15_000)
+    expect(heartbeat).toHaveBeenCalledTimes(2)
+  })
+
+  it('starts the ten minutes over each time the tab is back in view', () => {
+    renderHook(() => usePresenceHeartbeat(true))
+    setVisibility('hidden')
+    wait(STOP_AFTER_HIDDEN_MS - 60_000)
+    setVisibility('visible')
+    setVisibility('hidden')
+    wait(STOP_AFTER_HIDDEN_MS - 60_000)
+
+    // Out of view for eighteen minutes in all, but never ten on end.
+    const beats = vi.mocked(heartbeat).mock.calls.length
+    wait(15_000)
+    expect(heartbeat).toHaveBeenCalledTimes(beats + 1)
+  })
+
+  it('counts the ten minutes from the start for a tab opened out of view', () => {
+    visibility = 'hidden'
+    renderHook(() => usePresenceHeartbeat(true))
+    wait(STOP_AFTER_HIDDEN_MS)
+
+    const beats = vi.mocked(heartbeat).mock.calls.length
+    wait(60_000)
+    expect(heartbeat).toHaveBeenCalledTimes(beats)
   })
 })
