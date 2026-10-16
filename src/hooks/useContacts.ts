@@ -1,12 +1,12 @@
 import { useQuery } from '@tanstack/react-query'
 import { getContacts } from '../services/api/contacts'
 
+/** The viewer's contacts. Their presence is pushed (useUserChannel), so
+ * nothing polls. */
 const useContacts = () =>
   useQuery({
     queryKey: ['contacts'],
     queryFn: getContacts,
-    // Online status has no realtime push, so poll at the heartbeat cadence.
-    refetchInterval: 15000,
   })
 
 export default useContacts
