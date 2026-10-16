@@ -8,7 +8,7 @@ import { AuthContext, type AuthContextType } from './useAuth'
 import { settingsKey, DEFAULT_SETTINGS } from './useSettings'
 import { forgetTyping, useListTyping } from './useListTyping'
 import { playMessageTone, showMessageNotification } from '../utils/alerts'
-import type { ConversationType, MessageType } from '../utils/baseTypes'
+import type { ContactType, ConversationType, MessageType } from '../utils/baseTypes'
 
 const echo = vi.hoisted(() => {
   const handlers: Record<string, (payload: unknown) => void> = {}
@@ -19,7 +19,16 @@ const echo = vi.hoisted(() => {
     },
     stopListening: () => channel,
   }
-  return { handlers, instance: { private: () => channel, leave: () => {} } }
+  // The socket's state, and whoever is told when it changes.
+  const connection: { status: string; onChange: (status: string) => void } = { status: 'connecting', onChange: () => {} }
+  const connector = {
+    connectionStatus: () => connection.status,
+    onConnectionChange: (listener: (status: string) => void) => {
+      connection.onChange = listener
+      return () => {}
+    },
+  }
+  return { handlers, connection, instance: { private: () => channel, leave: () => {}, connector } }
 })
 
 vi.mock('./useEcho', () => ({ default: () => echo.instance }))
@@ -196,5 +205,81 @@ describe('useUserChannel — who’s typing, for the chat list', () => {
     view.unmount()
 
     expect(other.current).toEqual([])
+  })
+})
+
+describe('useUserChannel — presence, pushed', () => {
+  const people = () => ({
+    direct: conversation('open', { other_participant: { id: 'jo', name: 'Jo', is_online: false, presence_status: 'offline' as const } }),
+    group: conversation('team', {
+      type: 'group',
+      title: 'Team',
+      other_participant: null,
+      participants: [
+        { user_id: 'jo', name: 'Jo', role: 'participant', is_online: false, presence_status: 'offline' as const },
+        { user_id: 'sam', name: 'Sam', role: 'participant', is_online: true, presence_status: 'online' as const },
+      ],
+    }),
+    elsewhere: conversation('other', { other_participant: { id: 'sam', name: 'Sam', is_online: true, presence_status: 'online' as const } }),
+  })
+
+  const conversations = () => client.getQueryData<{ data: ConversationType[] }>(['conversations'])!.data
+  const contacts = () => client.getQueryData<ContactType[]>(['contacts'])!
+  const push = (change: { user_id: string; presence_status: 'online' | 'away' | 'offline'; is_online: boolean }) =>
+    act(() => echo.handlers.PresenceChanged?.(change))
+
+  beforeEach(() => {
+    const { direct, group, elsewhere } = people()
+    client.setQueryData(['conversations'], { data: [direct, group, elsewhere] })
+    client.setQueryData(['contacts'], [
+      { id: 'jo', name: 'Jo', is_online: false, presence_status: 'offline' },
+      { id: 'sam', name: 'Sam', is_online: true, presence_status: 'online' },
+    ])
+    echo.connection.status = 'connecting'
+  })
+
+  it('shows a change at once wherever the person is, and leaves everyone else as they were', () => {
+    render()
+    const [, , samsChat] = conversations()
+    const sam = contacts()[1]
+
+    push({ user_id: 'jo', presence_status: 'away', is_online: true })
+
+    const [direct, group, elsewhere] = conversations()
+    expect(direct.other_participant).toMatchObject({ id: 'jo', presence_status: 'away', is_online: true })
+    expect(group.participants?.[0]).toMatchObject({ user_id: 'jo', presence_status: 'away', is_online: true })
+    expect(group.participants?.[1]).toMatchObject({ user_id: 'sam', presence_status: 'online' })
+    expect(contacts()[0]).toMatchObject({ id: 'jo', presence_status: 'away', is_online: true })
+    expect(elsewhere).toBe(samsChat)
+    expect(contacts()[1]).toBe(sam)
+  })
+
+  it('asks for the lists again when someone goes offline, for when they were last seen', () => {
+    render()
+    const invalidate = vi.spyOn(client, 'invalidateQueries')
+
+    push({ user_id: 'jo', presence_status: 'online', is_online: true })
+    expect(invalidate).not.toHaveBeenCalled()
+
+    push({ user_id: 'jo', presence_status: 'offline', is_online: false })
+    expect(invalidate).toHaveBeenCalledWith({ queryKey: ['conversations'] })
+    expect(invalidate).toHaveBeenCalledWith({ queryKey: ['contacts'] })
+  })
+
+  it('asks for the lists again once a dropped connection is back, not after the first connect', () => {
+    render()
+    const invalidate = vi.spyOn(client, 'invalidateQueries')
+
+    // The page's first connect goes through connecting too.
+    act(() => echo.connection.onChange('connecting'))
+    act(() => echo.connection.onChange('connected'))
+    expect(invalidate).not.toHaveBeenCalled()
+
+    act(() => echo.connection.onChange('connecting'))
+    act(() => echo.connection.onChange('connecting'))
+    act(() => echo.connection.onChange('connected'))
+    expect(invalidate).toHaveBeenCalledWith({ queryKey: ['conversations'] })
+    expect(invalidate).toHaveBeenCalledWith({ queryKey: ['contacts'] })
+    expect(invalidate).toHaveBeenCalledTimes(2)
   })
 })

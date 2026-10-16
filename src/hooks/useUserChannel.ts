@@ -6,6 +6,7 @@ import type { ConversationType, MessageType } from '../utils/baseTypes'
 import { conversationTitle, patchConversationInCache } from '../utils/conversations'
 import { isViewing } from '../utils/viewing'
 import { playMessageTone, showMessageNotification, unlockAudio } from '../utils/alerts'
+import { applyPresenceChange, type PresenceChange } from '../utils/presence'
 import { currentSettings } from './useSettings'
 import { forgetTyping, noteTyping, stopTyping } from './useListTyping'
 import useEcho from './useEcho'
@@ -23,6 +24,11 @@ type ConversationsResponse = { data: ConversationType[] }
  * listener on the channel and left it — so closing a conversation silently
  * cut the list off from live updates until the next poll. One owner, for
  * as long as the person is signed in.
+ *
+ * It's where everyone else's presence arrives too: a change (online, away,
+ * back, offline) is pushed the moment it happens, so nothing polls for it.
+ * Whatever was pushed while the connection was down is asked for once it's
+ * back.
  *
  * It's also where a message gets someone's attention (Settings
  * "Notifications"): a tone if they're not looking at that conversation, a
@@ -124,6 +130,33 @@ export default function useUserChannel() {
       .listen('TypingIndicator', ({ conversation_id, user_id, name }: { conversation_id: string; user_id: string; name: string }) => {
         if (user_id !== user.id) noteTyping(conversation_id, user_id, name)
       })
+      .listen('PresenceChanged', (change: PresenceChange) => {
+        applyPresenceChange(queryClient, change)
+        // "Last seen" depends on who's asking (their settings and the
+        // viewer's), so the server works it out: asked for, not pushed.
+        if (change.presence_status === 'offline') {
+          void queryClient.invalidateQueries({ queryKey: ['conversations'] })
+          void queryClient.invalidateQueries({ queryKey: ['contacts'] })
+        }
+      })
+
+    // Nothing reaches a dropped connection, and nothing polls to make up for
+    // it: messages, membership, anyone coming or going. So once it's back,
+    // ask for the lists again. Not after the first connect of a page load,
+    // which they were just fetched for.
+    let wasConnected = echo.connector.connectionStatus() === 'connected'
+    let missedSome = false
+    const stopWatchingConnection = echo.connector.onConnectionChange((status) => {
+      if (status !== 'connected') {
+        missedSome = wasConnected
+        return
+      }
+      wasConnected = true
+      if (!missedSome) return
+      missedSome = false
+      void queryClient.invalidateQueries({ queryKey: ['conversations'] })
+      void queryClient.invalidateQueries({ queryKey: ['contacts'] })
+    })
 
     return () => {
       channel.stopListening('MessageSent')
@@ -131,6 +164,8 @@ export default function useUserChannel() {
       channel.stopListening('ConversationDeleted')
       channel.stopListening('ConversationPreferencesUpdated')
       channel.stopListening('TypingIndicator')
+      channel.stopListening('PresenceChanged')
+      stopWatchingConnection()
       echo.leave(`App.Models.User.${user.id}`)
       forgetTyping()
     }

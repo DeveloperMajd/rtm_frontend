@@ -2,7 +2,10 @@ import { useEffect, useRef, useState } from 'react'
 import * as presenceApi from '../services/api/presence'
 import { useIdleState } from './useIdleState'
 
-const HEARTBEAT_INTERVAL_MS = 15000
+/** Only how a tab that's gone without saying so is noticed: everything else
+ * (online, away, back, closing) is told the moment it happens, so a beat
+ * just keeps the 90-second key alive. Three beats fit in it. */
+const HEARTBEAT_INTERVAL_MS = 30_000
 
 /** How long a tab can stay out of view before it stops beating. It has been
  * away for five of those minutes already (useIdleState), so this is the step

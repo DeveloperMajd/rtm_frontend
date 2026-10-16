@@ -47,7 +47,9 @@ board by board for desktop, tablet and phone.
   without a touch in any of its tabs, and back at the next one. A tab left
   in the background for ten minutes stops checking in with the server, so
   you show as offline unless another tab of the app still checks in, and
-  it checks in again the moment you come back to it.
+  it checks in again the moment you come back to it. Everyone's dot
+  changes the moment their status does: the server pushes each change over
+  the WebSocket, so nothing polls for it.
 - **Search**: a ⌘K / Ctrl+K palette with recent searches, results grouped
   by conversation and the matching words marked. A result opens at the
   message itself. Inside a conversation, the palette can search just that

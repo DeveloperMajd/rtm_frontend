@@ -1,7 +1,7 @@
 import api from './axios'
 import type { IdleState } from '../../utils/baseTypes'
 
-/** Online for the next 30 seconds: using the app, or away from it. */
+/** Online for the next 90 seconds: using the app, or away from it. */
 const heartbeat = async (state: IdleState = 'active'): Promise<void> => {
   await api.post('/presence/heartbeat', { state })
 }
