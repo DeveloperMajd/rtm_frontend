@@ -44,7 +44,10 @@ board by board for desktop, tablet and phone.
   filled when they're online, half-filled when they're away, a hollow
   ring when they're offline. Under their name it says "Online", "Away", or
   when they were last seen. You're away once the app has gone five minutes
-  without a touch in any of its tabs, and back at the next one.
+  without a touch in any of its tabs, and back at the next one. A tab left
+  in the background for ten minutes stops checking in with the server, so
+  you show as offline unless another tab of the app still checks in, and
+  it checks in again the moment you come back to it.
 - **Search**: a ⌘K / Ctrl+K palette with recent searches, results grouped
   by conversation and the matching words marked. A result opens at the
   message itself. Inside a conversation, the palette can search just that
