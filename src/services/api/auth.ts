@@ -51,4 +51,30 @@ const resetPassword = async (payload: {
   await api.post('/auth/reset-password', payload)
 }
 
-export { login, logout, register, me, oauthRedirectUrl, forgotPassword, resetPassword }
+/** The parts of an emailed confirmation link (see VerifyEmailPage). */
+export type VerificationLink = { id: string; hash: string; expires: string; signature: string }
+
+/** Posts the link back for the account signed in: it only confirms the
+ * address of the account it was sent to. */
+const verifyEmail = async ({ id, hash, expires, signature }: VerificationLink): Promise<void> => {
+  await api.post(`/auth/email/verify/${encodeURIComponent(id)}/${encodeURIComponent(hash)}`, null, {
+    params: { expires, signature },
+  })
+}
+
+/** Emails another confirmation link (nothing once the address is confirmed). */
+const sendVerificationLink = async (): Promise<void> => {
+  await api.post('/auth/email/verification-notification')
+}
+
+export {
+  login,
+  logout,
+  register,
+  me,
+  oauthRedirectUrl,
+  forgotPassword,
+  resetPassword,
+  verifyEmail,
+  sendVerificationLink,
+}

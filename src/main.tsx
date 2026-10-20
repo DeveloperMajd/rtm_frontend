@@ -25,6 +25,7 @@ const ForgotPasswordPage = lazy(() => import('./pages/ForgotPasswordPage.tsx'))
 const ResetPasswordPage = lazy(() => import('./pages/ResetPasswordPage.tsx'))
 const ProfilePage = lazy(() => import('./pages/ProfilePage.tsx'))
 const SettingsPage = lazy(() => import('./pages/SettingsPage.tsx'))
+const VerifyEmailPage = lazy(() => import('./pages/VerifyEmailPage.tsx'))
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -60,6 +61,9 @@ const router = createBrowserRouter([
           // A copied message link (Copy link). Signed in, it opens the
           // conversation at the message; signed out, it waits for sign-in.
           { path: '/c/:conversationId/m/:messageId', element: <MessageLinkPage /> },
+          // The emailed link that confirms the address. Signed in to open
+          // it: signed out, it waits for sign-in like any other page here.
+          { path: '/verify-email', element: withSuspense(<VerifyEmailPage />) },
           {
             // The rail, search and presence stay mounted moving between Chats
             // and Settings.
