@@ -11,6 +11,9 @@ export type UserType = {
   id: string
   name: string
   email: string
+  /** Null until the address is confirmed. An API from before email
+   * verification leaves it out, and that isn't "unconfirmed". */
+  email_verified_at?: string | null
   avatar_url?: string | null
   bio?: string | null
   is_online?: boolean

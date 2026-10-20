@@ -1,10 +1,11 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { Link, useLocation } from 'react-router-dom'
 import { useMutation } from '@tanstack/react-query'
 import Button from '../components/ui/Button'
 import Icon from '../components/ui/Icon'
 import Input from '../components/ui/Input'
 import AuthLayout, { AuthBanner, AuthHeader } from '../components/auth/AuthLayout'
+import { clock, useCountdown } from '../hooks/useCountdown'
 import { forgotPassword } from '../services/api/auth'
 import { fieldErrors, statusOf } from '../utils/authErrors'
 
@@ -12,31 +13,6 @@ import { fieldErrors, statusOf } from '../utils/authErrors'
 // within 60 s (config/auth.php `throttle`) — it just quietly doesn't. So
 // "Resend" waits that long too, rather than offering a send that won't come.
 const RESEND_AFTER_S = 60
-
-/** A countdown in whole seconds: `start(n)` sets it going, and it ticks
- * down from the clock (so a throttled background tab still ends on time). */
-function useCountdown(): [number, (seconds: number) => void] {
-  const [endsAt, setEndsAt] = useState<number | null>(null)
-  const [left, setLeft] = useState(0)
-
-  useEffect(() => {
-    if (endsAt === null) return
-    const interval = setInterval(() => {
-      const remaining = Math.max(0, Math.ceil((endsAt - Date.now()) / 1000))
-      setLeft(remaining)
-      if (remaining === 0) clearInterval(interval)
-    }, 1000)
-    return () => clearInterval(interval)
-  }, [endsAt])
-
-  const start = (seconds: number) => {
-    setEndsAt(Date.now() + seconds * 1000)
-    setLeft(seconds)
-  }
-  return [left, start]
-}
-
-const clock = (seconds: number) => `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, '0')}`
 
 /** Auth-Recovery-Flow 1 and 2: ask for the email, then "Check your email",
  * with a resend that unlocks after the cooldown. */

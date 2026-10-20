@@ -3,10 +3,11 @@ import { Navigate, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import useAuth from '../hooks/useAuth'
 import BootScreen from '../components/ui/BootScreen'
 import SessionExpiredDialog from '../components/auth/SessionExpiredDialog'
+import VerifyEmailScreen from '../components/auth/VerifyEmailScreen'
 import { takeReturnPath } from '../utils/returnPath'
 
 const RequireAuth = () => {
-  const { isAuthenticated, isLoading, signedOutByChoice } = useAuth()
+  const { user, isAuthenticated, isLoading, signedOutByChoice } = useAuth()
   const location = useLocation()
 
   // States-Loading "App boot": the session is being checked.
@@ -25,6 +26,19 @@ const RequireAuth = () => {
         replace
         state={signedOutByChoice ? null : { from: `${location.pathname}${location.search}` }}
       />
+    )
+  }
+
+  // Signed in with an address that isn't confirmed yet: nothing but "Check
+  // your email" until it is, except the page its link opens. Only null
+  // means unconfirmed: an API from before email verification leaves the
+  // field out, and that's no reason to stop anyone.
+  if (user?.email_verified_at === null && location.pathname !== '/verify-email') {
+    return (
+      <>
+        <VerifyEmailScreen />
+        <SessionExpiredDialog />
+      </>
     )
   }
 

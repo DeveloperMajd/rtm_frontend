@@ -14,6 +14,7 @@ import MessageLinkPage from '../pages/MessageLinkPage'
 import * as authApi from '../services/api/auth'
 import { notifySessionExpired } from '../services/api/sessionEvents'
 import { saveDraft } from '../utils/drafts'
+import { linkSentAt } from '../utils/verificationLink'
 import type { ConversationType } from '../utils/baseTypes'
 
 vi.mock('../services/api/auth', () => ({
@@ -330,6 +331,22 @@ describe('a message link opened while signed out', () => {
     await user.click(screen.getByRole('button', { name: 'Create account' }))
 
     expect(await screen.findByText('At /conversations/c1?message=m1')).toBeInTheDocument()
+  })
+
+  // So "Check your email" doesn't send a second link straight away.
+  it('notes that signing up has just emailed the confirmation link', async () => {
+    const user = userEvent.setup()
+    vi.mocked(authApi.me).mockRejectedValue(httpError(401))
+    vi.mocked(authApi.register).mockResolvedValue(me)
+    renderAt('/register')
+
+    await user.type(await screen.findByLabelText('Name'), 'Majd')
+    await user.type(screen.getByLabelText('Email'), 'majd@example.com')
+    await user.type(screen.getByLabelText('Password'), 'Secret_123!')
+    await user.type(screen.getByLabelText('Confirm password'), 'Secret_123!')
+    await user.click(screen.getByRole('button', { name: 'Create account' }))
+
+    await waitFor(() => expect(linkSentAt(me.id)).not.toBeNull())
   })
 
   // Google can't carry the link there and back: the server brings everyone

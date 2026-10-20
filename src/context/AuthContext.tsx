@@ -7,6 +7,7 @@ import * as presenceApi from '../services/api/presence'
 import { primeCsrf } from '../services/api/csrf'
 import { onSessionExpired } from '../services/api/sessionEvents'
 import { clearDrafts } from '../utils/drafts'
+import { rememberLinkSent } from '../utils/verificationLink'
 import type { UserType } from '../utils/baseTypes'
 
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
@@ -99,6 +100,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const register = async (name: string, email: string, password: string, password_confirmation: string) => {
     await primeCsrf()
     const registeredUser = await authApi.register(name, email, password, password_confirmation)
+    // Signing up has just emailed the confirmation link.
+    rememberLinkSent(registeredUser.id)
     queryClient.clear()
     setRejected(false)
     setSignedOutByChoice(false)

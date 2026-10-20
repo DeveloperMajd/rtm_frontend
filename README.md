@@ -101,7 +101,10 @@ board by board for desktop, tablet and phone.
   sent it and when. Someone who left a group sees what was sent while
   they were in it.
 - **Account**: sign-in, registration with a live password-rules checklist,
-  password reset, and Google sign-in. The profile page has an avatar
+  an emailed link that confirms the address before the app opens ("Check
+  your email", with resend; the link's page says "Email confirmed", and a
+  tab still waiting carries on by itself), password reset, and Google
+  sign-in. The profile page has an avatar
   upload and a bio, which anyone you share a chat with sees in your
   contact panel, under your name.
 - **Settings**:
