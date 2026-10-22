@@ -1,23 +1,20 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import useEcho from './useEcho'
+import { listenToRoom } from '../utils/roomEvents'
 import useAuth from './useAuth'
 
 const useTypingIndicator = (conversationId: string, enabled = true): string | null => {
-  const echo = useEcho()
   const { user: currentUser } = useAuth()
   const [typingUsers, setTypingUsers] = useState<Map<string, string>>(new Map())
   const timers = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map())
 
   useEffect(() => {
-    // A left/kicked member can no longer subscribe to this channel (rejected
-    // by routes/channels.php) — don't even try.
+    // A left/kicked member isn't sent anyone's typing any more — nothing to
+    // listen for.
     if (!enabled) return
 
-    const channel = echo.private(`conversation.${conversationId}`)
-
-    channel.listen(
-      'TypingIndicator',
-      ({ user_id, name }: { user_id: string; name: string }) => {
+    // Handed over by useUserChannel, from the viewer's own channel.
+    const stopListening = listenToRoom(conversationId, {
+      TypingIndicator: ({ user_id, name }) => {
         if (user_id === currentUser?.id) return
 
         setTypingUsers((prev) => new Map(prev).set(user_id, name))
@@ -36,14 +33,14 @@ const useTypingIndicator = (conversationId: string, enabled = true): string | nu
 
         timers.current.set(user_id, timer)
       },
-    )
+    })
 
     return () => {
-      channel.stopListening('TypingIndicator')
+      stopListening()
       timers.current.forEach(clearTimeout)
       timers.current.clear()
     }
-  }, [conversationId, echo, currentUser?.id, enabled])
+  }, [conversationId, currentUser?.id, enabled])
 
   return useMemo(() => {
     const names = Array.from(typingUsers.values())

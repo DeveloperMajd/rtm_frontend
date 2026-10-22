@@ -7,29 +7,12 @@ import { AuthContext, type AuthContextType } from './useAuth'
 import { getMessagesPage, type MessagesPageParam } from '../services/api/messages'
 import { markConversationAsRead, type ReadPointer } from '../services/api/conversations'
 import { messageInfoKey, readPointersKey } from '../utils/readReceipts'
+import { tellRoom, type RoomEvents } from '../utils/roomEvents'
 import { sharedMediaKey } from './useSharedMedia'
 import { DEFAULT_SETTINGS, settingsKey } from './useSettings'
 import type { MessageType } from '../utils/baseTypes'
 import type { MessagesPage } from '../utils/messagePages'
 
-// A stand-in for the conversation's Echo channel: the test plays the
-// server's broadcasts through `broadcast`.
-const echo = vi.hoisted(() => {
-  const handlers: Record<string, (payload: unknown) => void> = {}
-  const channel = {
-    listen: (event: string, handler: (payload: unknown) => void) => {
-      handlers[event] = handler
-      return channel
-    },
-    stopListening: () => channel,
-  }
-  return {
-    handlers,
-    instance: { private: () => channel, leave: () => {} },
-  }
-})
-
-vi.mock('./useEcho', () => ({ default: () => echo.instance }))
 vi.mock('../services/api/messages', () => ({ getMessagesPage: vi.fn() }))
 vi.mock('../services/api/conversations', () => ({ markConversationAsRead: vi.fn(() => Promise.resolve()) }))
 
@@ -46,11 +29,12 @@ const msg = (id: string): MessageType => ({
   updated_at: '2026-01-01T10:00:00Z',
 })
 
-/** Plays a broadcast, then lets React Query deliver the cache change (it
- * notifies observers on a timeout, not synchronously). */
-const broadcast = async (event: string, payload: unknown) => {
+/** Plays a broadcast as useUserChannel hands it to the open room, then lets
+ * React Query deliver the cache change (it notifies observers on a timeout,
+ * not synchronously). */
+const broadcast = async <Event extends keyof RoomEvents>(event: Event, payload: RoomEvents[Event], conversationId = 'c1') => {
   await act(async () => {
-    echo.handlers[event]?.(payload)
+    tellRoom(conversationId, event, payload)
     await new Promise((resolve) => setTimeout(resolve, 10))
   })
 }
@@ -96,7 +80,6 @@ beforeEach(() => {
   client = new QueryClient()
   fetchPage.mockReset()
   vi.mocked(markConversationAsRead).mockClear()
-  for (const event of Object.keys(echo.handlers)) delete echo.handlers[event]
   tabVisible = true
   windowFocused = true
   vi.spyOn(document, 'hasFocus').mockImplementation(() => windowFocused)
@@ -191,6 +174,38 @@ describe('useMessages — the newest messages', () => {
 
     expect(ids(result.current.messages)).toEqual(['m1', 'm2'])
   })
+
+  it('takes no notice of another conversation’s messages', async () => {
+    serve({ latest: { data: [msg('m1')], meta: { has_more: false, next_before_id: null } } })
+
+    const { result } = renderHook(() => useMessages('c1'), { wrapper })
+    await waitFor(() => expect(ids(result.current.messages)).toEqual(['m1']))
+
+    await broadcast('MessageSent', { ...msg('m2'), conversation_id: 'c2' }, 'c2')
+
+    expect(ids(result.current.messages)).toEqual(['m1'])
+  })
+
+  // The server stops sending a removed member the group's events; the room
+  // stops listening for them too, and shows the history as it was.
+  it('stops hearing the conversation once the viewer has been removed', async () => {
+    serve({ latest: { data: [msg('m1')], meta: { has_more: false, next_before_id: null } } })
+
+    const { result, rerender } = renderHook(({ hasLeft }) => useMessages('c1', hasLeft), {
+      wrapper,
+      initialProps: { hasLeft: false },
+    })
+    await waitFor(() => expect(ids(result.current.messages)).toEqual(['m1']))
+
+    rerender({ hasLeft: true })
+    // The history is read once more as it freezes (see useMessages): settled
+    // first, so it can't be what drops a message wrongly added.
+    await waitFor(() => expect(fetchPage).toHaveBeenCalledTimes(2))
+    await waitFor(() => expect(result.current.isRefreshing).toBe(false))
+    await broadcast('MessageSent', msg('m2'))
+
+    expect(ids(result.current.messages)).toEqual(['m1'])
+  })
 })
 
 describe('useMessages — marking as read', () => {
@@ -276,7 +291,6 @@ describe('useMessages — marking as read', () => {
     const pointers: ReadPointer[] = [{ user_id: 'jo', last_read_message_id: 'm0', last_read_at: null }]
     client.setQueryData(readPointersKey('c1'), pointers)
     renderHook(() => useMessages('c1'), { wrapper })
-    await waitFor(() => expect(echo.handlers.ConversationRead).toBeDefined())
 
     await broadcast('ConversationRead', { user_id: 'jo', last_read_message_id: 'm1', last_read_at: '2026-09-30T10:00:00Z' })
 
@@ -292,7 +306,6 @@ describe('useMessages — marking as read', () => {
     client.setQueryData([...messageInfoKey('c1'), 'm1'], { read_by: [], not_read: [] })
     client.setQueryData([...messageInfoKey('c2'), 'm9'], { read_by: [], not_read: [] })
     renderHook(() => useMessages('c1'), { wrapper })
-    await waitFor(() => expect(echo.handlers.ConversationRead).toBeDefined())
 
     await broadcast('ConversationRead', { user_id: 'jo', last_read_message_id: 'm1', last_read_at: '2026-09-30T10:00:00Z' })
 
@@ -309,7 +322,6 @@ it('ignores others’ reads while the viewer doesn’t share their own', async (
   client.setQueryData(readPointersKey('c1'), pointers)
   client.setQueryData(settingsKey, { ...DEFAULT_SETTINGS, read_receipts: false })
   renderHook(() => useMessages('c1'), { wrapper })
-  await waitFor(() => expect(echo.handlers.ConversationRead).toBeDefined())
 
   client.setQueryData([...messageInfoKey('c1'), 'm1'], { read_by: null, not_read: null })
   await broadcast('ConversationRead', { user_id: 'jo', last_read_message_id: 'm1', last_read_at: '2026-09-30T10:00:00Z' })
@@ -331,7 +343,6 @@ describe('useMessages — shared media', () => {
   it('has it read again when photos or files arrive, and not for a plain message', async () => {
     serve({ latest: { data: [msg('m1')], meta: { has_more: false, next_before_id: null } } })
     renderHook(() => useMessages('c1'), { wrapper })
-    await waitFor(() => expect(echo.handlers.MessageSent).toBeDefined())
     seed()
 
     await broadcast('MessageSent', msg('m2'))
@@ -346,7 +357,6 @@ describe('useMessages — shared media', () => {
   it('has it read again when a message with photos is deleted, and not for an edit', async () => {
     serve({ latest: { data: [msg('m1')], meta: { has_more: false, next_before_id: null } } })
     renderHook(() => useMessages('c1'), { wrapper })
-    await waitFor(() => expect(echo.handlers.MessageUpdated).toBeDefined())
     seed()
 
     await broadcast('MessageUpdated', { ...msg('m1'), attachments_count: 2, edited_at: '2026-01-01T11:00:00Z' })

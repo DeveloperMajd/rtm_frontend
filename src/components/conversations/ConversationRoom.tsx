@@ -142,8 +142,8 @@ const ConversationRoomView = () => {
   // and waiting for the list would hold up every one of those. A refusal
   // before the list has said is nobody's error, though — a link into a
   // conversation they're not in gets the screen below, not "Couldn't open
-  // this conversation" or a failed jump's toast first. The live channel
-  // waits for it, as useMessages's own subscription does.
+  // this conversation" or a failed jump's toast first. Typing waits for it,
+  // as useMessages's live events do.
   const isKnown = conversation !== undefined
 
   const {
