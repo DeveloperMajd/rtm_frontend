@@ -1,12 +1,13 @@
 import { useEffect, useRef } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { useQueryClient } from '@tanstack/react-query'
-import type { ConversationPreferences } from '../services/api/conversations'
+import type { ConversationPreferences, ReadPointer } from '../services/api/conversations'
 import type { ConversationType, MessageType } from '../utils/baseTypes'
 import { conversationTitle, patchConversationInCache } from '../utils/conversations'
 import { isViewing } from '../utils/viewing'
 import { playMessageTone, showMessageNotification, unlockAudio } from '../utils/alerts'
 import { applyPresenceChange, type PresenceChange } from '../utils/presence'
+import { tellRoom } from '../utils/roomEvents'
 import { currentSettings } from './useSettings'
 import { forgetTyping, noteTyping, stopTyping } from './useListTyping'
 import useEcho from './useEcho'
@@ -18,6 +19,11 @@ type ConversationsResponse = { data: ConversationType[] }
  * The signed-in person's own channel: every message in any of their
  * conversations, who's typing in them, membership changes, deletions, and
  * their pin, mute and archive from other tabs. Subscribed once, by AppShell.
+ *
+ * It's the only channel there is. The open conversation's events (messages,
+ * edits, reactions, reads, typing) arrive here too and are handed to its
+ * room (utils/roomEvents): the server sends them only to whoever is a member
+ * when it sends them, so being removed from a group cuts them off at once.
  *
  * It used to be subscribed by every component that read the conversation
  * list (four of them on a chat screen), and each one's cleanup stopped every
@@ -97,17 +103,29 @@ export default function useUserChannel() {
     const channel = echo
       .private(`App.Models.User.${user.id}`)
       .listen('MessageSent', (message: MessageType) => {
+        tellRoom(message.conversation_id, 'MessageSent', message)
         alert(message)
         // Whoever was typing it has sent it.
         if (message.sender) stopTyping(message.conversation_id, message.sender.id)
 
-        // The open conversation's own subscription (useMessages) already
-        // owns this entry's cache updates, including the read receipt.
-        // Refetching here too would race with that and could clobber the
+        // The open room (useMessages, told just above) already owns this
+        // entry's cache updates, including the read receipt. Refetching
+        // here too would race with that and could clobber the
         // just-marked-read unread_count back to a stale non-zero value.
         if (message.conversation_id === openConversationIdRef.current) return
 
         void queryClient.invalidateQueries({ queryKey: ['conversations'] })
+      })
+      // For the open room only: an edit or deletion, a reaction, and how far
+      // someone has read (useMessages).
+      .listen('MessageUpdated', (message: MessageType) => {
+        tellRoom(message.conversation_id, 'MessageUpdated', message)
+      })
+      .listen('MessageReactionUpdated', (message: MessageType) => {
+        tellRoom(message.conversation_id, 'MessageReactionUpdated', message)
+      })
+      .listen('ConversationRead', ({ conversation_id, ...pointer }: ReadPointer & { conversation_id: string }) => {
+        tellRoom(conversation_id, 'ConversationRead', pointer)
       })
       .listen('ConversationParticipantsUpdated', () => {
         // Membership changes rarely fire and the payload doesn't carry
@@ -125,10 +143,12 @@ export default function useUserChannel() {
         patchConversationInCache(queryClient, conversation_id, rest)
       })
       // Someone typing in any of the viewer's conversations, for its row in
-      // the chat list (useListTyping). The open room shows it too, from the
-      // conversation's own channel.
+      // the chat list (useListTyping), and above the composer if it's the
+      // open room (useTypingIndicator).
       .listen('TypingIndicator', ({ conversation_id, user_id, name }: { conversation_id: string; user_id: string; name: string }) => {
-        if (user_id !== user.id) noteTyping(conversation_id, user_id, name)
+        if (user_id === user.id) return
+        noteTyping(conversation_id, user_id, name)
+        tellRoom(conversation_id, 'TypingIndicator', { user_id, name })
       })
       .listen('PresenceChanged', (change: PresenceChange) => {
         applyPresenceChange(queryClient, change)
@@ -160,6 +180,9 @@ export default function useUserChannel() {
 
     return () => {
       channel.stopListening('MessageSent')
+      channel.stopListening('MessageUpdated')
+      channel.stopListening('MessageReactionUpdated')
+      channel.stopListening('ConversationRead')
       channel.stopListening('ConversationParticipantsUpdated')
       channel.stopListening('ConversationDeleted')
       channel.stopListening('ConversationPreferencesUpdated')

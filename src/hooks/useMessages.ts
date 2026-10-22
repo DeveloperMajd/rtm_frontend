@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef } from 'react'
 import { useInfiniteQuery, useQueryClient } from '@tanstack/react-query'
 import { isAxiosError } from 'axios'
 import { getMessagesPage, type MessagesPageParam } from '../services/api/messages'
-import { markConversationAsRead, type ReadPointer } from '../services/api/conversations'
+import { markConversationAsRead } from '../services/api/conversations'
 import type { ConversationType, MessageType } from '../utils/baseTypes'
 import {
   appendMessageToCache,
@@ -13,7 +13,7 @@ import {
 import { applyReadPointer, messageInfoKey } from '../utils/readReceipts'
 import { sharedMediaKey } from './useSharedMedia'
 import { isViewing } from '../utils/viewing'
-import useEcho from './useEcho'
+import { listenToRoom } from '../utils/roomEvents'
 import useAuth from './useAuth'
 import { currentSettings } from './useSettings'
 
@@ -21,7 +21,7 @@ type ConversationsResponse = { data: ConversationType[] }
 
 interface UseMessagesOptions {
   /**
-   * Delay marking-as-read and the live Echo subscription until the
+   * Delay marking-as-read and listening for live events until the
    * conversations list has loaded. Without this, opening a conversation
    * directly (a fresh page load, not navigated to from an already-loaded
    * list) races the two: `readOnly` defaults to false while conversations
@@ -60,7 +60,6 @@ export const MARK_READ_DEBOUNCE_MS = 750
 const useMessages = (conversationId: string, readOnly = false, options: UseMessagesOptions = {}) => {
   const { deferUntilReady = false, enabled = true, anchor = null } = options
   const queryClient = useQueryClient()
-  const echo = useEcho()
   const viewerId = useAuth().user?.id
 
   const {
@@ -100,9 +99,9 @@ const useMessages = (conversationId: string, readOnly = false, options: UseMessa
     getPreviousPageParam: (firstPage): MessagesPageParam | undefined =>
       firstPage.meta.next_after_id ? { kind: 'newer', after: firstPage.meta.next_after_id } : undefined,
     retry: (failureCount, err) => !isGone(err) && failureCount < 1,
-    // This cache is only trustworthy while the Echo subscription below is
-    // live: that subscription is what keeps it current, and it's torn down
-    // the moment the room unmounts. Anything that arrives while the viewer
+    // This cache is only trustworthy while the room is listening for live
+    // events (below): that's what keeps it current, and it stops the moment
+    // the room unmounts. Anything that arrives while the viewer
     // is elsewhere lands in Postgres but never in this cache, so on the way
     // back in the cache is wrong however recently it was written — which the
     // app's global `staleTime: 30_000` would otherwise take as a reason NOT
@@ -171,9 +170,9 @@ const useMessages = (conversationId: string, readOnly = false, options: UseMessa
   }, [anchor])
 
   useEffect(() => {
-    // A left/kicked member's history is frozen server-side and this channel
-    // rejects their subscription anyway — nothing here can do anything for
-    // them, so skip marking-as-read and the (doomed) Echo subscription.
+    // A left/kicked member's history is frozen server-side, and the server
+    // no longer sends them this conversation's events — nothing here can do
+    // anything for them, so skip marking-as-read and listening.
     // deferUntilReady holds off the same two for a different reason — see
     // its own doc comment above.
     if (readOnly || deferUntilReady || !enabled) return
@@ -183,9 +182,9 @@ const useMessages = (conversationId: string, readOnly = false, options: UseMessa
       pendingLiveRef.current = pendingLiveRef.current.map((m) => (m.id === updated.id ? updated : m))
     }
 
-    const channel = echo
-      .private(`conversation.${conversationId}`)
-      .listen('MessageSent', (message: MessageType) => {
+    // Handed over by useUserChannel, from the viewer's own channel.
+    return listenToRoom(conversationId, {
+      MessageSent: (message) => {
         // Into the newest page of the window that reaches the newest
         // message, however many older pages have since been loaded; held
         // instead while this one doesn't reach it yet (see pendingLiveRef).
@@ -238,15 +237,14 @@ const useMessages = (conversationId: string, readOnly = false, options: UseMessa
             }
           },
         )
-
-      })
-      .listen('MessageReactionUpdated', (updatedMessage: MessageType) => {
+      },
+      MessageReactionUpdated: (updatedMessage) => {
         // A reaction can land on a message from any loaded page (not just
         // the newest one), in any cached window.
         replaceMessageInCache(queryClient, conversationId, updatedMessage)
         replacePending(updatedMessage)
-      })
-      .listen('MessageUpdated', (updatedMessage: MessageType) => {
+      },
+      MessageUpdated: (updatedMessage) => {
         // An edit or a delete (redaction), on any loaded page — including
         // the snapshot every reply holds of it (see patchMessageInCache).
         replaceMessageInCache(queryClient, conversationId, updatedMessage)
@@ -255,8 +253,8 @@ const useMessages = (conversationId: string, readOnly = false, options: UseMessa
         if (updatedMessage.deleted_at && updatedMessage.attachments_count) {
           void queryClient.invalidateQueries({ queryKey: sharedMediaKey(conversationId) })
         }
-      })
-      .listen('ConversationRead', (pointer: ReadPointer) => {
+      },
+      ConversationRead: (pointer) => {
         // Someone read further: "Sent" becomes "Seen" (see useReadPointers).
         // Not for a viewer who doesn't share their own read state: read
         // receipts work both ways, as the server's own list of pointers does.
@@ -265,16 +263,9 @@ const useMessages = (conversationId: string, readOnly = false, options: UseMessa
         // A "Message info" that's open lists who has seen a message: ask the
         // server again, since it's the one that knows who counts.
         void queryClient.invalidateQueries({ queryKey: messageInfoKey(conversationId) })
-      })
-
-    return () => {
-      channel.stopListening('MessageSent')
-      channel.stopListening('MessageReactionUpdated')
-      channel.stopListening('MessageUpdated')
-      channel.stopListening('ConversationRead')
-      echo.leave(`conversation.${conversationId}`)
-    }
-  }, [conversationId, echo, queryClient, readOnly, deferUntilReady, enabled, viewerId])
+      },
+    })
+  }, [conversationId, queryClient, readOnly, deferUntilReady, enabled, viewerId])
 
 
   // --- Marking as read ---

@@ -8,6 +8,7 @@ import { AuthContext, type AuthContextType } from './useAuth'
 import { settingsKey, DEFAULT_SETTINGS } from './useSettings'
 import { forgetTyping, useListTyping } from './useListTyping'
 import { playMessageTone, showMessageNotification } from '../utils/alerts'
+import { listenToRoom } from '../utils/roomEvents'
 import type { ContactType, ConversationType, MessageType } from '../utils/baseTypes'
 
 const echo = vi.hoisted(() => {
@@ -205,6 +206,65 @@ describe('useUserChannel — who’s typing, for the chat list', () => {
     view.unmount()
 
     expect(other.current).toEqual([])
+  })
+})
+
+// A conversation has no channel of its own: its events come on the viewer's,
+// and each is handed to that conversation's room.
+describe('useUserChannel — a conversation’s events, for its room', () => {
+  it('hands each one to the room of the conversation it’s about', () => {
+    const room = {
+      MessageSent: vi.fn(),
+      MessageUpdated: vi.fn(),
+      MessageReactionUpdated: vi.fn(),
+      ConversationRead: vi.fn(),
+      TypingIndicator: vi.fn(),
+    }
+    const stop = listenToRoom('team', room)
+    render()
+    const sent = message('team')
+
+    act(() => {
+      echo.handlers.MessageSent?.(sent)
+      echo.handlers.MessageUpdated?.({ ...sent, body: 'edited' })
+      echo.handlers.MessageReactionUpdated?.({ ...sent, reactions: [{ emoji: '👍' }] })
+      echo.handlers.ConversationRead?.({ conversation_id: 'team', user_id: 'jo', last_read_message_id: sent.id, last_read_at: null })
+      echo.handlers.TypingIndicator?.({ conversation_id: 'team', user_id: 'jo', name: 'Jo' })
+    })
+    stop()
+
+    expect(room.MessageSent).toHaveBeenCalledExactlyOnceWith(sent)
+    expect(room.MessageUpdated).toHaveBeenCalledExactlyOnceWith({ ...sent, body: 'edited' })
+    expect(room.MessageReactionUpdated).toHaveBeenCalledExactlyOnceWith({ ...sent, reactions: [{ emoji: '👍' }] })
+    // The pointer as the room keeps it: the room knows which conversation it is.
+    expect(room.ConversationRead).toHaveBeenCalledExactlyOnceWith({ user_id: 'jo', last_read_message_id: sent.id, last_read_at: null })
+    expect(room.TypingIndicator).toHaveBeenCalledExactlyOnceWith({ user_id: 'jo', name: 'Jo' })
+  })
+
+  it('tells another conversation’s room nothing', () => {
+    const open = { MessageSent: vi.fn(), ConversationRead: vi.fn() }
+    const stop = listenToRoom('open', open)
+    render()
+
+    act(() => {
+      echo.handlers.MessageSent?.(message('other'))
+      echo.handlers.ConversationRead?.({ conversation_id: 'other', user_id: 'jo', last_read_message_id: 'm1', last_read_at: null })
+    })
+    stop()
+
+    expect(open.MessageSent).not.toHaveBeenCalled()
+    expect(open.ConversationRead).not.toHaveBeenCalled()
+  })
+
+  it('never shows the viewer typing in the room, from another tab of theirs', () => {
+    const room = { TypingIndicator: vi.fn() }
+    const stop = listenToRoom('open', room)
+    render()
+
+    act(() => echo.handlers.TypingIndicator?.({ conversation_id: 'open', user_id: 'me', name: 'Me' }))
+    stop()
+
+    expect(room.TypingIndicator).not.toHaveBeenCalled()
   })
 })
 
