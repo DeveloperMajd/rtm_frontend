@@ -214,6 +214,11 @@ what actually authenticates private-channel subscriptions.
 **Vercel**, connected directly to this repo — push to `main` and it
 redeploys automatically, no separate CI file needed for that part.
 
+**CI**: `.github/workflows/ci.yml` runs `npm audit --omit=dev` on every
+push to `main` and every pull request: known advisories in what the app
+ships, not in the build tools. Vercel doesn't wait for it. Dependabot
+(`.github/dependabot.yml`) proposes npm updates weekly.
+
 Two things beyond the default Vite-project import:
 - `vercel.json` — a catch-all rewrite to `index.html`. Without it, a fresh
   page load on any route other than `/` (a direct link to `/register`, a

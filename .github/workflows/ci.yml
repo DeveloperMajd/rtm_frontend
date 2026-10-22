@@ -1,0 +1,24 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  # Known security advisories in what the app ships: the dependencies, not
+  # the build and test tools (devDependencies), read from package-lock.json
+  # without installing anything. Vercel deploys without waiting for it, so
+  # a red mark here is a reason to update before merging, not a stop.
+  audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Audit packages
+        run: npm audit --omit=dev
