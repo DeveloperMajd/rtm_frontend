@@ -18,6 +18,13 @@ export type RoomEvents = {
   MessageReactionUpdated: MessageType
   ConversationRead: ReadPointer
   TypingIndicator: { user_id: string; name: string }
+  /**
+   * The viewer's channel has subscribed: once the socket first connects, and
+   * again each time it comes back after dropping (`resumed`). Nothing sent
+   * before that came through it, so a room asks for what it may have missed.
+   * Told to every room (tellEveryRoom), whichever conversation it is.
+   */
+  Subscribed: { resumed: boolean }
 }
 
 export type RoomListeners = { [Event in keyof RoomEvents]?: (payload: RoomEvents[Event]) => void }
@@ -42,4 +49,9 @@ export function tellRoom<Event extends keyof RoomEvents>(
   for (const entry of listening) {
     if (entry.conversationId === conversationId) entry.listeners[event]?.(payload)
   }
+}
+
+/** Hands an event to every open room, whichever conversation it's in. */
+export function tellEveryRoom<Event extends keyof RoomEvents>(event: Event, payload: RoomEvents[Event]): void {
+  for (const entry of listening) entry.listeners[event]?.(payload)
 }

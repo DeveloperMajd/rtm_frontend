@@ -7,7 +7,7 @@ import { AuthContext, type AuthContextType } from './useAuth'
 import { getMessagesPage, type MessagesPageParam } from '../services/api/messages'
 import { markConversationAsRead, type ReadPointer } from '../services/api/conversations'
 import { messageInfoKey, readPointersKey } from '../utils/readReceipts'
-import { tellRoom, type RoomEvents } from '../utils/roomEvents'
+import { tellEveryRoom, tellRoom, type RoomEvents } from '../utils/roomEvents'
 import { sharedMediaKey } from './useSharedMedia'
 import { DEFAULT_SETTINGS, settingsKey } from './useSettings'
 import type { MessageType } from '../utils/baseTypes'
@@ -65,14 +65,20 @@ let tabVisible = true
 let windowFocused = true
 Object.defineProperty(document, 'visibilityState', { configurable: true, get: () => (tabVisible ? 'visible' : 'hidden') })
 
+/** Nothing newer than what the room holds: what catching up usually finds. */
+const NOTHING_NEWER: MessagesPage = { data: [], meta: { has_more: false, next_before_id: null, next_after_id: null } }
+
 /** Serves one conversation of m1…m9, with `newest` as its newest message. */
 function serve(pages: Partial<Record<MessagesPageParam['kind'], MessagesPage>>) {
   fetchPage.mockImplementation(async (_conversationId, param) => {
-    const page = pages[param.kind]
+    const page = pages[param.kind] ?? (param.kind === 'newer' ? NOTHING_NEWER : undefined)
     if (!page) throw new Error(`unexpected ${param.kind} read`)
     return page
   })
 }
+
+/** The reads of the newest page so far: the first, and each refetch. */
+const latestReads = () => fetchPage.mock.calls.filter(([, param]) => param.kind === 'latest')
 
 const ids = (messages: MessageType[]) => messages.map((m) => m.id)
 
@@ -200,7 +206,7 @@ describe('useMessages — the newest messages', () => {
     rerender({ hasLeft: true })
     // The history is read once more as it freezes (see useMessages): settled
     // first, so it can't be what drops a message wrongly added.
-    await waitFor(() => expect(fetchPage).toHaveBeenCalledTimes(2))
+    await waitFor(() => expect(latestReads()).toHaveLength(2))
     await waitFor(() => expect(result.current.isRefreshing).toBe(false))
     await broadcast('MessageSent', msg('m2'))
 
@@ -364,5 +370,122 @@ describe('useMessages — shared media', () => {
 
     await broadcast('MessageUpdated', { ...msg('m1'), attachments_count: 2, body: '', deleted_at: '2026-01-01T11:00:00Z' })
     expect(isStale('c1')).toBe(true)
+  })
+})
+
+// The stream only carries what happens while the room listens with its newest
+// page in hand; whatever was sent before that, or while the connection was
+// down, the room asks for.
+describe('useMessages — catching up on what the stream missed', () => {
+  const page = (messageIds: string[], nextAfter: string | null = null): MessagesPage => ({
+    data: messageIds.map(msg),
+    meta: { has_more: nextAfter !== null, next_before_id: null, next_after_id: nextAfter },
+  })
+  const newerReads = () => fetchPage.mock.calls.filter(([, param]) => param.kind === 'newer').map(([, param]) => param)
+  const unreadCount = () => client.getQueryData<{ data: { unread_count: number }[] }>(['conversations'])?.data[0].unread_count
+
+  it('takes in a message sent while its newest page was being read', async () => {
+    serve({ latest: page(['m1']), newer: page(['m2']) })
+    const { result } = renderHook(() => useMessages('c1'), { wrapper })
+
+    await waitFor(() => expect(ids(result.current.messages)).toEqual(['m1', 'm2']))
+    expect(newerReads()).toEqual([{ kind: 'newer', after: 'm1' }])
+  })
+
+  it('keeps reading until it has caught up', async () => {
+    fetchPage.mockImplementation(async (_conversationId, param) => {
+      if (param.kind === 'latest') return page(['m1'])
+      if (param.kind === 'newer' && param.after === 'm1') return page(['m2', 'm3'], 'm3')
+      if (param.kind === 'newer' && param.after === 'm3') return page(['m4'])
+      throw new Error(`unexpected ${param.kind} read`)
+    })
+    const { result } = renderHook(() => useMessages('c1'), { wrapper })
+
+    await waitFor(() => expect(ids(result.current.messages)).toEqual(['m1', 'm2', 'm3', 'm4']))
+  })
+
+  it('catches up when the connection comes back, and asks again who has read what', async () => {
+    serve({ latest: page(['m1']) })
+    client.setQueryData(readPointersKey('c1'), [])
+    client.setQueryData([...messageInfoKey('c1'), 'm1'], { read_by: [], not_read: [] })
+    const { result } = renderHook(() => useMessages('c1'), { wrapper })
+    await waitFor(() => expect(newerReads()).toHaveLength(1))
+
+    // Sent while the connection was down.
+    serve({ latest: page(['m1']), newer: page(['m2']) })
+    await act(async () => tellEveryRoom('Subscribed', { resumed: true }))
+
+    await waitFor(() => expect(ids(result.current.messages)).toEqual(['m1', 'm2']))
+    expect(client.getQueryState(readPointersKey('c1'))?.isInvalidated).toBe(true)
+    expect(client.getQueryState([...messageInfoKey('c1'), 'm1'])?.isInvalidated).toBe(true)
+  })
+
+  it('catches up on the channel’s first subscription too, without asking again who has read what', async () => {
+    serve({ latest: page(['m1']) })
+    client.setQueryData(readPointersKey('c1'), [])
+    const { result } = renderHook(() => useMessages('c1'), { wrapper })
+    await waitFor(() => expect(newerReads()).toHaveLength(1))
+
+    serve({ latest: page(['m1']), newer: page(['m2']) })
+    await act(async () => tellEveryRoom('Subscribed', { resumed: false }))
+
+    await waitFor(() => expect(ids(result.current.messages)).toEqual(['m1', 'm2']))
+    expect(client.getQueryState(readPointersKey('c1'))?.isInvalidated).toBe(false)
+  })
+
+  it('counts a message once that also came live while it was catching up', async () => {
+    client.setQueryData(['conversations'], { data: [{ id: 'c1', type: 'direct', unread_count: 0 }] })
+    let answer: (newer: MessagesPage) => void = () => {}
+    fetchPage.mockImplementation(async (_conversationId, param) => {
+      if (param.kind === 'latest') return page(['m1'])
+      if (param.kind === 'newer') return new Promise<MessagesPage>((resolve) => (answer = resolve))
+      throw new Error(`unexpected ${param.kind} read`)
+    })
+    tabVisible = false
+    const { result } = renderHook(() => useMessages('c1'), { wrapper })
+    await waitFor(() => expect(newerReads()).toHaveLength(1))
+
+    await broadcast('MessageSent', msg('m2'))
+    await act(async () => {
+      answer(page(['m2']))
+      await new Promise((resolve) => setTimeout(resolve, 10))
+    })
+
+    expect(ids(result.current.messages)).toEqual(['m1', 'm2'])
+    expect(unreadCount()).toBe(1)
+  })
+
+  it('leaves a window opened around a jump to read forwards by itself', async () => {
+    serve({ around: { data: [msg('m4'), msg('m5')], meta: { has_more: true, next_before_id: 'm4', next_after_id: 'm5' } } })
+    const { result } = renderHook(() => useMessages('c1', false, { anchor: 'm5' }), { wrapper })
+    await waitFor(() => expect(result.current.hasNewer).toBe(true))
+
+    await act(async () => tellEveryRoom('Subscribed', { resumed: true }))
+    await new Promise((resolve) => setTimeout(resolve, 20))
+
+    expect(newerReads()).toEqual([])
+  })
+
+  it('doesn’t catch up for a member who has left', async () => {
+    serve({ latest: page(['m1']) })
+    renderHook(() => useMessages('c1', true), { wrapper })
+    await waitFor(() => expect(latestReads().length).toBeGreaterThan(0))
+
+    await new Promise((resolve) => setTimeout(resolve, 20))
+
+    expect(newerReads()).toEqual([])
+  })
+
+  it('reads the newest messages afresh when it’s too far behind to catch up', async () => {
+    let sent = 0
+    fetchPage.mockImplementation(async (_conversationId, param) => {
+      if (param.kind === 'latest') return page(['m1'])
+      sent += 1
+      return page([`n${sent}`], `n${sent}`)
+    })
+    renderHook(() => useMessages('c1'), { wrapper })
+
+    await waitFor(() => expect(latestReads()).toHaveLength(2))
+    expect(newerReads()).toHaveLength(20)
   })
 })
