@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
-import { listenToRoom, tellRoom } from './roomEvents'
+import { listenToRoom, tellEveryRoom, tellRoom } from './roomEvents'
 import type { MessageType } from './baseTypes'
 
 const message = (conversationId: string): MessageType => ({
@@ -50,5 +50,20 @@ describe('roomEvents', () => {
     expect(room).toHaveBeenCalledTimes(1)
     expect(typing).toHaveBeenCalledTimes(2)
     stopTyping()
+  })
+
+  it('tells every open room what isn’t about one conversation', () => {
+    const first = vi.fn()
+    const second = vi.fn()
+    const stopFirst = listenToRoom('c1', { Subscribed: first })
+    const stopSecond = listenToRoom('c2', { Subscribed: second })
+
+    tellEveryRoom('Subscribed', { resumed: true })
+    stopFirst()
+    tellEveryRoom('Subscribed', { resumed: false })
+
+    expect(first.mock.calls).toEqual([[{ resumed: true }]])
+    expect(second.mock.calls).toEqual([[{ resumed: true }], [{ resumed: false }]])
+    stopSecond()
   })
 })

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef } from 'react'
-import { useInfiniteQuery, useQueryClient } from '@tanstack/react-query'
+import { type InfiniteData, useInfiniteQuery, useQueryClient } from '@tanstack/react-query'
 import { isAxiosError } from 'axios'
 import { getMessagesPage, type MessagesPageParam } from '../services/api/messages'
 import { markConversationAsRead } from '../services/api/conversations'
@@ -9,8 +9,9 @@ import {
   flattenMessagePages,
   messagesKey,
   replaceMessageInCache,
+  type MessagesPage,
 } from '../utils/messagePages'
-import { applyReadPointer, messageInfoKey } from '../utils/readReceipts'
+import { applyReadPointer, messageInfoKey, readPointersKey } from '../utils/readReceipts'
 import { sharedMediaKey } from './useSharedMedia'
 import { isViewing } from '../utils/viewing'
 import { listenToRoom } from '../utils/roomEvents'
@@ -53,6 +54,10 @@ const isGone = (error: unknown) =>
 
 /** Live messages held for a window that hasn't caught up yet, at most. */
 const PENDING_LIMIT = 200
+
+/** Pages of newer messages a room reads to catch up (25 each) before it
+ * reads the newest ones afresh instead. */
+const CATCH_UP_PAGES = 20
 
 /** A burst of messages is read in one go: one request, one broadcast. */
 export const MARK_READ_DEBOUNCE_MS = 750
@@ -169,6 +174,102 @@ const useMessages = (conversationId: string, readOnly = false, options: UseMessa
     pendingLiveRef.current = []
   }, [anchor])
 
+  // A message that has just arrived: live, or caught up on (below).
+  const receiveMessage = useCallback(
+    (message: MessageType) => {
+      // Into the newest page of the window that reaches the newest
+      // message, however many older pages have since been loaded; held
+      // instead while this one doesn't reach it yet (see pendingLiveRef).
+      // A message the viewer sent themselves is usually already in the
+      // cache by now (the composer patches it in from the send response),
+      // in which case this is a no-op.
+      appendMessageToCache(queryClient, conversationId, message)
+      if (hasNewerRef.current) {
+        pendingLiveRef.current = [...pendingLiveRef.current, message].slice(-PENDING_LIMIT)
+      }
+      // New photos or files: the info panel's shared media, if it's open.
+      if (message.attachments_count) {
+        void queryClient.invalidateQueries({ queryKey: sharedMediaKey(conversationId) })
+      }
+
+      queryClient.setQueryData<ConversationsResponse>(
+        ['conversations'],
+        (old) => {
+          if (!old) return old
+          return {
+            ...old,
+            data: old.data.map((c) =>
+              c.id === conversationId
+                ? {
+                    ...c,
+                    // Someone else's message that arrives while the viewer
+                    // isn't looking stays unread until they are (see the
+                    // marking below), and the list says so meanwhile.
+                    unread_count:
+                      message.type !== 'system' && message.sender?.id !== viewerId && !isViewing()
+                        ? (c.unread_count ?? 0) + 1
+                        : c.unread_count,
+                    // The server brings an archived conversation back with
+                    // someone else's message unless it's muted; so here.
+                    archived_at:
+                      message.type !== 'system' && message.sender?.id !== viewerId && !c.muted_at
+                        ? null
+                        : c.archived_at,
+                    last_message_at: message.created_at,
+                    latest_message: {
+                      type: message.type,
+                      body: message.body,
+                      sender_name: message.sender?.name ?? '',
+                      event_type: message.event_type,
+                      metadata: message.metadata,
+                    },
+                  }
+                : c,
+            ),
+          }
+        },
+      )
+    },
+    [conversationId, queryClient, viewerId],
+  )
+
+  // --- Catching up ---
+  //
+  // The stream only carries what happens while the room listens, and a
+  // message goes into the window only once its newest page is there. One
+  // sent while that page was being read, or while the connection was down (a
+  // laptop asleep, a dropped network, every deploy), never arrives that way.
+  // So when the room starts listening with its newest page in hand, and each
+  // time the viewer's channel subscribes again, it asks for anything newer
+  // than its newest message, page by page, and takes it in as if it had come
+  // live. A window opened around a jump is left alone: it reads forwards
+  // anyway, and holds what arrives meanwhile (pendingLiveRef).
+  const catchUp = useCallback(async () => {
+    if (hasNewerRef.current) return
+
+    const windowKey = [...messagesKey(conversationId), anchor ?? 'latest']
+    const loaded = () => {
+      const cached = queryClient.getQueryData<InfiniteData<MessagesPage>>(windowKey)
+      return cached ? flattenMessagePages(cached.pages) : []
+    }
+
+    let after = loaded().at(-1)?.id
+    for (let pages = 0; after; pages++) {
+      if (pages === CATCH_UP_PAGES) {
+        // Further behind than that: read the newest messages afresh.
+        void queryClient.invalidateQueries({ queryKey: windowKey })
+        return
+      }
+      const { data, meta } = await getMessagesPage(conversationId, { kind: 'newer', after })
+      for (const message of data) {
+        // One that came live while this was being asked for is already in,
+        // and counted.
+        if (!loaded().some((m) => m.id === message.id)) receiveMessage(message)
+      }
+      after = meta.next_after_id ?? undefined
+    }
+  }, [anchor, conversationId, queryClient, receiveMessage])
+
   useEffect(() => {
     // A left/kicked member's history is frozen server-side, and the server
     // no longer sends them this conversation's events — nothing here can do
@@ -184,60 +285,7 @@ const useMessages = (conversationId: string, readOnly = false, options: UseMessa
 
     // Handed over by useUserChannel, from the viewer's own channel.
     return listenToRoom(conversationId, {
-      MessageSent: (message) => {
-        // Into the newest page of the window that reaches the newest
-        // message, however many older pages have since been loaded; held
-        // instead while this one doesn't reach it yet (see pendingLiveRef).
-        // A message the viewer sent themselves is usually already in the
-        // cache by now (the composer patches it in from the send response),
-        // in which case this is a no-op.
-        appendMessageToCache(queryClient, conversationId, message)
-        if (hasNewerRef.current) {
-          pendingLiveRef.current = [...pendingLiveRef.current, message].slice(-PENDING_LIMIT)
-        }
-        // New photos or files: the info panel's shared media, if it's open.
-        if (message.attachments_count) {
-          void queryClient.invalidateQueries({ queryKey: sharedMediaKey(conversationId) })
-        }
-
-        queryClient.setQueryData<ConversationsResponse>(
-          ['conversations'],
-          (old) => {
-            if (!old) return old
-            return {
-              ...old,
-              data: old.data.map((c) =>
-                c.id === conversationId
-                  ? {
-                      ...c,
-                      // Someone else's message that arrives while the viewer
-                      // isn't looking stays unread until they are (see the
-                      // marking below), and the list says so meanwhile.
-                      unread_count:
-                        message.type !== 'system' && message.sender?.id !== viewerId && !isViewing()
-                          ? (c.unread_count ?? 0) + 1
-                          : c.unread_count,
-                      // The server brings an archived conversation back with
-                      // someone else's message unless it's muted; so here.
-                      archived_at:
-                        message.type !== 'system' && message.sender?.id !== viewerId && !c.muted_at
-                          ? null
-                          : c.archived_at,
-                      last_message_at: message.created_at,
-                      latest_message: {
-                        type: message.type,
-                        body: message.body,
-                        sender_name: message.sender?.name ?? '',
-                        event_type: message.event_type,
-                        metadata: message.metadata,
-                      },
-                    }
-                  : c,
-              ),
-            }
-          },
-        )
-      },
+      MessageSent: receiveMessage,
       MessageReactionUpdated: (updatedMessage) => {
         // A reaction can land on a message from any loaded page (not just
         // the newest one), in any cached window.
@@ -254,6 +302,14 @@ const useMessages = (conversationId: string, readOnly = false, options: UseMessa
           void queryClient.invalidateQueries({ queryKey: sharedMediaKey(conversationId) })
         }
       },
+      Subscribed: ({ resumed }) => {
+        catchUp().catch(() => {})
+        // Reads while the connection was down weren't heard either.
+        if (resumed) {
+          void queryClient.invalidateQueries({ queryKey: readPointersKey(conversationId) })
+          void queryClient.invalidateQueries({ queryKey: messageInfoKey(conversationId) })
+        }
+      },
       ConversationRead: (pointer) => {
         // Someone read further: "Sent" becomes "Seen" (see useReadPointers).
         // Not for a viewer who doesn't share their own read state: read
@@ -265,7 +321,13 @@ const useMessages = (conversationId: string, readOnly = false, options: UseMessa
         void queryClient.invalidateQueries({ queryKey: messageInfoKey(conversationId) })
       },
     })
-  }, [conversationId, queryClient, readOnly, deferUntilReady, enabled, viewerId])
+  }, [conversationId, queryClient, readOnly, deferUntilReady, enabled, receiveMessage, catchUp])
+
+  // ...and once when the room starts listening, its newest page in hand.
+  useEffect(() => {
+    if (readOnly || deferUntilReady || !enabled || !isFetchedAfterMount) return
+    catchUp().catch(() => {})
+  }, [readOnly, deferUntilReady, enabled, isFetchedAfterMount, catchUp])
 
 
   // --- Marking as read ---

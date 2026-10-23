@@ -13,12 +13,18 @@ import type { ContactType, ConversationType, MessageType } from '../utils/baseTy
 
 const echo = vi.hoisted(() => {
   const handlers: Record<string, (payload: unknown) => void> = {}
+  // What runs each time the channel's subscription succeeds.
+  const subscription: { succeeded: () => void } = { succeeded: () => {} }
   const channel = {
     listen: (event: string, handler: (payload: unknown) => void) => {
       handlers[event] = handler
       return channel
     },
     stopListening: () => channel,
+    subscribed: (callback: () => void) => {
+      subscription.succeeded = callback
+      return channel
+    },
   }
   // The socket's state, and whoever is told when it changes.
   const connection: { status: string; onChange: (status: string) => void } = { status: 'connecting', onChange: () => {} }
@@ -29,7 +35,7 @@ const echo = vi.hoisted(() => {
       return () => {}
     },
   }
-  return { handlers, connection, instance: { private: () => channel, leave: () => {}, connector } }
+  return { handlers, subscription, connection, instance: { private: () => channel, leave: () => {}, connector } }
 })
 
 vi.mock('./useEcho', () => ({ default: () => echo.instance }))
@@ -265,6 +271,26 @@ describe('useUserChannel — a conversation’s events, for its room', () => {
     stop()
 
     expect(room.TypingIndicator).not.toHaveBeenCalled()
+  })
+})
+
+// Only from the channel's subscription on does the stream carry anything:
+// each time it subscribes, every open room is told, so it can catch up.
+describe('useUserChannel — the stream starting, and starting again', () => {
+  it('tells every open room each time the channel subscribes, and that it resumed after the first', () => {
+    const open = vi.fn()
+    const other = vi.fn()
+    const stopOpen = listenToRoom('open', { Subscribed: open })
+    const stopOther = listenToRoom('other', { Subscribed: other })
+    render()
+
+    act(() => echo.subscription.succeeded())
+    act(() => echo.subscription.succeeded())
+    stopOpen()
+    stopOther()
+
+    expect(open.mock.calls).toEqual([[{ resumed: false }], [{ resumed: true }]])
+    expect(other.mock.calls).toEqual([[{ resumed: false }], [{ resumed: true }]])
   })
 })
 

@@ -34,7 +34,9 @@ board by board for desktop, tablet and phone.
 - **Messaging**:
   - Direct and group conversations, delivered live over WebSockets with
     typing indicators, above the composer and on the chat's row in the
-    list ("typing…", "Sam is typing…", "2 people typing…").
+    list ("typing…", "Sam is typing…", "2 people typing…"). The open
+    conversation catches up by itself on anything sent while it was
+    loading or while the connection was down (a laptop asleep, a deploy).
   - Replies, reactions, editing in the composer, and deletion after a
     confirmation.
   - Attachments (images and PDFs), with a lightbox for images.

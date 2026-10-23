@@ -7,7 +7,7 @@ import { conversationTitle, patchConversationInCache } from '../utils/conversati
 import { isViewing } from '../utils/viewing'
 import { playMessageTone, showMessageNotification, unlockAudio } from '../utils/alerts'
 import { applyPresenceChange, type PresenceChange } from '../utils/presence'
-import { tellRoom } from '../utils/roomEvents'
+import { tellEveryRoom, tellRoom } from '../utils/roomEvents'
 import { currentSettings } from './useSettings'
 import { forgetTyping, noteTyping, stopTyping } from './useListTyping'
 import useEcho from './useEcho'
@@ -24,6 +24,8 @@ type ConversationsResponse = { data: ConversationType[] }
  * edits, reactions, reads, typing) arrive here too and are handed to its
  * room (utils/roomEvents): the server sends them only to whoever is a member
  * when it sends them, so being removed from a group cuts them off at once.
+ * The room is also told when the channel subscribes, at first and after each
+ * reconnect, so it can ask for anything sent while nothing was listening.
  *
  * It used to be subscribed by every component that read the conversation
  * list (four of them on a chat screen), and each one's cleanup stopped every
@@ -159,6 +161,16 @@ export default function useUserChannel() {
           void queryClient.invalidateQueries({ queryKey: ['contacts'] })
         }
       })
+
+    // The channel subscribes once the socket connects, and again each time it
+    // comes back after dropping. Only from then on does the stream carry
+    // anything, so the open room asks for what it may have missed before
+    // (useMessages).
+    let subscribedBefore = false
+    channel.subscribed(() => {
+      tellEveryRoom('Subscribed', { resumed: subscribedBefore })
+      subscribedBefore = true
+    })
 
     // Nothing reaches a dropped connection, and nothing polls to make up for
     // it: messages, membership, anyone coming or going. So once it's back,
