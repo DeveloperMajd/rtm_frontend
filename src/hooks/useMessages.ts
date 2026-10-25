@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef } from 'react'
+import { useCallback, useEffect, useMemo, useRef } from 'react'
 import { type InfiniteData, useInfiniteQuery, useQueryClient } from '@tanstack/react-query'
 import { isAxiosError } from 'axios'
 import { getMessagesPage, type MessagesPageParam } from '../services/api/messages'
@@ -52,6 +52,8 @@ interface UseMessagesOptions {
  * again won't change that. */
 const isGone = (error: unknown) =>
   isAxiosError(error) && (error.response?.status === 403 || error.response?.status === 404)
+
+const NO_MESSAGES: MessageType[] = []
 
 /** Live messages held for a window that hasn't caught up yet, at most. */
 const PENDING_LIMIT = 200
@@ -147,8 +149,10 @@ const useMessages = (conversationId: string, readOnly = false, options: UseMessa
 
   // De-duplicated and re-sorted rather than a plain flatMap — see
   // flattenMessagePages for why offset pagination hands back overlapping
-  // pages once a conversation is live.
-  const messages: MessageType[] = data ? flattenMessagePages(data.pages) : []
+  // pages once a conversation is live. Only when the pages change: the list
+  // is the same array between renders otherwise, which is what lets the
+  // rows skip re-rendering (see Messages).
+  const messages = useMemo<MessageType[]>(() => (data ? flattenMessagePages(data.pages) : NO_MESSAGES), [data])
 
   // A window opened around a jump doesn't reach the newest message yet, so a
   // live message can't go into it (see isLiveWindow) — but it mustn't be
@@ -364,6 +368,10 @@ const useMessages = (conversationId: string, readOnly = false, options: UseMessa
     void fetchPreviousPage()
   }, [fetchPreviousPage])
 
+  const retry = useCallback(() => {
+    void refetch()
+  }, [refetch])
+
   return {
     messages,
     isLoading,
@@ -372,7 +380,7 @@ const useMessages = (conversationId: string, readOnly = false, options: UseMessa
     error: error as Error | null,
     /** Paging in older history failed — what's loaded is still good. */
     isOlderError: isFetchNextPageError,
-    retry: () => void refetch(),
+    retry,
     loadOlder,
     /**
      * This window stops short of the newest message: it was opened around a

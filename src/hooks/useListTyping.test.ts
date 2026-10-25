@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { act, renderHook } from '@testing-library/react'
-import { TYPING_SHOWN_MS, forgetTyping, noteTyping, stopTyping, typingLabel, useListTyping } from './useListTyping'
+import { TYPING_SHOWN_MS, forgetTyping, noteTyping, stopTyping, typingLabel, typingLine, useListTyping } from './useListTyping'
 
 beforeEach(() => {
   vi.useFakeTimers()
@@ -60,6 +60,23 @@ describe('useListTyping', () => {
     expect(vi.getTimerCount()).toBe(0)
   })
 
+  // Pings come every couple of seconds from everyone typing.
+  it('tells nobody when someone already shown pings again', () => {
+    const listener = vi.fn()
+    const { result } = renderHook(() => {
+      listener()
+      return useListTyping('c1')
+    })
+    act(() => noteTyping('c1', 'sam', 'Sam'))
+    const shown = result.current
+    const renders = listener.mock.calls.length
+
+    act(() => noteTyping('c1', 'sam', 'Sam'))
+
+    expect(listener).toHaveBeenCalledTimes(renders)
+    expect(result.current).toBe(shown)
+  })
+
   it('keeps the same list between renders while nothing changes', () => {
     const { result, rerender } = renderHook(() => useListTyping('c1'))
     act(() => noteTyping('c1', 'sam', 'Sam'))
@@ -77,5 +94,14 @@ describe('typingLabel', () => {
     expect(typingLabel('group', ['Sam'])).toBe('Sam is typing…')
     expect(typingLabel('group', ['Sam', 'Robin'])).toBe('2 people typing…')
     expect(typingLabel('group', ['Sam', 'Robin', 'Ana'])).toBe('3 people typing…')
+  })
+})
+
+describe('typingLine', () => {
+  it('names one or two people above the composer, and stops naming after that', () => {
+    expect(typingLine([])).toBeNull()
+    expect(typingLine(['Sam'])).toBe('Sam is typing…')
+    expect(typingLine(['Sam', 'Robin'])).toBe('Sam and Robin are typing…')
+    expect(typingLine(['Sam', 'Robin', 'Ana'])).toBe('Several people are typing…')
   })
 })

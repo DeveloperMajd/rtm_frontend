@@ -1,8 +1,7 @@
 import { useSyncExternalStore } from 'react'
 
 /** How long someone shows as typing after their last ping. Pings come
- * every couple of seconds while they type (MessageForm), and the room's own
- * indicator lets go after the same time (useTypingIndicator). */
+ * every couple of seconds while they type (MessageForm). */
 export const TYPING_SHOWN_MS = 3000
 
 type Typist = { name: string; timer: ReturnType<typeof setTimeout> }
@@ -30,10 +29,14 @@ function changed(conversationId: string): void {
  * own channel): shown until they've gone quiet for TYPING_SHOWN_MS. */
 export function noteTyping(conversationId: string, userId: string, name: string): void {
   const typists = typing.get(conversationId) ?? new Map<string, Typist>()
-  clearTimeout(typists.get(userId)?.timer)
+  const before = typists.get(userId)
+  clearTimeout(before?.timer)
   typists.set(userId, { name, timer: setTimeout(() => stopTyping(conversationId, userId), TYPING_SHOWN_MS) })
   typing.set(conversationId, typists)
-  changed(conversationId)
+  // Another ping from someone already shown only keeps them a while longer:
+  // nothing on screen changes, so nothing is told (a ping comes every couple
+  // of seconds from everyone typing).
+  if (before?.name !== name) changed(conversationId)
 }
 
 /** They've stopped: their message has arrived, or they've gone quiet. */
@@ -65,8 +68,9 @@ const subscribe = (listener: () => void) => {
 
 /**
  * Who's typing in a conversation right now, by name, for its row in the
- * chat list. Told over the viewer's own channel (see useUserChannel), so it
- * works for every conversation, open or not, without a subscription each.
+ * chat list and the line above an open room's composer (TypingLine). Told
+ * over the viewer's own channel (see useUserChannel), so it works for every
+ * conversation, open or not, without a subscription each.
  */
 export function useListTyping(conversationId: string): readonly string[] {
   return useSyncExternalStore(subscribe, () => names.get(conversationId) ?? NOBODY)
@@ -78,4 +82,13 @@ export function useListTyping(conversationId: string): readonly string[] {
 export function typingLabel(type: 'direct' | 'group', typists: readonly string[]): string {
   if (type === 'direct') return 'typing…'
   return typists.length === 1 ? `${typists[0]} is typing…` : `${typists.length} people typing…`
+}
+
+/** What the line above an open room's composer says (TypingLine): there's
+ * room there to name two people. */
+export function typingLine(typists: readonly string[]): string | null {
+  if (typists.length === 0) return null
+  if (typists.length === 1) return `${typists[0]} is typing…`
+  if (typists.length === 2) return `${typists[0]} and ${typists[1]} are typing…`
+  return 'Several people are typing…'
 }

@@ -37,6 +37,9 @@ board by board for desktop, tablet and phone.
     list ("typing…", "Sam is typing…", "2 people typing…"). The open
     conversation catches up by itself on anything sent while it was
     loading or while the connection was down (a laptop asleep, a deploy).
+    Typing pings and chat-list changes (presence, previews, unread counts)
+    re-render only what shows them; a new message renders one row, not
+    the whole conversation.
   - Replies, reactions, editing in the composer, and deletion after a
     confirmation.
   - Attachments (images and PDFs), with a lightbox for images.

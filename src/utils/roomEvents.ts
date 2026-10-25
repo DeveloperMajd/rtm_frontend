@@ -17,7 +17,6 @@ export type RoomEvents = {
   MessageUpdated: MessageType
   MessageReactionUpdated: MessageType
   ConversationRead: ReadPointer
-  TypingIndicator: { user_id: string; name: string }
   /**
    * The viewer's channel has subscribed: once the socket first connects, and
    * again each time it comes back after dropping (`resumed`). Nothing sent
