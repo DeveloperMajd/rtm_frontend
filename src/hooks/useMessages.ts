@@ -4,6 +4,7 @@ import { isAxiosError } from 'axios'
 import { getMessagesPage, type MessagesPageParam } from '../services/api/messages'
 import { markConversationAsRead } from '../services/api/conversations'
 import type { ConversationType, MessageType } from '../utils/baseTypes'
+import { applyMessageToConversationList } from '../utils/conversations'
 import {
   appendMessageToCache,
   flattenMessagePages,
@@ -192,43 +193,10 @@ const useMessages = (conversationId: string, readOnly = false, options: UseMessa
         void queryClient.invalidateQueries({ queryKey: sharedMediaKey(conversationId) })
       }
 
-      queryClient.setQueryData<ConversationsResponse>(
-        ['conversations'],
-        (old) => {
-          if (!old) return old
-          return {
-            ...old,
-            data: old.data.map((c) =>
-              c.id === conversationId
-                ? {
-                    ...c,
-                    // Someone else's message that arrives while the viewer
-                    // isn't looking stays unread until they are (see the
-                    // marking below), and the list says so meanwhile.
-                    unread_count:
-                      message.type !== 'system' && message.sender?.id !== viewerId && !isViewing()
-                        ? (c.unread_count ?? 0) + 1
-                        : c.unread_count,
-                    // The server brings an archived conversation back with
-                    // someone else's message unless it's muted; so here.
-                    archived_at:
-                      message.type !== 'system' && message.sender?.id !== viewerId && !c.muted_at
-                        ? null
-                        : c.archived_at,
-                    last_message_at: message.created_at,
-                    latest_message: {
-                      type: message.type,
-                      body: message.body,
-                      sender_name: message.sender?.name ?? '',
-                      event_type: message.event_type,
-                      metadata: message.metadata,
-                    },
-                  }
-                : c,
-            ),
-          }
-        },
-      )
+      // Its row in the chat list. Someone else's message that arrives while
+      // the viewer isn't looking stays unread until they are (see the
+      // marking below), and the list says so meanwhile.
+      applyMessageToConversationList(queryClient, message, viewerId, { viewing: isViewing() })
     },
     [conversationId, queryClient, viewerId],
   )
