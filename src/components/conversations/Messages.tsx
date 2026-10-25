@@ -1,4 +1,4 @@
-import { Fragment, useRef, useState } from 'react'
+import { Fragment, memo, useMemo, useRef, useState } from 'react'
 import { format, isToday, isYesterday } from 'date-fns'
 import type { MessageType } from '../../utils/baseTypes'
 import { systemMessageText } from '../../utils/systemMessageText'
@@ -82,13 +82,14 @@ type MessagesProps = {
 }
 
 const NONE_SAVED: ReadonlySet<string> = new Set()
+const NO_READERS: Reader[] = []
+const NO_POINTERS: ReadPointer[] = []
 
 const GROUP_WINDOW_MS = 5 * 60 * 1000
 
 const noop = () => {}
 
-function dayLabel(iso: string): string {
-  const d = new Date(iso)
+function dayLabel(d: Date): string {
   if (isToday(d)) return 'Today'
   if (isYesterday(d)) return 'Yesterday'
   return format(d, 'EEEE, d MMM yyyy')
@@ -121,8 +122,8 @@ const Messages = ({
   onJumpToLatest = noop,
   searchTerms,
   currentMatchId = null,
-  readers = [],
-  readPointers = [],
+  readers = NO_READERS,
+  readPointers = NO_POINTERS,
   isGroup = false,
   savedIds = NONE_SAVED,
 }: MessagesProps) => {
@@ -137,7 +138,10 @@ const Messages = ({
   const lastOwnMessageId = messages.findLast(
     (m) => m.type !== 'system' && !m.deleted_at && m.sender?.id === user?.id,
   )?.id
-  const receipt = lastOwnMessageId ? receiptFor(lastOwnMessageId, readers, readPointers, isGroup) : undefined
+  const receipt = useMemo(
+    () => (lastOwnMessageId ? receiptFor(lastOwnMessageId, readers, readPointers, isGroup) : undefined),
+    [lastOwnMessageId, readers, readPointers, isGroup],
+  )
 
   // The unread divider's position is resolved once per conversation (the
   // whole room is remounted per conversation — see ConversationRoom) and
@@ -250,6 +254,27 @@ const Messages = ({
     setAnnouncedWhileDetached(hasNewer)
   }
 
+  // Where the day headings go, and which messages run on from the one before
+  // (the same sender, within GROUP_WINDOW_MS): worked out when the messages
+  // change, not again on every render.
+  const layout = useMemo(() => {
+    const sentAt = messages.map((message) => new Date(message.created_at))
+    const days = sentAt.map((date) => date.toDateString())
+    return messages.map((message, i) => {
+      const prev = messages[i - 1] as MessageType | undefined
+      const showDay = i === 0 || days[i] !== days[i - 1]
+      const showUnread = message.id === unreadBoundaryId
+      const grouped =
+        !showDay &&
+        !showUnread &&
+        prev !== undefined &&
+        prev.type !== 'system' &&
+        prev.sender?.id === message.sender?.id &&
+        sentAt[i].getTime() - sentAt[i - 1].getTime() < GROUP_WINDOW_MS
+      return { day: showDay ? dayLabel(sentAt[i]) : null, showUnread, grouped }
+    })
+  }, [messages, unreadBoundaryId])
+
   // The container div is always rendered — never swapped out for a bare
   // <Spinner> — so containerRef.current is never null by the time the
   // scroll-tracking effects in useAutoLoadOlder/useStickToBottom run.
@@ -335,11 +360,7 @@ const Messages = ({
           <ul className='message-list'>
 
             {messages.map((message, i) => {
-              const prev = messages[i - 1]
-              const showDay =
-                !prev || format(new Date(prev.created_at), 'yyyy-MM-dd') !==
-                  format(new Date(message.created_at), 'yyyy-MM-dd')
-              const showUnread = message.id === unreadBoundaryId
+              const { day, showUnread, grouped } = layout[i]
 
               const content =
                 message.type === 'system' ? (
@@ -355,23 +376,16 @@ const Messages = ({
                     isCurrentMatch={message.id === currentMatchId}
                     isSaved={savedIds.has(message.id)}
                     receipt={message.id === lastOwnMessageId ? receipt : undefined}
-                    grouped={
-                      !showDay &&
-                      !showUnread &&
-                      prev?.type !== 'system' &&
-                      prev?.sender?.id === message.sender?.id &&
-                      new Date(message.created_at).getTime() - new Date(prev.created_at).getTime() <
-                        GROUP_WINDOW_MS
-                    }
+                    grouped={grouped}
                     readOnly={readOnly}
                   />
                 )
 
               return (
                 <Fragment key={message.id}>
-                  {showDay && (
+                  {day && (
                     <li className='msg-day'>
-                      <span>{dayLabel(message.created_at)}</span>
+                      <span>{day}</span>
                     </li>
                   )}
                   {showUnread && (
@@ -438,4 +452,8 @@ const Messages = ({
   )
 }
 
-export default Messages
+// Re-rendered only when what it's handed changes: the room around it also
+// re-renders for the chat list (presence, previews, unread elsewhere), which
+// is nothing to do with these messages. Each row is memoised in turn, so a
+// new message renders one row, not all of them.
+export default memo(Messages)

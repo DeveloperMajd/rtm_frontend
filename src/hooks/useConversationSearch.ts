@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { CONVERSATION_SEARCH_LIMIT, searchConversation } from '../services/api/messages'
 import { queryTerms } from '../utils/searchText'
@@ -6,6 +6,7 @@ import type { MessageSearchResultType } from '../utils/baseTypes'
 
 export const MIN_CHARS = 2
 const DEBOUNCE_MS = 300
+const NO_TERMS: string[] = []
 
 export type ConversationSearchStatus = 'idle' | 'searching' | 'failed' | 'none' | 'found'
 
@@ -61,12 +62,17 @@ export function useConversationSearch(conversationId: string, isOpen: boolean) {
 
   const current = status === 'found' ? (results[index] ?? null) : null
 
+  // The same array until the words change: every message row is handed it,
+  // and a new one each render would re-render them all (see Messages).
+  const marksTerms = isSearching && status !== 'failed'
+  const terms = useMemo(() => (marksTerms ? queryTerms(query) : NO_TERMS), [marksTerms, query])
+
   return {
     text,
     setText,
     status,
     /** The words to mark in the messages. */
-    terms: isSearching && status !== 'failed' ? queryTerms(query) : [],
+    terms,
     results,
     total,
     /** More matches than came back (see CONVERSATION_SEARCH_LIMIT). */

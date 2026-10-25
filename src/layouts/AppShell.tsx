@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import type { ConnectionStatus } from 'laravel-echo'
 import SearchPalette from '../components/conversations/SearchPalette'
@@ -116,14 +116,21 @@ function AppShell() {
     if (!inChats) navigate('/conversations')
   }
 
-  const context: AppShellContext = {
-    activeTab,
-    setActiveTab,
-    openSearch: () => setIsSearchOpen(true),
-    signal,
-    connection,
-    recovered,
-  }
+  // The same object until one of these changes: everything below the Outlet
+  // that reads it re-renders when it's a new one, and the shell re-renders
+  // for every change to the chat list (the unread count above), ⌘K and each
+  // navigation.
+  const context = useMemo<AppShellContext>(
+    () => ({
+      activeTab,
+      setActiveTab,
+      openSearch: () => setIsSearchOpen(true),
+      signal,
+      connection,
+      recovered,
+    }),
+    [activeTab, signal, connection, recovered],
+  )
 
   return (
     <div className='app-shell' data-view={view}>

@@ -166,7 +166,7 @@ describe('useUserChannel — getting attention for a message', () => {
   })
 })
 
-describe('useUserChannel — who’s typing, for the chat list', () => {
+describe('useUserChannel — who’s typing, for the chat list and the open room', () => {
   const typingIn = (conversationId: string) => renderHook(() => useListTyping(conversationId)).result
 
   const ping = (conversationId: string, userId: string, name: string) =>
@@ -224,7 +224,6 @@ describe('useUserChannel — a conversation’s events, for its room', () => {
       MessageUpdated: vi.fn(),
       MessageReactionUpdated: vi.fn(),
       ConversationRead: vi.fn(),
-      TypingIndicator: vi.fn(),
     }
     const stop = listenToRoom('team', room)
     render()
@@ -235,7 +234,6 @@ describe('useUserChannel — a conversation’s events, for its room', () => {
       echo.handlers.MessageUpdated?.({ ...sent, body: 'edited' })
       echo.handlers.MessageReactionUpdated?.({ ...sent, reactions: [{ emoji: '👍' }] })
       echo.handlers.ConversationRead?.({ conversation_id: 'team', user_id: 'jo', last_read_message_id: sent.id, last_read_at: null })
-      echo.handlers.TypingIndicator?.({ conversation_id: 'team', user_id: 'jo', name: 'Jo' })
     })
     stop()
 
@@ -244,7 +242,6 @@ describe('useUserChannel — a conversation’s events, for its room', () => {
     expect(room.MessageReactionUpdated).toHaveBeenCalledExactlyOnceWith({ ...sent, reactions: [{ emoji: '👍' }] })
     // The pointer as the room keeps it: the room knows which conversation it is.
     expect(room.ConversationRead).toHaveBeenCalledExactlyOnceWith({ user_id: 'jo', last_read_message_id: sent.id, last_read_at: null })
-    expect(room.TypingIndicator).toHaveBeenCalledExactlyOnceWith({ user_id: 'jo', name: 'Jo' })
   })
 
   it('tells another conversation’s room nothing', () => {
@@ -262,16 +259,6 @@ describe('useUserChannel — a conversation’s events, for its room', () => {
     expect(open.ConversationRead).not.toHaveBeenCalled()
   })
 
-  it('never shows the viewer typing in the room, from another tab of theirs', () => {
-    const room = { TypingIndicator: vi.fn() }
-    const stop = listenToRoom('open', room)
-    render()
-
-    act(() => echo.handlers.TypingIndicator?.({ conversation_id: 'open', user_id: 'me', name: 'Me' }))
-    stop()
-
-    expect(room.TypingIndicator).not.toHaveBeenCalled()
-  })
 })
 
 // Only from the channel's subscription on does the stream carry anything:

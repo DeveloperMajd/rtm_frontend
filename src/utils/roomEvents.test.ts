@@ -16,14 +16,14 @@ const message = (conversationId: string): MessageType => ({
 describe('roomEvents', () => {
   it('tells the open room its own events, and only those it listens for', () => {
     const sent = vi.fn()
-    const typing = vi.fn()
-    const stop = listenToRoom('c1', { MessageSent: sent, TypingIndicator: typing })
+    const read = vi.fn()
+    const stop = listenToRoom('c1', { MessageSent: sent, ConversationRead: read })
 
     tellRoom('c1', 'MessageSent', message('c1'))
     tellRoom('c1', 'MessageUpdated', message('c1'))
 
     expect(sent).toHaveBeenCalledExactlyOnceWith(message('c1'))
-    expect(typing).not.toHaveBeenCalled()
+    expect(read).not.toHaveBeenCalled()
     stop()
   })
 
@@ -39,17 +39,17 @@ describe('roomEvents', () => {
 
   it('tells everyone listening to the room, and stops telling each as it stops', () => {
     const room = vi.fn()
-    const typing = vi.fn()
-    const stopRoom = listenToRoom('c1', { TypingIndicator: room })
-    const stopTyping = listenToRoom('c1', { TypingIndicator: typing })
+    const other = vi.fn()
+    const stopRoom = listenToRoom('c1', { MessageSent: room })
+    const stopOther = listenToRoom('c1', { MessageSent: other })
 
-    tellRoom('c1', 'TypingIndicator', { user_id: 'jo', name: 'Jo' })
+    tellRoom('c1', 'MessageSent', message('c1'))
     stopRoom()
-    tellRoom('c1', 'TypingIndicator', { user_id: 'jo', name: 'Jo' })
+    tellRoom('c1', 'MessageSent', message('c1'))
 
     expect(room).toHaveBeenCalledTimes(1)
-    expect(typing).toHaveBeenCalledTimes(2)
-    stopTyping()
+    expect(other).toHaveBeenCalledTimes(2)
+    stopOther()
   })
 
   it('tells every open room what isn’t about one conversation', () => {

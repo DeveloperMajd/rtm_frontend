@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type DragEvent } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type DragEvent } from 'react'
 import { Link, useNavigate, useOutletContext, useParams, useSearchParams } from 'react-router-dom'
 import toast from 'react-hot-toast'
 import { isAxiosError } from 'axios'
@@ -10,8 +10,8 @@ import ContactInfoPanel from './ContactInfoPanel'
 import InfoPanel from './InfoPanel'
 import ConnectionStrip from './ConnectionStrip'
 import ConversationSearchBar from './ConversationSearchBar'
+import TypingLine from './TypingLine'
 import useMessages from '../../hooks/useMessages'
-import useTypingIndicator from '../../hooks/useTypingIndicator'
 import useConversations from '../../hooks/useConversations'
 import useReadPointers from '../../hooks/useReadPointers'
 import useMissingConversation from '../../hooks/useMissingConversation'
@@ -71,15 +71,16 @@ const ConversationRoomView = () => {
   const dragDepth = useRef(0)
 
   // The composer does one thing at a time: starting a reply ends an edit,
-  // and starting an edit drops a pending reply.
-  const startReply = (message: MessageType) => {
+  // and starting an edit drops a pending reply. (Stable, like everything
+  // else handed to the message rows: they're memoised, see Messages.)
+  const startReply = useCallback((message: MessageType) => {
     setEditing(null)
     setReplyingTo(message)
-  }
-  const startEdit = (message: MessageType) => {
+  }, [])
+  const startEdit = useCallback((message: MessageType) => {
     setReplyingTo(null)
     setEditing(message)
-  }
+  }, [])
 
   const conversation = conversations.find((c) => c.id === id)
   const isGroup = conversation?.type === 'group'
@@ -142,8 +143,7 @@ const ConversationRoomView = () => {
   // and waiting for the list would hold up every one of those. A refusal
   // before the list has said is nobody's error, though — a link into a
   // conversation they're not in gets the screen below, not "Couldn't open
-  // this conversation" or a failed jump's toast first. Typing waits for it,
-  // as useMessages's live events do.
+  // this conversation" or a failed jump's toast first.
   const isKnown = conversation !== undefined
 
   const {
@@ -164,16 +164,21 @@ const ConversationRoomView = () => {
   } = useMessages(id!, hasLeft, { deferUntilReady: !areConversationsReady, enabled: !isUnavailable, anchor })
   // Held, behind the loading skeleton, until the list has said (see isKnown).
   const isErrorOnHold = error !== null && !isKnown
-  const typingText = useTypingIndicator(id!, !hasLeft && isKnown)
   // Who could have read the viewer's messages, and how far each has.
   // Receipts belong to members only: someone who left sees the group as it
   // was, and their messages just say "Sent".
   const readPointers = useReadPointers(id!, !hasLeft && !isUnavailable)
   // Which messages the viewer has saved, anywhere: asked once a session.
   const savedIds = useSavedMessageIds()
-  const readers = (conversation?.participants ?? [])
-    .filter((p) => !p.left_at && p.user_id !== user?.id)
-    .map((p) => ({ user_id: p.user_id, name: p.name, avatar_url: p.avatar_url }))
+  // Worked out again only when the members change, not on every change to
+  // the chat list (presence, previews, unread counts elsewhere).
+  const readers = useMemo(
+    () =>
+      (conversation?.participants ?? [])
+        .filter((p) => !p.left_at && p.user_id !== user?.id)
+        .map((p) => ({ user_id: p.user_id, name: p.name, avatar_url: p.avatar_url })),
+    [conversation?.participants, user?.id],
+  )
   const readState = useReadStateSnapshot(
     id,
     areConversationsReady,
@@ -195,10 +200,20 @@ const ConversationRoomView = () => {
     }
   }
 
-  const jumpToLatest = () => {
+  // For the message rows, which hold on to what they're given (see
+  // startReply): jumpTo itself changes with every message loaded.
+  const latestJumpTo = useRef(jumpTo)
+  useLayoutEffect(() => {
+    latestJumpTo.current = jumpTo
+  })
+  const followQuote = useCallback((messageId: string) => latestJumpTo.current(messageId), [])
+
+  const jumpToLatest = useCallback(() => {
     setJump(null)
     setAnchor(null)
-  }
+  }, [])
+
+  const startWriting = useCallback(() => composerRef.current?.focus(), [])
 
   // Each new `?message=` is taken up once, as it appears. Adjusted during
   // render (React's pattern for state that follows other state), so a room
@@ -448,10 +463,10 @@ const ConversationRoomView = () => {
           isOlderError={isOlderError}
           onRetry={retry}
           greet={isGroup ? 'the group' : conversation?.other_participant?.name}
-          onStartWriting={() => composerRef.current?.focus()}
+          onStartWriting={startWriting}
           anchorId={anchor ?? undefined}
           jump={jump}
-          onJumpTo={jumpTo}
+          onJumpTo={followQuote}
           hasNewer={hasNewer}
           isLoadingNewer={isLoadingNewer}
           isNewerError={isNewerError}
@@ -465,21 +480,7 @@ const ConversationRoomView = () => {
           isGroup={isGroup}
         />
 
-        {!hasLeft && (
-          <div className='typing-line' aria-live='polite'>
-            {typingText && (
-              <>
-                <span className='typing-bars' aria-hidden='true'>
-                  <i />
-                  <i />
-                  <i />
-                  <i />
-                </span>{' '}
-                {typingText}
-              </>
-            )}
-          </div>
-        )}
+        {!hasLeft && <TypingLine conversationId={id!} />}
 
         {hasLeft ? (
           <div className='room__locked'>

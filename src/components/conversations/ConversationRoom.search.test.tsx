@@ -44,7 +44,6 @@ vi.mock('../../hooks/useConversations', () => ({
     isReady: true,
   }),
 }))
-vi.mock('../../hooks/useTypingIndicator', () => ({ default: () => '' }))
 vi.mock('../../hooks/useReadStateSnapshot', () => ({
   useReadStateSnapshot: () => ({ unreadCount: 0, lastReadMessageId: null }),
 }))

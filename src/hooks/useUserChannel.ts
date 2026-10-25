@@ -170,12 +170,11 @@ export default function useUserChannel() {
         patchConversationInCache(queryClient, conversation_id, rest)
       })
       // Someone typing in any of the viewer's conversations, for its row in
-      // the chat list (useListTyping), and above the composer if it's the
-      // open room (useTypingIndicator).
+      // the chat list and above the composer if it's the open room (both
+      // read useListTyping).
       .listen('TypingIndicator', ({ conversation_id, user_id, name }: { conversation_id: string; user_id: string; name: string }) => {
         if (user_id === user.id) return
         noteTyping(conversation_id, user_id, name)
-        tellRoom(conversation_id, 'TypingIndicator', { user_id, name })
       })
       .listen('PresenceChanged', (change: PresenceChange) => {
         applyPresenceChange(queryClient, change)

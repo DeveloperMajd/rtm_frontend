@@ -1,13 +1,14 @@
 import { useState, type ReactNode } from 'react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { render, screen, within } from '@testing-library/react'
+import { act, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { MemoryRouter, Outlet, Route, Routes } from 'react-router-dom'
 import { AxiosError, AxiosHeaders } from 'axios'
 import toast from 'react-hot-toast'
 import { AuthContext, type AuthContextType } from '../../hooks/useAuth'
-import useTypingIndicator from '../../hooks/useTypingIndicator'
+import { forgetTyping, noteTyping } from '../../hooks/useListTyping'
+import useMessageReactions from '../../hooks/useMessageReactions'
 import ConversationRoom from './ConversationRoom'
 import { getConversationById } from '../../services/api/conversations'
 import { getSavedMessageIds } from '../../services/api/savedMessages'
@@ -39,7 +40,11 @@ vi.mock('../../hooks/useMessages', () => ({
     isRefreshing: false,
   }),
 }))
-vi.mock('../../hooks/useTypingIndicator', () => ({ default: vi.fn(() => '') }))
+// Called once each time a message row renders: a way to count them.
+vi.mock('../../hooks/useMessageReactions', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../../hooks/useMessageReactions')>()
+  return { default: vi.fn(actual.default) }
+})
 vi.mock('../../hooks/useReadStateSnapshot', () => ({ useReadStateSnapshot: () => undefined }))
 vi.mock('../../services/api/conversations', () => ({ postTyping: vi.fn(), getConversationById: vi.fn() }))
 vi.mock('../../services/api/savedMessages', () => ({ getSavedMessageIds: vi.fn() }))
@@ -51,7 +56,7 @@ beforeEach(() => {
   roomMessages = []
   vi.mocked(getSavedMessageIds).mockResolvedValue([])
   vi.mocked(toast.error).mockClear()
-  vi.mocked(useTypingIndicator).mockClear()
+  forgetTyping()
 })
 
 const auth: AuthContextType = {
@@ -304,13 +309,55 @@ describe('ConversationRoom before the list has said whose it is', () => {
       id: 'jump-failed',
     })
   })
+})
 
-  it('doesn’t listen for typing until it’s known to be theirs', () => {
+// The room holds the whole message list. What goes on around it — someone
+// typing, the chat list changing — mustn't render every message again.
+describe('ConversationRoom while things happen around the messages', () => {
+  const rowRenders = () => vi.mocked(useMessageReactions).mock.calls.length
+
+  beforeEach(() => {
+    conversations = [direct('c1', 0)]
+    roomMessages = [posted('m1'), posted('m2'), posted('m3', { sender: { id: 'me', name: 'Me' } })]
+  })
+
+  it('says who’s typing above the composer, in this conversation only', () => {
+    renderRoom()
+
+    act(() => noteTyping('c2', 'sam', 'Sam'))
+    expect(screen.queryByText(/typing/)).not.toBeInTheDocument()
+
+    act(() => noteTyping('c1', 'jo', 'Jo'))
+    expect(screen.getByText('Jo is typing…')).toBeInTheDocument()
+
+    act(() => noteTyping('c1', 'sam', 'Sam'))
+    expect(screen.getByText('Jo and Sam are typing…')).toBeInTheDocument()
+  })
+
+  it('renders no message again while someone types', () => {
+    renderRoom()
+    const before = rowRenders()
+    expect(before).toBeGreaterThan(0)
+
+    act(() => noteTyping('c1', 'jo', 'Jo'))
+    act(() => noteTyping('c1', 'sam', 'Sam'))
+    act(() => forgetTyping())
+
+    expect(rowRenders()).toBe(before)
+  })
+
+  it('renders no message again when the chat list changes', () => {
     const { rerender } = renderRoom()
-    expect(useTypingIndicator).not.toHaveBeenCalledWith('c1', true)
+    const before = rowRenders()
 
-    listArrives(rerender, '/conversations/c1', direct('c1', 0))
+    conversations = [
+      direct('c1', 0, { other_participant: { id: 'u-c1', name: 'Person c1', is_online: true, presence_status: 'away' } }),
+      direct('c2', 3),
+    ]
+    rerender(room('/conversations/c1'))
 
-    expect(useTypingIndicator).toHaveBeenLastCalledWith('c1', true)
+    // The room itself did take the change.
+    expect(screen.getByText('Away')).toBeInTheDocument()
+    expect(rowRenders()).toBe(before)
   })
 })

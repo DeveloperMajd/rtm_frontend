@@ -4,6 +4,7 @@ import { fireEvent, render, screen } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import Messages from './Messages'
 import { AuthContext, type AuthContextType } from '../../hooks/useAuth'
+import useMessageReactions from '../../hooks/useMessageReactions'
 import type { MessageType } from '../../utils/baseTypes'
 
 const authValue: AuthContextType = {
@@ -54,6 +55,13 @@ const message = (overrides: Partial<MessageType>): MessageType => ({
 })
 
 const noop = () => {}
+
+// Called once each time a message row renders: a way to count them.
+vi.mock('../../hooks/useMessageReactions', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../../hooks/useMessageReactions')>()
+  return { default: vi.fn(actual.default) }
+})
+const rowRenders = () => vi.mocked(useMessageReactions).mock.calls.length
 
 describe('Messages', () => {
   it('places the unread divider before the first message counted as unread', () => {
@@ -362,5 +370,98 @@ describe('Messages', () => {
     )
 
     expect(screen.queryByText('New')).not.toBeInTheDocument()
+  })
+
+  it('runs a sender’s messages together, until a gap, a new day or someone else', () => {
+    // In local time, whatever the time zone the tests run in.
+    const at = (day: number, hours: number, minutes: number) => new Date(2026, 0, day, hours, minutes).toISOString()
+    const me = { id: 'me', name: 'Me' }
+    const messages = [
+      message({ id: 'm1', created_at: at(1, 10, 0) }),
+      message({ id: 'm2', created_at: at(1, 10, 4) }),
+      // More than five minutes after the one before.
+      message({ id: 'm3', created_at: at(1, 10, 10) }),
+      // A minute later, from someone else.
+      message({ id: 'm4', created_at: at(1, 10, 11), sender: me }),
+      message({ id: 'm5', created_at: at(1, 23, 57), sender: me }),
+      message({ id: 'm6', created_at: at(1, 23, 58), sender: me }),
+      // Three minutes later, but the next day.
+      message({ id: 'm7', created_at: at(2, 0, 1), sender: me }),
+    ]
+
+    renderWithProviders(
+      <Messages
+        messages={messages}
+        isLoading={false}
+        isLoadingMore={false}
+        hasMore={false}
+        error={null}
+        onLoadOlder={noop}
+        onReply={noop}
+      />,
+    )
+
+    const grouped = [...document.querySelectorAll('[data-message-id]')]
+      .filter((row) => row.classList.contains('is-grouped'))
+      .map((row) => row.getAttribute('data-message-id'))
+    expect(grouped).toEqual(['m2', 'm6'])
+  })
+
+  it('starts a new run at the unread divider', () => {
+    const messages = [
+      message({ id: 'm1', created_at: '2026-01-01T10:00:00Z' }),
+      message({ id: 'm2', created_at: '2026-01-01T10:01:00Z' }),
+      message({ id: 'm3', created_at: '2026-01-01T10:02:00Z' }),
+    ]
+
+    renderWithProviders(
+      <Messages
+        messages={messages}
+        isLoading={false}
+        isLoadingMore={false}
+        hasMore={false}
+        error={null}
+        onLoadOlder={noop}
+        onReply={noop}
+        readState={{ unreadCount: 1, lastReadMessageId: 'm2' }}
+      />,
+    )
+
+    expect(document.querySelector('[data-message-id="m2"]')).toHaveClass('is-grouped')
+    // The first unread one shows who sent it again, under the divider.
+    expect(document.querySelector('[data-message-id="m3"]')).not.toHaveClass('is-grouped')
+  })
+
+  // A conversation can hold hundreds of rows: a message arriving, or one
+  // changing, mustn't render the others again.
+  it('renders only the row that’s new, or that changed', () => {
+    const first = [
+      message({ id: 'm1', created_at: '2026-01-01T10:00:00Z' }),
+      message({ id: 'm2', created_at: '2026-01-01T10:01:00Z', sender: { id: 'me', name: 'Me' } }),
+      message({ id: 'm3', created_at: '2026-01-01T10:02:00Z' }),
+    ]
+    const list = (messages: MessageType[]) => (
+      <Providers>
+        <Messages
+          messages={messages}
+          isLoading={false}
+          isLoadingMore={false}
+          hasMore={false}
+          error={null}
+          onLoadOlder={noop}
+          onReply={noop}
+        />
+      </Providers>
+    )
+    const { rerender } = render(list(first))
+
+    let before = rowRenders()
+    rerender(list([...first, message({ id: 'm4', created_at: '2026-01-01T10:03:00Z' })]))
+    expect(rowRenders() - before).toBe(1)
+
+    before = rowRenders()
+    rerender(list([first[0], { ...first[1], body: 'edited' }, first[2]]))
+    expect(screen.getByText('edited')).toBeInTheDocument()
+    expect(rowRenders() - before).toBe(1)
   })
 })

@@ -1,4 +1,4 @@
-import { Fragment, useId, useRef, useState, type ReactNode } from 'react'
+import { Fragment, memo, useId, useRef, useState, type ReactNode } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import toast from 'react-hot-toast'
 import { format } from 'date-fns'
@@ -292,65 +292,70 @@ const MessageItem = ({
         )}
       </div>
 
+      {/* Each of these is mounted only while it's open: closed, it shows
+          nothing, and a long conversation has one of each per message. */}
       {!isDeleted && (
         <>
-          <MessageMenu
-            open={openPopover === 'menu'}
-            id={menuId}
-            isOwn={isOwn}
-            readOnly={readOnly}
-            hasText={Boolean(message.body)}
-            isSaved={isSaved}
-            triggerRef={moreButtonRef}
-            getAnchorRect={menuAnchor}
-            // Hangs from the toolbar back across the bubble
-            // (Study-Toolbar-Menu), whichever corner the toolbar is on.
-            align={isOwn ? 'start' : 'end'}
-            onClose={closePopover}
-            onReply={() => onReply(message)}
-            onCopy={handleCopy}
-            onReact={() => setOpenPopover('react-toolbar')}
-            onEdit={() => onEdit(message)}
-            onInfo={() => setIsInfoOpen(true)}
-            onCopyLink={handleCopyLink}
-            onToggleSave={() => toggleSaved(message.id, !isSaved)}
-            onDelete={() => setIsConfirmingDelete(true)}
-          />
+          {openPopover === 'menu' && (
+            <MessageMenu
+              open
+              id={menuId}
+              isOwn={isOwn}
+              readOnly={readOnly}
+              hasText={Boolean(message.body)}
+              isSaved={isSaved}
+              triggerRef={moreButtonRef}
+              getAnchorRect={menuAnchor}
+              // Hangs from the toolbar back across the bubble
+              // (Study-Toolbar-Menu), whichever corner the toolbar is on.
+              align={isOwn ? 'start' : 'end'}
+              onClose={closePopover}
+              onReply={() => onReply(message)}
+              onCopy={handleCopy}
+              onReact={() => setOpenPopover('react-toolbar')}
+              onEdit={() => onEdit(message)}
+              onInfo={() => setIsInfoOpen(true)}
+              onCopyLink={handleCopyLink}
+              onToggleSave={() => toggleSaved(message.id, !isSaved)}
+              onDelete={() => setIsConfirmingDelete(true)}
+            />
+          )}
 
-          <MessageActionSheet
-            open={isSheetOpen}
-            onClose={() => setIsSheetOpen(false)}
-            message={message}
-            isOwn={isOwn}
-            readOnly={readOnly}
-            isSaved={isSaved}
-            mine={myReactions}
-            onToggleReaction={(reaction, reacted) => toggleReaction({ reaction, reacted })}
-            onReply={() => onReply(message)}
-            onCopy={handleCopy}
-            onEdit={() => onEdit(message)}
-            onInfo={() => setIsInfoOpen(true)}
-            onCopyLink={handleCopyLink}
-            onToggleSave={() => toggleSaved(message.id, !isSaved)}
-            onDelete={() => setIsConfirmingDelete(true)}
-          />
+          {isSheetOpen && (
+            <MessageActionSheet
+              open
+              onClose={() => setIsSheetOpen(false)}
+              message={message}
+              isOwn={isOwn}
+              readOnly={readOnly}
+              isSaved={isSaved}
+              mine={myReactions}
+              onToggleReaction={(reaction, reacted) => toggleReaction({ reaction, reacted })}
+              onReply={() => onReply(message)}
+              onCopy={handleCopy}
+              onEdit={() => onEdit(message)}
+              onInfo={() => setIsInfoOpen(true)}
+              onCopyLink={handleCopyLink}
+              onToggleSave={() => toggleSaved(message.id, !isSaved)}
+              onDelete={() => setIsConfirmingDelete(true)}
+            />
+          )}
 
-          <MessageInfoSheet
-            open={isInfoOpen}
-            onClose={() => setIsInfoOpen(false)}
-            message={message}
-            isOwn={isOwn}
-          />
+          {isInfoOpen && (
+            <MessageInfoSheet open onClose={() => setIsInfoOpen(false)} message={message} isOwn={isOwn} />
+          )}
 
-          <ReactionPicker
-            open={isPickerOpen}
-            mine={myReactions}
-            onToggle={(reaction, reacted) => toggleReaction({ reaction, reacted })}
-            triggerRef={openPopover === 'react-row' ? addReactionButtonRef : reactButtonRef}
-            getAnchorRect={openPopover === 'react-row' ? pickerAnchorFromRow : pickerAnchorFromToolbar}
-            align={pickerAlign}
-            onClose={closePopover}
-          />
+          {isPickerOpen && (
+            <ReactionPicker
+              open
+              mine={myReactions}
+              onToggle={(reaction, reacted) => toggleReaction({ reaction, reacted })}
+              triggerRef={openPopover === 'react-row' ? addReactionButtonRef : reactButtonRef}
+              getAnchorRect={openPopover === 'react-row' ? pickerAnchorFromRow : pickerAnchorFromToolbar}
+              align={pickerAlign}
+              onClose={closePopover}
+            />
+          )}
         </>
       )}
 
@@ -366,9 +371,9 @@ const MessageItem = ({
         />
       )}
 
-      {isOwn && (
+      {isOwn && isConfirmingDelete && (
         <ConfirmDialog
-          open={isConfirmingDelete}
+          open
           title='Delete this message?'
           message='It will show as deleted for everyone in the conversation. This can’t be undone.'
           confirmLabel='Delete'
@@ -438,4 +443,8 @@ const ReplyQuote = ({
   )
 }
 
-export default MessageItem
+// Memoised, with everything it's handed kept the same between renders (see
+// Messages and ConversationRoom): a row re-renders when its own message, or
+// how it's shown, changes — not for every message, ping or presence change
+// in the room.
+export default memo(MessageItem)

@@ -181,6 +181,24 @@ describe('useMessages — the newest messages', () => {
     expect(ids(result.current.messages)).toEqual(['m1', 'm2'])
   })
 
+  // What lets the rows skip a re-render when nothing of theirs changed.
+  it('hands back the same messages, and ways to load more, until something changes', async () => {
+    serve({ latest: { data: [msg('m1')], meta: { has_more: false, next_before_id: null } } })
+
+    const { result, rerender } = renderHook(() => useMessages('c1'), { wrapper })
+    await waitFor(() => expect(ids(result.current.messages)).toEqual(['m1']))
+    const before = result.current
+
+    rerender()
+
+    expect(result.current.messages).toBe(before.messages)
+    expect(result.current.retry).toBe(before.retry)
+    expect(result.current.loadOlder).toBe(before.loadOlder)
+
+    await broadcast('MessageSent', msg('m2'))
+    expect(result.current.messages).not.toBe(before.messages)
+  })
+
   it('takes no notice of another conversation’s messages', async () => {
     serve({ latest: { data: [msg('m1')], meta: { has_more: false, next_before_id: null } } })
 
