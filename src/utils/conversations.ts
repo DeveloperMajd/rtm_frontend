@@ -1,5 +1,5 @@
 import type { QueryClient } from '@tanstack/react-query'
-import type { ConversationType } from './baseTypes'
+import type { ConversationType, MessageType } from './baseTypes'
 
 /** What a conversation is called in the UI: a group's title, or the other
  * person's name in a direct chat. */
@@ -54,4 +54,48 @@ export function patchConversationInCache(
     if (!old) return old
     return { ...old, data: old.data.map((c) => (c.id === conversationId ? { ...c, ...patch } : c)) }
   })
+}
+
+/**
+ * A message that has just arrived, on its conversation's row in the chat
+ * list: the preview and the time, one more unread when someone else sent it
+ * and the viewer isn't reading it there, and back out of the archive as the
+ * server brings it back (someone else's message, unless the chat is muted).
+ * Patched in place: fetching the whole list again for each message was one
+ * request from every member every time anyone wrote.
+ *
+ * Returns false when the list doesn't have the conversation (a new one, or a
+ * list not fetched yet): only asking for the list can bring it in.
+ */
+export function applyMessageToConversationList(
+  queryClient: QueryClient,
+  message: MessageType,
+  viewerId: string | undefined,
+  { viewing }: { viewing: boolean },
+): boolean {
+  let found = false
+  queryClient.setQueryData<ConversationsResponse>(['conversations'], (old) => {
+    const index = old?.data.findIndex((c) => c.id === message.conversation_id) ?? -1
+    if (!old || index === -1) return old
+    found = true
+
+    const c = old.data[index]
+    const fromSomeoneElse = message.type !== 'system' && message.sender?.id !== viewerId
+    const data = [...old.data]
+    data[index] = {
+      ...c,
+      unread_count: fromSomeoneElse && !viewing ? (c.unread_count ?? 0) + 1 : c.unread_count,
+      archived_at: fromSomeoneElse && !c.muted_at ? null : c.archived_at,
+      last_message_at: message.created_at,
+      latest_message: {
+        type: message.type,
+        body: message.body,
+        sender_name: message.sender?.name ?? '',
+        event_type: message.event_type,
+        metadata: message.metadata,
+      },
+    }
+    return { ...old, data }
+  })
+  return found
 }

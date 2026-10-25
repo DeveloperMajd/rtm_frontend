@@ -3,7 +3,7 @@ import { useLocation, useNavigate } from 'react-router-dom'
 import { useQueryClient } from '@tanstack/react-query'
 import type { ConversationPreferences, ReadPointer } from '../services/api/conversations'
 import type { ConversationType, MessageType } from '../utils/baseTypes'
-import { conversationTitle, patchConversationInCache } from '../utils/conversations'
+import { applyMessageToConversationList, conversationTitle, patchConversationInCache } from '../utils/conversations'
 import { isViewing } from '../utils/viewing'
 import { playMessageTone, showMessageNotification, unlockAudio } from '../utils/alerts'
 import { applyPresenceChange, type PresenceChange } from '../utils/presence'
@@ -14,6 +14,10 @@ import useEcho from './useEcho'
 import useAuth from './useAuth'
 
 type ConversationsResponse = { data: ConversationType[] }
+
+/** How long after someone goes offline their "last seen" is asked for: long
+ * enough for a reload to bring them back first. */
+export const LAST_SEEN_SETTLE_MS = 5_000
 
 /**
  * The signed-in person's own channel: every message in any of their
@@ -102,6 +106,22 @@ export default function useUserChannel() {
       }
     }
 
+    // "Last seen" depends on who's asking (their settings and the viewer's),
+    // so the server works it out: asked for, not pushed. Asked for once
+    // things settle rather than at every offline, which made everyone who
+    // sees a person fetch both lists again whenever that person reloaded a
+    // tab: whoever went offline in the meantime and is still offline is
+    // asked about together, and nobody is asked about if they're all back.
+    const wentOffline = new Set<string>()
+    let lastSeenRefresh: ReturnType<typeof setTimeout> | undefined
+    const refreshLastSeen = () => {
+      lastSeenRefresh = undefined
+      if (wentOffline.size === 0) return
+      wentOffline.clear()
+      void queryClient.invalidateQueries({ queryKey: ['conversations'] })
+      void queryClient.invalidateQueries({ queryKey: ['contacts'] })
+    }
+
     const channel = echo
       .private(`App.Models.User.${user.id}`)
       .listen('MessageSent', (message: MessageType) => {
@@ -116,7 +136,12 @@ export default function useUserChannel() {
         // just-marked-read unread_count back to a stale non-zero value.
         if (message.conversation_id === openConversationIdRef.current) return
 
-        void queryClient.invalidateQueries({ queryKey: ['conversations'] })
+        // Its row patched in place, as the open room does for its own. A
+        // group event can change what a patch can't (a new title, someone
+        // gone), and a conversation the list doesn't have yet has to be
+        // fetched: only those ask for the whole list again.
+        const patched = message.type !== 'system' && applyMessageToConversationList(queryClient, message, user.id, { viewing: false })
+        if (!patched) void queryClient.invalidateQueries({ queryKey: ['conversations'] })
       })
       // For the open room only: an edit or deletion, a reaction, and how far
       // someone has read (useMessages).
@@ -154,11 +179,13 @@ export default function useUserChannel() {
       })
       .listen('PresenceChanged', (change: PresenceChange) => {
         applyPresenceChange(queryClient, change)
-        // "Last seen" depends on who's asking (their settings and the
-        // viewer's), so the server works it out: asked for, not pushed.
         if (change.presence_status === 'offline') {
-          void queryClient.invalidateQueries({ queryKey: ['conversations'] })
-          void queryClient.invalidateQueries({ queryKey: ['contacts'] })
+          wentOffline.add(change.user_id)
+          lastSeenRefresh ??= setTimeout(refreshLastSeen, LAST_SEEN_SETTLE_MS)
+        } else {
+          // Back already: a reload is an offline and an online moments
+          // apart, and while online no "last seen" shows.
+          wentOffline.delete(change.user_id)
         }
       })
 
@@ -201,6 +228,7 @@ export default function useUserChannel() {
       channel.stopListening('TypingIndicator')
       channel.stopListening('PresenceChanged')
       stopWatchingConnection()
+      clearTimeout(lastSeenRefresh)
       echo.leave(`App.Models.User.${user.id}`)
       forgetTyping()
     }

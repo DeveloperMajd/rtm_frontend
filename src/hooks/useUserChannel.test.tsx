@@ -3,7 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { act, renderHook, screen } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom'
-import useUserChannel from './useUserChannel'
+import useUserChannel, { LAST_SEEN_SETTLE_MS } from './useUserChannel'
 import { AuthContext, type AuthContextType } from './useAuth'
 import { settingsKey, DEFAULT_SETTINGS } from './useSettings'
 import { forgetTyping, useListTyping } from './useListTyping'
@@ -294,6 +294,45 @@ describe('useUserChannel — the stream starting, and starting again', () => {
   })
 })
 
+// A message in a chat that isn't open is put on its row, rather than asking
+// for the whole list again: that was one request from every member every
+// time anyone wrote.
+describe('useUserChannel — the chat list, kept current', () => {
+  const row = (id: string) => client.getQueryData<{ data: ConversationType[] }>(['conversations'])!.data.find((c) => c.id === id)
+
+  it('puts a message on its chat’s row, without fetching the list again', () => {
+    render()
+    const invalidate = vi.spyOn(client, 'invalidateQueries')
+
+    arrive(message('other', { body: 'see you at 5', created_at: '2026-10-01T11:00:00Z' }))
+
+    expect(invalidate).not.toHaveBeenCalled()
+    expect(row('other')).toMatchObject({
+      unread_count: 1,
+      last_message_at: '2026-10-01T11:00:00Z',
+      latest_message: { body: 'see you at 5', sender_name: 'Jo' },
+    })
+  })
+
+  it('fetches the list again for a group event, which can change what a patch can’t', () => {
+    render()
+    const invalidate = vi.spyOn(client, 'invalidateQueries')
+
+    arrive(message('team', { type: 'system', sender: null, body: '', event_type: 'group_renamed' }))
+
+    expect(invalidate).toHaveBeenCalledWith({ queryKey: ['conversations'] })
+  })
+
+  it('fetches the list again for a conversation it doesn’t have yet', () => {
+    render()
+    const invalidate = vi.spyOn(client, 'invalidateQueries')
+
+    arrive(message('brand-new'))
+
+    expect(invalidate).toHaveBeenCalledWith({ queryKey: ['conversations'] })
+  })
+})
+
 describe('useUserChannel — presence, pushed', () => {
   const people = () => ({
     direct: conversation('open', { other_participant: { id: 'jo', name: 'Jo', is_online: false, presence_status: 'offline' as const } }),
@@ -324,6 +363,10 @@ describe('useUserChannel — presence, pushed', () => {
     echo.connection.status = 'connecting'
   })
 
+  afterEach(() => {
+    vi.useRealTimers()
+  })
+
   it('shows a change at once wherever the person is, and leaves everyone else as they were', () => {
     render()
     const [, , samsChat] = conversations()
@@ -340,16 +383,69 @@ describe('useUserChannel — presence, pushed', () => {
     expect(contacts()[1]).toBe(sam)
   })
 
-  it('asks for the lists again when someone goes offline, for when they were last seen', () => {
+  it('asks for the lists again once someone has gone offline, for when they were last seen', () => {
+    vi.useFakeTimers()
     render()
     const invalidate = vi.spyOn(client, 'invalidateQueries')
 
     push({ user_id: 'jo', presence_status: 'online', is_online: true })
+    push({ user_id: 'jo', presence_status: 'offline', is_online: false })
     expect(invalidate).not.toHaveBeenCalled()
 
-    push({ user_id: 'jo', presence_status: 'offline', is_online: false })
+    act(() => vi.advanceTimersByTime(LAST_SEEN_SETTLE_MS))
     expect(invalidate).toHaveBeenCalledWith({ queryKey: ['conversations'] })
     expect(invalidate).toHaveBeenCalledWith({ queryKey: ['contacts'] })
+    expect(invalidate).toHaveBeenCalledTimes(2)
+  })
+
+  it('asks once about everyone who went offline in the meantime', () => {
+    vi.useFakeTimers()
+    render()
+    const invalidate = vi.spyOn(client, 'invalidateQueries')
+
+    push({ user_id: 'jo', presence_status: 'offline', is_online: false })
+    act(() => vi.advanceTimersByTime(LAST_SEEN_SETTLE_MS / 2))
+    push({ user_id: 'sam', presence_status: 'offline', is_online: false })
+    act(() => vi.advanceTimersByTime(LAST_SEEN_SETTLE_MS))
+
+    expect(invalidate).toHaveBeenCalledTimes(2)
+  })
+
+  it('asks in time even while people keep going offline', () => {
+    vi.useFakeTimers()
+    render()
+    const invalidate = vi.spyOn(client, 'invalidateQueries')
+
+    push({ user_id: 'jo', presence_status: 'offline', is_online: false })
+    act(() => vi.advanceTimersByTime(LAST_SEEN_SETTLE_MS - 1_000))
+    push({ user_id: 'sam', presence_status: 'offline', is_online: false })
+    act(() => vi.advanceTimersByTime(1_000))
+
+    expect(invalidate).toHaveBeenCalledTimes(2)
+  })
+
+  it('doesn’t ask at all about someone back within moments, as after a reload', () => {
+    vi.useFakeTimers()
+    render()
+    const invalidate = vi.spyOn(client, 'invalidateQueries')
+
+    push({ user_id: 'jo', presence_status: 'offline', is_online: false })
+    push({ user_id: 'jo', presence_status: 'online', is_online: true })
+    act(() => vi.advanceTimersByTime(LAST_SEEN_SETTLE_MS))
+
+    expect(invalidate).not.toHaveBeenCalled()
+  })
+
+  it('doesn’t ask once the channel has closed', () => {
+    vi.useFakeTimers()
+    const view = render()
+    const invalidate = vi.spyOn(client, 'invalidateQueries')
+
+    push({ user_id: 'jo', presence_status: 'offline', is_online: false })
+    view.unmount()
+    act(() => vi.advanceTimersByTime(LAST_SEEN_SETTLE_MS))
+
+    expect(invalidate).not.toHaveBeenCalled()
   })
 
   it('asks for the lists again once a dropped connection is back, not after the first connect', () => {

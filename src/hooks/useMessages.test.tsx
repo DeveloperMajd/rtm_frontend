@@ -284,6 +284,17 @@ describe('useMessages — marking as read', () => {
     expect(client.getQueryData<{ data: { unread_count: number }[] }>(['conversations'])?.data[0].unread_count).toBe(1)
   })
 
+  it('counts nothing as unread while the viewer is looking at it', async () => {
+    latest('m1')
+    client.setQueryData(['conversations'], { data: [{ id: 'c1', type: 'direct', unread_count: 0 }] })
+    renderHook(() => useMessages('c1'), { wrapper })
+    await waitFor(() => expect(marked()).toHaveLength(1))
+
+    await broadcast('MessageSent', msg('m2'))
+
+    expect(client.getQueryData<{ data: { unread_count: number }[] }>(['conversations'])?.data[0].unread_count).toBe(0)
+  })
+
   it('marks nothing in a group the viewer has left', async () => {
     latest('m1')
     renderHook(() => useMessages('c1', true), { wrapper })

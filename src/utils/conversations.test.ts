@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
-import { sortConversations, unreadTotal } from './conversations'
-import type { ConversationType } from './baseTypes'
+import { QueryClient } from '@tanstack/react-query'
+import { applyMessageToConversationList, sortConversations, unreadTotal } from './conversations'
+import type { ConversationType, MessageType } from './baseTypes'
 
 const conversation = (overrides: Partial<ConversationType>): ConversationType => ({
   id: overrides.id ?? 'c1',
@@ -83,5 +84,74 @@ describe('unreadTotal', () => {
         conversation({ id: 'archived', unread_count: 6, archived_at: '2026-01-02T00:00:00Z' }),
       ]),
     ).toBe(5)
+  })
+})
+
+describe('applyMessageToConversationList', () => {
+  const message = (overrides: Partial<MessageType> = {}): MessageType => ({
+    id: 'm9',
+    conversation_id: 'c1',
+    type: 'user',
+    sender: { id: 'jo', name: 'Jo' },
+    body: 'on my way',
+    reactions: [],
+    created_at: '2026-02-01T10:00:00Z',
+    updated_at: '2026-02-01T10:00:00Z',
+    ...overrides,
+  })
+  const listWith = (row: Partial<ConversationType>) => {
+    const client = new QueryClient()
+    client.setQueryData(['conversations'], { data: [conversation({ id: 'c1', unread_count: 2, ...row }), conversation({ id: 'c2' })] })
+    return client
+  }
+  const rowOf = (client: QueryClient, id = 'c1') =>
+    client.getQueryData<{ data: ConversationType[] }>(['conversations'])!.data.find((c) => c.id === id)!
+
+  it('puts the message on its row, one more unread when someone else sent it and nobody’s reading', () => {
+    const client = listWith({})
+
+    expect(applyMessageToConversationList(client, message(), 'me', { viewing: false })).toBe(true)
+
+    expect(rowOf(client)).toMatchObject({
+      unread_count: 3,
+      last_message_at: '2026-02-01T10:00:00Z',
+      latest_message: { type: 'user', body: 'on my way', sender_name: 'Jo' },
+    })
+    expect(rowOf(client, 'c2').latest_message).toBeUndefined()
+  })
+
+  it('counts nothing for the viewer’s own message, a group event, or one they’re looking at', () => {
+    for (const [arrived, viewing] of [
+      [message({ sender: { id: 'me', name: 'Me' } }), false],
+      [message({ type: 'system', sender: null, body: '', event_type: 'member_added' }), false],
+      [message(), true],
+    ] as const) {
+      const client = listWith({})
+      applyMessageToConversationList(client, arrived, 'me', { viewing })
+      expect(rowOf(client).unread_count).toBe(2)
+    }
+  })
+
+  it('brings an archived chat back for someone else’s message, unless it’s muted', () => {
+    const archived = listWith({ archived_at: '2026-01-05T00:00:00Z' })
+    applyMessageToConversationList(archived, message(), 'me', { viewing: false })
+    expect(rowOf(archived).archived_at).toBeNull()
+
+    const muted = listWith({ archived_at: '2026-01-05T00:00:00Z', muted_at: '2026-01-04T00:00:00Z' })
+    applyMessageToConversationList(muted, message(), 'me', { viewing: false })
+    expect(rowOf(muted).archived_at).toBe('2026-01-05T00:00:00Z')
+
+    const own = listWith({ archived_at: '2026-01-05T00:00:00Z' })
+    applyMessageToConversationList(own, message({ sender: { id: 'me', name: 'Me' } }), 'me', { viewing: false })
+    expect(rowOf(own).archived_at).toBe('2026-01-05T00:00:00Z')
+  })
+
+  it('says so when the list doesn’t have the conversation, or there’s no list yet', () => {
+    const client = listWith({})
+    const before = client.getQueryData(['conversations'])
+
+    expect(applyMessageToConversationList(client, message({ conversation_id: 'new' }), 'me', { viewing: false })).toBe(false)
+    expect(client.getQueryData(['conversations'])).toBe(before)
+    expect(applyMessageToConversationList(new QueryClient(), message(), 'me', { viewing: false })).toBe(false)
   })
 })
