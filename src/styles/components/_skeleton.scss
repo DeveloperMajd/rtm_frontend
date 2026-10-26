@@ -1,3 +1,10 @@
+@use '../abstracts/tokens' as *;
+
+// How long a conversation may take to open before its skeleton shows. Most
+// open well within it, and go straight from the empty stage to their
+// messages instead of flashing grey bubbles for a moment first.
+$messages-skeleton-delay: 300ms;
+
 .skeleton {
   --sk-base: color-mix(in oklab, var(--c-line) 70%, var(--c-list));
 
@@ -35,12 +42,18 @@
 }
 
 // MessagesSkeleton: sits at the foot of the conversation, where the newest
-// messages will land.
+// messages will land. Fades in only once the wait has lasted
+// $messages-skeleton-delay, its first glisten starting as it appears.
 .msg-skeleton {
   justify-content: flex-end;
   min-height: 100%;
   gap: 10px;
   padding-bottom: 0.5rem;
+  animation: skeleton-appear $dur $ease-out $messages-skeleton-delay both;
+
+  .skeleton::after {
+    animation-delay: $messages-skeleton-delay;
+  }
 
   &__row {
     display: flex;
@@ -84,6 +97,12 @@
   }
 }
 
+@keyframes skeleton-appear {
+  from {
+    opacity: 0;
+  }
+}
+
 // Across in the first 70% of the loop; the rest is the pause between.
 @keyframes skeleton-shimmer {
   70%,
@@ -95,5 +114,10 @@
 @media (prefers-reduced-motion: reduce) {
   .skeleton::after {
     animation: none;
+  }
+
+  // Still held back for the delay, then shown at once rather than faded in.
+  .msg-skeleton {
+    animation-duration: 0s;
   }
 }
