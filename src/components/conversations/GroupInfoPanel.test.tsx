@@ -131,6 +131,26 @@ describe('GroupInfoPanel — what each role sees', () => {
     expect(screen.queryByRole('button', { name: /Leave group|Delete group|Manage/ })).not.toBeInTheDocument()
   })
 
+  // The server sends it as it was when the viewer left; whatever it says
+  // about anyone's presence, none is shown.
+  it('shows a group the viewer has left with its members, but nobody’s presence', () => {
+    renderPanel(
+      group([
+        person('me', 'Me', 'participant', { left_at: '2026-10-01T10:00:00Z' }),
+        person('n', 'nitsuj1001', 'admin', { is_online: true, presence_status: 'online' }),
+        person('k', 'Kal', 'participant', { last_seen_at: '2026-10-01T09:00:00Z' }),
+      ]),
+      { readOnly: true },
+    )
+
+    expect(screen.getByText('2 members')).toBeInTheDocument()
+    expect(screen.queryByText(/online|Last seen|Offline/i)).not.toBeInTheDocument()
+    const members = screen.getByRole('list')
+    expect(within(members).getByText('nitsuj1001')).toBeInTheDocument()
+    expect(within(members).getByText('Admin')).toBeInTheDocument()
+    expect(members.querySelector('.avatar__status')).toBeNull()
+  })
+
   it('marks admins and the viewer, and counts who is online', () => {
     renderPanel(group([person('me', 'Me', 'admin', { is_online: true }), person('n', 'nitsuj1001')]))
 
