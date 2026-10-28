@@ -6,8 +6,10 @@ import type { PresenceStatus } from '../../utils/baseTypes'
 interface PersonRowProps {
   name: string
   avatarUrl?: string | null
-  /** Online, away or offline (see presenceOf). */
-  status?: PresenceStatus
+  /** Online, away or offline (see presenceOf). Null shows none: no dot and
+   * no presence line — someone in a group the viewer has left, whose
+   * presence isn't theirs to see any more. */
+  status?: PresenceStatus | null
   lastSeenAt?: string | null
   /** Overrides the presence line, e.g. "You · Online". */
   meta?: ReactNode
@@ -34,15 +36,18 @@ const PersonRow = ({
   selected = false,
 }: PersonRowProps) => {
   const className = `person-row${control ? ' is-selectable' : ''}${selected ? ' is-selected' : ''}`
+  const line = meta ?? (status === null ? null : presenceLabel(status, lastSeenAt))
   const content = (
     <>
       {control}
-      <Avatar name={name} src={avatarUrl} size='sm' status={status} />
+      <Avatar name={name} src={avatarUrl} size='sm' status={status ?? undefined} />
       <span className='person-row__text'>
         <span className='person-row__name'>{name}</span>
-        <span className={`person-row__meta${status === 'online' && meta === undefined ? ' is-online' : ''}`}>
-          {meta ?? presenceLabel(status, lastSeenAt)}
-        </span>
+        {line !== null && (
+          <span className={`person-row__meta${status === 'online' && meta === undefined ? ' is-online' : ''}`}>
+            {line}
+          </span>
+        )}
       </span>
       {trailing}
     </>

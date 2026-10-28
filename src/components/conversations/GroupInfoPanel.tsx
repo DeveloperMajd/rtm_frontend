@@ -163,7 +163,10 @@ const GroupInfoPanel = ({ conversation, currentUserId, readOnly, onSearch }: Gro
         <Avatar name={displayTitle} kind='group' size='xl' />
         <p className='info-identity__name'>{displayTitle}</p>
         <p className='info-identity__meta'>
-          {participants.length} {participants.length === 1 ? 'member' : 'members'} · {onlineCount} online
+          {participants.length} {participants.length === 1 ? 'member' : 'members'}
+          {/* A group the viewer has left is shown as it was when they left
+              (the server keeps it so): who's online now isn't theirs to see. */}
+          {!readOnly && ` · ${onlineCount} online`}
         </p>
       </div>
 
@@ -222,6 +225,7 @@ const GroupInfoPanel = ({ conversation, currentUserId, readOnly, onSearch }: Gro
               isSelf={p.user_id === currentUserId}
               canManage={isAdmin && p.user_id !== currentUserId}
               isSoleAdmin={p.role === 'admin' && activeAdminCount <= 1}
+              showPresence={!readOnly}
               busy={isChangingRole || isKicking}
               onToggleRole={() =>
                 changeRole({ userId: p.user_id, role: p.role === 'admin' ? 'participant' : 'admin' })
@@ -331,6 +335,7 @@ const MemberRow = ({
   isSelf,
   canManage,
   isSoleAdmin,
+  showPresence,
   busy,
   onToggleRole,
   onRemove,
@@ -339,6 +344,7 @@ const MemberRow = ({
   isSelf: boolean
   canManage: boolean
   isSoleAdmin: boolean
+  showPresence: boolean
   busy: boolean
   onToggleRole: () => void
   onRemove: () => void
@@ -366,7 +372,7 @@ const MemberRow = ({
       <PersonRow
         name={p.name}
         avatarUrl={p.avatar_url}
-        status={presenceOf(p)}
+        status={showPresence ? presenceOf(p) : null}
         lastSeenAt={p.last_seen_at}
         meta={isSelf ? `You · ${presenceLabel(presenceOf(p), p.last_seen_at)}` : undefined}
         trailing={
