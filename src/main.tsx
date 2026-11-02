@@ -4,6 +4,7 @@ import { createRoot } from 'react-dom/client'
 import { createBrowserRouter, Navigate, RouterProvider } from 'react-router-dom'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { Toaster } from 'react-hot-toast'
+import { Analytics, type BeforeSendEvent } from '@vercel/analytics/react'
 import './styles/tailwind.css'
 import './styles/index.scss'
 import { AuthProvider } from './context/AuthContext.tsx'
@@ -44,6 +45,19 @@ const queryClient = new QueryClient({
 const withSuspense = (node: React.ReactNode, fallback: React.ReactNode = <BootScreen />) => (
   <Suspense fallback={fallback}>{node}</Suspense>
 )
+
+// Analytics sees the address bar, which holds conversation/message ids and the
+// emailed reset/verify tokens. Send the route pattern instead, so pages group
+// per route and nothing identifying leaves the browser.
+const redactAnalyticsUrl = (event: BeforeSendEvent): BeforeSendEvent => {
+  const url = new URL(event.url)
+  url.search = ''
+  url.hash = ''
+  url.pathname = url.pathname
+    .replace(/^\/c\/[^/]+\/m\/[^/]+$/, '/c/:conversationId/m/:messageId')
+    .replace(/^\/conversations\/[^/]+$/, '/conversations/:id')
+  return { ...event, url: url.toString() }
+}
 
 const router = createBrowserRouter([
   {
@@ -110,6 +124,7 @@ createRoot(document.getElementById('root')!).render(
             }}
           />
           <RouterProvider router={router} />
+          <Analytics beforeSend={redactAnalyticsUrl} />
         </AuthProvider>
       </QueryClientProvider>
     </ErrorBoundary>
